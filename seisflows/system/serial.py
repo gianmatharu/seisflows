@@ -90,8 +90,7 @@ class serial(loadclass('system', 'base')):
             func(**kwargs)
 
         else:
-            task(**kwargs)
-
+            raise(KeyError('Hosts parameter not set/recognized'))
 
     def getnode(self):
         """Gets number of running task"""
@@ -104,6 +103,11 @@ class serial(loadclass('system', 'base')):
     def mpiexec(self):
         """Wrapper for mpiexec"""
         return 'mpiexec -np %d '%PAR.NPROC
+
+    def mpiargs(self):
+        """ Wrapper for mpiexec
+        """
+        return 'mpiexec -np {0} '.format(PAR.NPROC)
 
     def progress(self, itask=None):
         """Prints status updates"""

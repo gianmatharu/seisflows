@@ -85,6 +85,14 @@ WRITER ERROR
 """
 
 
+ChannelError = """
+CHANNEL ERROR
+
+   Channel type not accepted.
+
+   PAR.CHANNELS must be type str or unicode
+
+"""
 
 ###
 

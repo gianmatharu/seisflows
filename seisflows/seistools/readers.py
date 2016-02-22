@@ -64,9 +64,21 @@ def ascii_specfem2d(**kwargs):
 
     return s, h
 
+def su_ewf2d_obspy(prefix='', channel=None):
+    from obspy import read
+
+    if channel in ['x']:
+        filename = '%s/Ux_data.su' % (prefix)
+    elif channel in ['z']:
+        filename = '%s/Uz_data.su' % (prefix)
+    else:
+        raise ValueError('CHANNEL must be one of the following: x z')
+
+    streamobj = read(filename, format='SU')
+    return streamobj
 
 def su_specfem2d_obspy(prefix='SEM', channel=None, suffix='.su'):
-    import obspy
+    from obspy import read
 
     if channel in ['x']:
         filename = '%s/Ux_file_single%s' % (prefix, suffix)
@@ -79,7 +91,7 @@ def su_specfem2d_obspy(prefix='SEM', channel=None, suffix='.su'):
     else:
         raise ValueError('CHANNEL must be one of the following: x y z p')
 
-    streamobj = obspy.segy.core.readSU(filename, byteorder='<')
+    streamobj = read(filename, format='SU')
     return streamobj
 
 

@@ -91,7 +91,7 @@ class pbs_lg(loadclass('system', 'base')):
         cores = PAR.NTASK%PAR.NODESIZE
         hours = PAR.WALLTIME/60
         minutes = PAR.WALLTIME%60
-        resources = 'walltime=%02d:%02d:00 '%(hours, 10)
+        resources = 'walltime=%02d:%02d:00 '%(hours, minutes)
         #if nodes == 0:
         #    resources += ',nodes=1:ppn=%d'%cores
         #lif cores == 0:
@@ -103,14 +103,14 @@ class pbs_lg(loadclass('system', 'base')):
         print('qsub -l select=1:ncpus=32:mpiprocs=2 -A ERDCH38424KSC -q debug -N %s -o %s -l %s -j %s')%(PAR.SUBTITLE, 'output.log', resources, 'oe'+findpath('system')+'/'+'wrapper/submit ' + PATH.OUTPUT)
 
         args = ('qsub '
-                + '-l select=1:ncpus=32:mpiprocs=4 '
+                + '-l select=1:ncpus=32:mpiprocs=32 '
                 + '-l %s '%resources
                 + '-q standard '
                 + '-A ERDCH38424KSC '
                 + '-N %s ' % PAR.SUBTITLE
                 + '-j %s '%'oe'
                 + '-o %s ' % (PATH.SUBMIT+'/'+'output.log')
-                + '-V '
+                + '-v PYTHONPATH '
                 + ' -- ' + findpath('system') +'/'+ 'wrappers/submit '
                 + PATH.OUTPUT)
 
@@ -121,13 +121,12 @@ class pbs_lg(loadclass('system', 'base')):
     def run(self, classname, funcname, hosts='all', **kwargs):
         """  Runs tasks in serial or parallel on specified hosts.
         """
-        print("made it to beginning of run")
         self.checkpoint()
 
         self.save_kwargs(classname, funcname, kwargs)
         jobs = self._launch(classname, funcname, hosts)
         while 1:
-            time.sleep(10.*PAR.SLEEPTIME)
+            time.sleep(60.*PAR.SLEEPTIME)
             self._timestamp()
             isdone, jobs = self._status(classname, funcname, jobs)
             if isdone:
@@ -135,14 +134,14 @@ class pbs_lg(loadclass('system', 'base')):
 
 
     def mpiargs(self):
-        return 'aprun -n %d' % 1
+        return 'aprun -n %d' %PAR.NPROC
 
 
     def getnode(self):
         """ Gets number of running task
         """
         try:
-            return os.getenv('PBS_ARRAY_INDEX')
+            return int(os.getenv('PBS_ARRAY_ID'))
         except:
             raise Exception("TASK_ID environment variable not defined.")
 
@@ -158,38 +157,29 @@ class pbs_lg(loadclass('system', 'base')):
             minutes = PAR.WALLTIME%60
             resources = 'walltime=%02d:%02d:00 '%(hours, minutes)
             args = ('/opt/pbs/12.1.1.131502/bin/qsub '
-                + '-l select=1:ncpus=32:mpiprocs=4 '
+                + '-l select=1:ncpus=32:mpiprocs=32 '
                 + '-l %s '%resources
                 + '-q standard '
                 + '-A ERDCH38424KSC '
-                + '-J 0-%s ' % (PAR.NTASK-1)
+                + '-J 0-%s ' % PAR.NTASK
                 + '-N %s ' % PAR.TITLE
-                + '-o %s ' % (PATH.SUBMIT+'/'+'output.pbs/' + '$PBS_ARRAYID')
-                + '-r y '
-                + '-j oe '
-                + '-V '
-                + ' -- ' + findpath('system') +'/'+ 'wrappers/run_pbsdsh '
+                + ' -- ' + findpath('system') +'/'+ 'wrappers/runpbsdsh '
                 + PATH.OUTPUT + ' '
                 + classname + ' '
-                + funcname + ' '
-                + '/work/jas11/SEISFLOWS')
-           
-            print(args)
+                + funcname + ' ')
+
             subprocess.call(args, shell=1, stdout=f)
 
-        print("made it here to job id")
         # retrieve job ids
         with open(PATH.SYSTEM+'/'+'job_id', 'r') as f:
             line = f.readline()
             job = line.split()[-1].strip()
         if hosts == 'all' and PAR.NTASK > 1:
             nn = range(PAR.NTASK)
-            # take number[].sdb and replace with number[str(ii)]].sdb
-            jobMain = job.split('[',1)[0]
-            print(jobMain)
-            return [jobMain+'['+str(ii)+'].sdb' for ii in nn]
+            return [job+'_'+str(ii) for ii in nn]
         else:
             return [job]
+
 
     def _status(self, classname, funcname, jobs):
         """ Determines completion status of one or more jobs
@@ -213,7 +203,7 @@ class pbs_lg(loadclass('system', 'base')):
         """ Queries job state from PBS database
         """
         with open(PATH.SYSTEM+'/'+'job_status', 'w') as f:
-            subprocess.call('/opt/pbs/12.1.1.131502/bin/qstat -x -tJ ' +jobid+ ' | tail -n 1 | awk \'{print $5}\'', shell=True, stdout=f)
+            subprocess.call('/opt/pbs/12.1.1.131502/bin/qstat -x '+jobid+' | tail -n 1 | awk \'{print $5}\'', shell=True, stdout=f)
 
         with open(PATH.SYSTEM+'/'+'job_status', 'r') as f:
             line = f.readline()
@@ -228,6 +218,7 @@ class pbs_lg(loadclass('system', 'base')):
         with open(PATH.SYSTEM+'/'+'timestamps', 'a') as f:
             line = time.strftime('%H:%M:%S')+'\n'
             f.write(line)
+
 
     def save_kwargs(self, classname, funcname, kwargs):
         kwargspath = join(PATH.OUTPUT, 'SeisflowsObjects', classname+'_kwargs')

@@ -64,9 +64,9 @@ class base(object):
             print msg.WriterError
             raise ParameterError()
 
-        if type(PAR.CHANNELS) not in string_types:
-            print msg.ChannelError
-            raise ParameterError()
+        # if type(PAR.CHANNELS) not in string_types:
+        #     print msg.ChannelError
+        #     raise ParameterError()
 
         if PAR.READER != PAR.WRITER:
            print msg.DataFormatWarning % (PAR.READER, PAR.WRITER)
@@ -94,14 +94,14 @@ class base(object):
           adjoint traces
         """
         for channel in self.channels:
-            obs = self.reader(path+'/'+'traces/obs/', channel)
-            syn = self.reader(path+'/'+'traces/syn/', channel)
+            obs = self.reader(path+'/'+'traces/obs', channel)
+            syn = self.reader(path+'/'+'traces/syn', channel)
 
             obs = self.process_traces(obs)
             syn = self.process_traces(syn)
 
             self.write_residuals(path, syn, obs)
-            self.write_adjoint_traces(path+'/'+'traces/adj/', syn, obs, channel)
+            self.write_adjoint_traces(path+'/'+'traces/adj', syn, obs, channel)
 
 
     def process_traces(self, stream):

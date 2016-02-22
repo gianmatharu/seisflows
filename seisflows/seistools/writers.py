@@ -66,6 +66,20 @@ def ascii_specfem2d(f, h, prefix='SEM', channel=None, suffix='adj', char='FX', o
             _np.savetxt(file, _np.column_stack((t, w)), '%11.4e')
 
 
+def su_ewf2d_obspy(d, prefix='', channel=None, tag='data'):
+    """ Write Seismic Unix file
+    """
+
+    if channel in ['x']:
+        file = '%s/Ux_%s.su' % (prefix, tag)
+    elif channel in ['z']:
+        file = '%s/Uz_%s.su' % (prefix, tag)
+    else:
+        raise ValueError('CHANNEL must be one of the following: x z')
+
+    # write data to file
+    d.write(file, format='SU')
+
 def su_specfem2d_obspy(d, prefix='SEM', channel=None, suffix='.su.adj'):
     """ Writes Seismic Unix file
     """
@@ -88,10 +102,7 @@ def su_specfem2d_obspy(d, prefix='SEM', channel=None, suffix='.su.adj'):
             t.stats.delta = dummy_delta
 
     # write data to file
-    from obspy.segy.core import writeSU
-    writeSU(d, file)
-
-
+    d.write(file, format='SU')
 
 def su_specfem2d(d, h, prefix='SEM', channel=None, suffix='.su.adj'):
     """ Writes Seismic Unix file

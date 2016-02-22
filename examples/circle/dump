@@ -1,0 +1,180 @@
+
+=========== S I M U L A T I O N    D E T A I L S =============
+Using 8 processes...
+NPROC_X = 4
+NPROC_Z = 2
+Running adjoint simulation...
+Adjoint dir = /Users/gianmatharu/Desktop/seisflows/examples/circle/scratch/solver/001/traces/adj
+Not saving final wavefield ...
+
+MESH SUMMARY
+Elements in x = 320
+Elements in z = 320
+Total number of grid points = 102400
+Elements in x of subdomain = 80
+Elements in z of subdomain = 160
+Grid spacing (m) = 25.000000
+No free surface... 
+
+TIME STEP PARAMETERS
+No. timesteps = 2000
+DT (s) = 3.00e-03
+
+BOUNDARY CONDITIONS (CPML)
+CPML Left boundary = TRUE
+CPML right boundary = TRUE
+CPML top boundary = TRUE
+CPML bottom boundary = TRUE
+Using external model
+Model path = /Users/gianmatharu/Desktop/seisflows/examples/circle/models/model_est/vp.bin
+Output path = /Users/gianmatharu/Desktop/seisflows/examples/circle/scratch/solver/001/traces/syn
+
+RECEIVER PARAMETERS
+No. receivers = 75
+Using external receiver file...
+
+SOURCE PARAMETERS
+t0 = 0.200000
+f0 = 10.000000
+stf_type = 2
+factor = 10000000000.000000
+angle = 270.000000
+xs = 7450.000000
+zs = 25.000000
+Using explosive source...
+================================================================
+Max velocity of grid  = 3790.596680
+dt passes courant stability criteria
+Threshold for stability = 0.003997
+Allocating boundary storage ..
+receivers: 25.000000 25.000000
+receivers: 225.000000 25.000000
+receivers: 425.000000 25.000000
+receivers: 625.000000 25.000000
+receivers: 825.000000 25.000000
+receivers: 1025.000000 25.000000
+receivers: 1225.000000 25.000000
+receivers: 1425.000000 25.000000
+receivers: 1625.000000 25.000000
+receivers: 1825.000000 25.000000
+receivers: 2025.000000 25.000000
+receivers: 2225.000000 25.000000
+receivers: 2425.000000 25.000000
+receivers: 2625.000000 25.000000
+receivers: 2825.000000 25.000000
+receivers: 3025.000000 25.000000
+receivers: 3225.000000 25.000000
+receivers: 3425.000000 25.000000
+receivers: 3625.000000 25.000000
+receivers: 3825.000000 25.000000
+receivers: 4025.000000 25.000000
+receivers: 4225.000000 25.000000
+receivers: 4425.000000 25.000000
+receivers: 4625.000000 25.000000
+receivers: 4825.000000 25.000000
+receivers: 5025.000000 25.000000
+receivers: 5225.000000 25.000000
+receivers: 5425.000000 25.000000
+receivers: 5625.000000 25.000000
+receivers: 5825.000000 25.000000
+receivers: 6025.000000 25.000000
+receivers: 6225.000000 25.000000
+receivers: 6425.000000 25.000000
+receivers: 6625.000000 25.000000
+receivers: 6825.000000 25.000000
+receivers: 7025.000000 25.000000
+receivers: 7225.000000 25.000000
+receivers: 7425.000000 25.000000
+receivers: 25.000000 225.000000
+receivers: 25.000000 425.000000
+receivers: 25.000000 625.000000
+receivers: 25.000000 825.000000
+receivers: 25.000000 1025.000000
+receivers: 25.000000 1225.000000
+receivers: 25.000000 1425.000000
+receivers: 25.000000 1625.000000
+receivers: 25.000000 1825.000000
+receivers: 25.000000 2025.000000
+receivers: 25.000000 2225.000000
+receivers: 25.000000 2425.000000
+receivers: 25.000000 2625.000000
+receivers: 25.000000 2825.000000
+receivers: 25.000000 3025.000000
+receivers: 25.000000 3225.000000
+receivers: 25.000000 3425.000000
+receivers: 25.000000 3625.000000
+receivers: 25.000000 3825.000000
+receivers: 25.000000 4025.000000
+receivers: 25.000000 4225.000000
+receivers: 25.000000 4425.000000
+receivers: 25.000000 4625.000000
+receivers: 25.000000 4825.000000
+receivers: 25.000000 5025.000000
+receivers: 25.000000 5225.000000
+receivers: 25.000000 5425.000000
+receivers: 25.000000 5625.000000
+receivers: 25.000000 5825.000000
+receivers: 25.000000 6025.000000
+receivers: 25.000000 6225.000000
+receivers: 25.000000 6425.000000
+receivers: 25.000000 6625.000000
+receivers: 25.000000 6825.000000
+receivers: 25.000000 7025.000000
+receivers: 25.000000 7225.000000
+receivers: 25.000000 7425.000000
+Process 6 contains source
+xs, zs = 7450.000000, 25.000000
+ixs, izs = 70 13
+xs, zs = 7450.000000, 25.000000
+Done loading ... 
+Completed interation 100 of 2000
+Time elapsed = 0.297000
+Max norm of velocity = 68.215576
+Completed interation 200 of 2000
+Time elapsed = 0.597000
+Max norm of velocity = 104.997581
+Completed interation 300 of 2000
+Time elapsed = 0.897000
+Max norm of velocity = 109.292007
+Completed interation 400 of 2000
+Time elapsed = 1.197000
+Max norm of velocity = 114.089371
+Completed interation 500 of 2000
+Time elapsed = 1.497000
+Max norm of velocity = 121.565292
+Completed interation 600 of 2000
+Time elapsed = 1.797000
+Max norm of velocity = 130.928406
+Completed interation 700 of 2000
+Time elapsed = 2.097000
+Max norm of velocity = 137.425919
+Completed interation 800 of 2000
+Time elapsed = 2.397000
+Max norm of velocity = 148.024994
+Completed interation 900 of 2000
+Time elapsed = 2.697000
+Max norm of velocity = 511.849792
+Completed interation 1000 of 2000
+Time elapsed = 2.997000
+Max norm of velocity = 575.337463
+Completed interation 1100 of 2000
+Time elapsed = 3.297000
+Max norm of velocity = 722.750427
+Completed interation 1200 of 2000
+Time elapsed = 3.597000
+Max norm of velocity = 907.169556
+Completed interation 1300 of 2000
+Time elapsed = 3.897000
+Max norm of velocity = 974.318787
+Completed interation 1400 of 2000
+Time elapsed = 4.197000
+Max norm of velocity = 1028.425049
+Completed interation 1500 of 2000
+Time elapsed = 4.497000
+Max norm of velocity = 1083.014038
+Completed interation 1600 of 2000
+Time elapsed = 4.797000
+Max norm of velocity = 1230.966797
+Completed interation 1700 of 2000
+Time elapsed = 5.097000
+Max norm of velocity = 1397.384033

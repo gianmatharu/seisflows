@@ -143,7 +143,7 @@ class base(object):
         if exists(PATH.MODEL_INIT):
             src = PATH.MODEL_INIT
             dst = join(PATH.OPTIMIZE, 'm_new')
-            savenpy(dst, solver.merge(solver.load(src)))
+            savenpy(dst, solver.merge(src, '.bin'))
 
 
     def precond(self):

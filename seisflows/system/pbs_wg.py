@@ -11,15 +11,15 @@ PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
 
 
-class pbs_wg('system', 'base'):
-    """ An interface through which to submit workflows, run tasks in serial or 
+class pbs_wg(loadclass('system', 'base')):
+    """ An interface through which to submit workflows, run tasks in serial or
       parallel, and perform other system functions.
 
-      By hiding environment details behind a python interface layer, these 
+      By hiding environment details behind a python interface layer, these
       classes provide a consistent command set across different computing
       environments.
 
-      For more informations, see 
+      For more informations, see
       http://seisflows.readthedocs.org/en/latest/manual/manual.html#system-interfaces
     """
 

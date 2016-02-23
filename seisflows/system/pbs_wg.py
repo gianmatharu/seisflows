@@ -109,10 +109,10 @@ class pbs_wg(loadclass('system', 'base')):
         if hosts == 'all':
             # run on all available nodes
             unix.run('pbsdsh '
-                    + join(findpath('system'), 'wrapper/export_paths.sh ')
+                    + join(findpath('system'), 'wrappers/export_paths.sh ')
                     + os.getenv('PATH') + ' '
                     + os.getenv('LD_LIBRARY_PATH') + ' '
-                    + join(findpath('system'), 'wrapper/run_pbsdsh ')
+                    + join(findpath('system'), 'wrappers/run_pbsdsh ')
                     + PATH.OUTPUT + ' '
                     + classname + ' '
                     + funcname + ' '
@@ -121,10 +121,10 @@ class pbs_wg(loadclass('system', 'base')):
         elif hosts == 'head':
             # run on head node
             unix.run('pbsdsh '
-                    + join(findpath('system'), 'wrapper/export_paths.sh ')
+                    + join(findpath('system'), 'wrappers/export_paths.sh ')
                     + os.getenv('PATH') + ' '
                     + os.getenv('LD_LIBRARY_PATH') + ' '
-                    + join(findpath('system'), 'wrapper/run_pbsdsh_head ')
+                    + join(findpath('system'), 'wrappers/run_pbsdsh_head ')
                     + PATH.OUTPUT + ' '
                     + classname + ' '
                     + funcname + ' '

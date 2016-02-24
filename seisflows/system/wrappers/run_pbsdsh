@@ -7,7 +7,7 @@ if __name__ == '__main__':
     mypath = sys.argv[1]
     myobj = sys.argv[2]
     myfunc = sys.argv[3]
-    pythonpath = sys.argv[4:]
+    pythonpath = sys.argv[4]
 
     sys.path.append(pythonpath)
 

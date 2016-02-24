@@ -46,6 +46,9 @@ class pbs_wg(loadclass('system', 'base')):
         if 'NTASK' not in PAR:
             raise ParameterError(PAR, 'NTASK')
 
+        if 'NPROCMAX' not in PAR:
+            raise ParameterError(PAR, 'NPROCMAX')
+
         if 'NPROC' not in PAR:
             raise ParameterError(PAR, 'NPROC')
 
@@ -68,6 +71,8 @@ class pbs_wg(loadclass('system', 'base')):
         if 'OUTPUT' not in PATH:
             setattr(PATH, 'OUTPUT', join(PATH.SUBMIT, 'output'))
 
+        if PAR.NTASK % PAR.NPROCMAX != 0:
+            raise ValueError('Set procs as multiple of source number, ineffcient')
 
     def submit(self, workflow):
         """Submits job
@@ -79,8 +84,8 @@ class pbs_wg(loadclass('system', 'base')):
         self.checkpoint()
 
         # construct resource list
-        nodes = int(PAR.NTASK / PAR.NODESIZE)
-        cores = PAR.NTASK % PAR.NODESIZE
+        nodes = int(PAR.NPROCMAX / PAR.NODESIZE)
+        cores = PAR.NPROCMAX % PAR.NODESIZE
         hours = int(PAR.WALLTIME / 60)
         minutes = PAR.WALLTIME % 60
         resources = 'walltime=%02d:%02d:00'%(hours, minutes)
@@ -108,22 +113,35 @@ class pbs_wg(loadclass('system', 'base')):
 
         if hosts == 'all':
             # run on all available nodes
-            unix.run('pbsdsh '
-                    + join(findpath('system'), 'wrappers/export_paths.sh ')
-                    + os.getenv('PATH') + ' '
-                    + os.getenv('LD_LIBRARY_PATH') + ' '
-                    + join(findpath('system'), 'wrappers/run_pbsdsh ')
-                    + PATH.OUTPUT + ' '
-                    + classname + ' '
-                    + funcname + ' '
-                    + dirname(findpath('seisflows')))
+            queue = range(PAR.NTASK)
+            TASK_ID = 0
+
+            while 1:
+                unix.run('pbsdsh '
+                        + join(findpath('system'), 'wrappers/export_paths.sh ')
+                        + os.getenv('PATH') + ' '
+                        + os.getenv('LD_LIBRARY_PATH') + ' '
+                        + str(TASK_ID) + ' '
+                        + join(findpath('system'), 'wrappers/run_pbsdsh ')
+                        + PATH.OUTPUT + ' '
+                        + classname + ' '
+                        + funcname + ' '
+                        + dirname(findpath('seisflows')))
+
+                del queue[:PAR.NPROCMAX]
+                TASK_ID += 1
+
+                if not queue:
+                    break
 
         elif hosts == 'head':
             # run on head node
+            TASK_ID = 0
             unix.run('pbsdsh '
                     + join(findpath('system'), 'wrappers/export_paths.sh ')
                     + os.getenv('PATH') + ' '
                     + os.getenv('LD_LIBRARY_PATH') + ' '
+                    + str(TASK_ID) + ' '
                     + join(findpath('system'), 'wrappers/run_pbsdsh_head ')
                     + PATH.OUTPUT + ' '
                     + classname + ' '
@@ -133,10 +151,12 @@ class pbs_wg(loadclass('system', 'base')):
     def getnode(self):
         """ Gets number of running task
         """
-        return int(os.getenv('PBS_VNODENUM'))
+        task_id = int(os.getenv('TASK_ID'))
+        node_id = int(os.getenv('PBS_VNODENUM'))
+        return ((task_id * PAR.NPROCMAX) + node_id)
 
     def mpiargs(self):
-        """ Call caode in serial when using pbsdsh (MPI Singleton)
+        """ Call code in serial when using pbsdsh (MPI Singleton)
         """
         return ''
 

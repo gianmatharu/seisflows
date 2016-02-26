@@ -74,7 +74,7 @@ def su_ewf2d_obspy(prefix='', channel=None):
     else:
         raise ValueError('CHANNEL must be one of the following: x z')
 
-    streamobj = read(filename, format='SU')
+    streamobj = read(filename, format='SU', byteorder='<')
     return streamobj
 
 def su_specfem2d_obspy(prefix='SEM', channel=None, suffix='.su'):
@@ -91,7 +91,7 @@ def su_specfem2d_obspy(prefix='SEM', channel=None, suffix='.su'):
     else:
         raise ValueError('CHANNEL must be one of the following: x y z p')
 
-    streamobj = read(filename, format='SU')
+    streamobj = read(filename, format='SU', byteorder='<')
     return streamobj
 
 
@@ -234,9 +234,9 @@ def su_specfem3d_obspy(prefix='SEM', channel=None, suffix='', byteorder='<', ver
     sort_by = lambda x: int(unix.basename(x).split('_')[0])
     filenames = sorted(filenamess, key=sort_by)
 
-    streamobj = read(filenames.pop(), format='SU')
+    streamobj = read(filenames.pop(), format='SU', byteorder='<')
     for filename in filenames:
-        streamobj += read(filename, format='SU')
+        streamobj += read(filename, format='SU', byteorder='<')
 
     return streamobj
 

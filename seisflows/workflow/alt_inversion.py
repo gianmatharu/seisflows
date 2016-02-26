@@ -52,8 +52,8 @@ class alt_inversion(loadclass('workflow', 'inversion')):
         if 'MODEL_TRUE' not in PATH:
             raise ParameterError(PATH, 'MODEL_TRUE')
 
-        if 'MODEL' not in PATH:
-            setattr(PATH, 'MODEL', join(PATH.MODELS, 'model_est'))
+        if 'MODEL_EST' not in PATH:
+            setattr(PATH, 'MODEL_EST', join(PATH.MODELS, 'model_est'))
 
     def main(self):
         """ Carries out seismic inversion
@@ -179,7 +179,7 @@ class alt_inversion(loadclass('workflow', 'inversion')):
 
         # save new model to working dir
         src = join(PATH.OPTIMIZE, 'm_new')
-        dst = PATH.MODEL
+        dst = PATH.MODELS
         solver.split(src, dst, '.bin')
 
         if divides(optimize.iter, PAR.SAVEMODEL):
@@ -216,7 +216,7 @@ class alt_inversion(loadclass('workflow', 'inversion')):
         src = PATH.OPTIMIZE +'/'+ 'm_' + suffix
         dst = path +'/'+ 'model'
         unix.mkdir(dst)
-        unix.cp(glob(join(PATH.MODEL, '*.bin')), dst)
+        unix.cp(glob(join(PATH.MODELS, '*.bin')), dst)
         solver.split(src, dst, '.bin')
 
 

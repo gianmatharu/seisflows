@@ -78,7 +78,7 @@ def su_ewf2d_obspy(d, prefix='', channel=None, tag='data'):
         raise ValueError('CHANNEL must be one of the following: x z')
 
     # write data to file
-    d.write(file, format='SU')
+    d.write(file, format='SU', byteorder='<')
 
 def su_specfem2d_obspy(d, prefix='SEM', channel=None, suffix='.su.adj'):
     """ Writes Seismic Unix file
@@ -102,7 +102,7 @@ def su_specfem2d_obspy(d, prefix='SEM', channel=None, suffix='.su.adj'):
             t.stats.delta = dummy_delta
 
     # write data to file
-    d.write(file, format='SU')
+    d.write(file, format='SU', byteorder='<')
 
 def su_specfem2d(d, h, prefix='SEM', channel=None, suffix='.su.adj'):
     """ Writes Seismic Unix file

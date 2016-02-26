@@ -1,8 +1,9 @@
 from os.path import join, basename
 
 import numpy as np
-from obspy.segy.segy import readSU
 from glob import glob
+import subprocess
+import os
 
 from seisflows.seistools import misfit
 from seisflows.seistools.ewf2d import Par, read_cfg_file, write_cfg_file, event_dirname, extend_pml_velocities
@@ -93,6 +94,9 @@ class ewf2d(loadclass('solver', 'base')):
         unix.cp(src, dst)
 
     ### higher level interface
+    def test(self):
+        ID = os.getenv('OMPI_COMM_WORLD_RANK')
+        print('Hello from rank {}'.format(ID))
 
     def setup(self):
         """ Perform setup. Generates synthetic observed data.
@@ -119,13 +123,13 @@ class ewf2d(loadclass('solver', 'base')):
 
         # generate synthetic data
         output_dir = join(self.getpath, 'traces', 'syn')
-        self.generate_data(model_dir=PATH.MODEL, output_dir=output_dir, save_wavefield=True)
+        self.generate_data(model_dir=PATH.MODEL_EST, output_dir=output_dir, save_wavefield=True)
 
         # prepare adjoint sources
         preprocess.prepare_eval_grad(self.getpath)
 
         # compute event gradient
-        self.evaluate_gradient(model_dir=PATH.MODEL)
+        self.evaluate_gradient(model_dir=PATH.MODEL_EST)
 
     def evaluate_function(self, path=''):
         """ Evaluate test function
@@ -306,13 +310,11 @@ class ewf2d(loadclass('solver', 'base')):
 
         if PAR.USE_SRC_FILE:
             self.sources = np.loadtxt(join(PATH.SUBMIT, 'sources'))
-            print(self.sources)
         else:
 
             line = [PAR.LINE_START + PAR.DSRC * itask for itask in range(PAR.NTASK)]
             fixed = [PAR.FIXED_POS] * PAR.NTASK
 
-            print(list(zip(line, fixed)))
             if PAR.LINE_DIR == 'x':
                 self.sources = list(zip(line, fixed))
             elif PAR.LINE_DIR == 'z':
@@ -329,11 +331,6 @@ class ewf2d(loadclass('solver', 'base')):
         xmax = (p.nx * p.dx) - (int(p.use_cpml_left) + int(p.use_cpml_right)) * p.ncpml * p.dx
         zmax = (p.nz * p.dz) - (int(p.use_cpml_top) + int(p.use_cpml_bottom)) * p.ncpml * p.dz
 
-        print(p.nx)
-        print(p.nz)
-        print(p.dx)
-        print(xmax)
-        print(zmax)
         for itask in range(PAR.NTASK):
             xsrc = self.sources[itask][0]
             zsrc = self.sources[itask][1]
@@ -354,7 +351,7 @@ class ewf2d(loadclass('solver', 'base')):
         for key, value in kwargs.items():
             if key in cfg:
                 # adjust parameters
-                if isinstance(value, str):
+                if isinstance(value, basestring):
                     cfg[key] = '"' + value + '"'
                 elif isinstance(value, bool):
                     cfg[key] = str(value).lower()
@@ -376,7 +373,7 @@ class ewf2d(loadclass('solver', 'base')):
         for key, value in kwargs.items():
             if key in cfg:
                 # adjust parameters
-                if isinstance(value, str):
+                if isinstance(value, basestring):
                     cfg[key] = '"' + value + '"'
                 elif isinstance(value, bool):
                     cfg[key] = str(value).lower()
@@ -387,6 +384,16 @@ class ewf2d(loadclass('solver', 'base')):
 
         # write par dict
         write_cfg_file(join(self.getpath, 'INPUT', 'src.cfg'), cfg)
+
+
+    def run(self, script, output='/dev/null'):
+        """ Wrapper for mpirun
+        """
+        with open(output,'w') as f:
+            subprocess.call(
+                script,
+                shell=True,
+                stdout=f)
 
     @property
     def getpath(self):

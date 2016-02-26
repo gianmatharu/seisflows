@@ -1,5 +1,5 @@
 
-WORKFLOW='alt_inversion'    # inversion
+WORKFLOW='test_gradient'    # inversion
 SOLVER='ewf2d'      # specfem2d, specfem3d
 SYSTEM='serial'         # serial, pbs, slurm
 OPTIMIZE='base'         # base, newton
@@ -43,4 +43,5 @@ FIXED_POS = 50.0           # Fixed source spacing
 # SYSTEM
 
 NTASK = 4                 # Number of shots
-NPROC = 8               # Number of processes per simulation
+NPROC = 1               # Number of processes per simulation
+

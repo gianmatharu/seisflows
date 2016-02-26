@@ -3,7 +3,7 @@
 
 MODELS = '/home/gian/Desktop/seisflows/examples/circle/models'
 
-MODEL_INIT = '/home/gian/Desktop/seisflows/examples/circle/models/model_est'
+MODEL_INIT = '/home/gian/Desktop/seisflows/examples/circle/models/model_init'
 
 MODEL_TRUE = '/home/gian/Desktop/seisflows/examples/circle/models/model_true'
 

@@ -216,7 +216,7 @@ def su_specfem3d(prefix='SEM', channel=None, suffix='', verbose=False):
 def su_specfem3d_obspy(prefix='SEM', channel=None, suffix='', byteorder='<', verbose=False):
     """ Reads Seismic Unix file
     """
-    from obspy.segy.core import readSU
+    from obspy import read
 
     if channel in ['x']:
         wildcard = '%s/*_dx_SU%s' % (prefix, suffix)
@@ -234,9 +234,9 @@ def su_specfem3d_obspy(prefix='SEM', channel=None, suffix='', byteorder='<', ver
     sort_by = lambda x: int(unix.basename(x).split('_')[0])
     filenames = sorted(filenamess, key=sort_by)
 
-    streamobj = readSU(filenames.pop(), byteorder=byteorder)
+    streamobj = read(filenames.pop(), format='SU')
     for filename in filenames:
-        streamobj += readSU(filename, byteorder=byteorder)
+        streamobj += read(filename, format='SU')
 
     return streamobj
 

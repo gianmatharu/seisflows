@@ -223,7 +223,7 @@ class base(object):
         dt = PAR.DT
         nt = PAR.NT
         t0 = 0.
-        return dt, nt, t0
+        return nt, dt, t0
 
 
     def get_network_size(self, stream):

@@ -1,19 +1,19 @@
 
 import os
-import subprocess
-import sys
 from os.path import abspath, join
+
+import numpy as np
 
 from seisflows.tools import unix
 from seisflows.tools.code import saveobj
-from seisflows.tools.config import ParameterError, findpath, loadclass, \
-    SeisflowsObjects, SeisflowsParameters, SeisflowsPaths
+from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, \
+    ParameterError, loadclass, findpath
 
 PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
 
 
-class slurm_sm(loadclass('system', 'base')):
+class mpi(loadclass('system', 'base')):
     """ An interface through which to submit workflows, run tasks in serial or 
       parallel, and perform other system functions.
 
@@ -24,7 +24,6 @@ class slurm_sm(loadclass('system', 'base')):
       For more informations, see 
       http://seisflows.readthedocs.org/en/latest/manual/manual.html#system-interfaces
     """
-
 
     def check(self):
         """ Checks parameters and paths
@@ -37,27 +36,21 @@ class slurm_sm(loadclass('system', 'base')):
             setattr(PAR, 'SUBTITLE', unix.basename(abspath('.')))
 
         # check parameters
-        if 'WALLTIME' not in PAR:
-            setattr(PAR, 'WALLTIME', 30.)
+        if 'NTASK' not in PAR:
+            setattr(PAR, 'NTASK', 1)
+
+        if 'NPROC' not in PAR:
+            setattr(PAR, 'NPROC', 1)
 
         if 'VERBOSE' not in PAR:
             setattr(PAR, 'VERBOSE', 1)
-
-        if 'NPROC' not in PAR:
-            raise ParameterError(PAR, 'NPROC')
-
-        if 'NTASK' not in PAR:
-            raise ParameterError(PAR, 'NTASK')
-
-        if 'SLURM_ARGS' not in PAR:
-            setattr(PAR, 'SLURM_ARGS', '')
 
         # check paths
         if 'GLOBAL' not in PATH:
             setattr(PATH, 'GLOBAL', join(abspath('.'), 'scratch'))
 
         if 'LOCAL' not in PATH:
-            setattr(PATH, 'LOCAL', None)
+            setattr(PATH, 'LOCAL', '')
 
         if 'SUBMIT' not in PATH:
             setattr(PATH, 'SUBMIT', unix.pwd())
@@ -65,63 +58,56 @@ class slurm_sm(loadclass('system', 'base')):
         if 'OUTPUT' not in PATH:
             setattr(PATH, 'OUTPUT', join(PATH.SUBMIT, 'output'))
 
+        if 'SYSTEM' not in PATH:
+            setattr(PATH, 'SYSTEM', join(PATH.GLOBAL, 'system'))
+
 
     def submit(self, workflow):
-        """ Submits workflow
+        """ Submits job
         """
         unix.mkdir(PATH.OUTPUT)
         unix.cd(PATH.OUTPUT)
 
         self.checkpoint()
-
-        # submit workflow
-        unix.run('sbatch '
-                + PAR.SLURM_ARGS + ' '
-                + '--job-name=%s '%PAR.SUBTITLE
-                + '--output=%s '%(PATH.SUBMIT +'/'+ 'output.log')
-                + '--cpus-per-task=%d '%PAR.NPROC
-                + '--ntasks=%d '%PAR.NTASK
-                + '--time=%d '%PAR.WALLTIME
-                + findpath('system') +'/'+ 'wrappers/submit '
-                + PATH.OUTPUT)
+        workflow.main()
 
 
     def run(self, classname, funcname, hosts='all', **kwargs):
-        """  Runs tasks in serial or parallel on specified hosts
+        """ Runs tasks in serial or parallel on specified hosts
         """
+
         self.checkpoint()
         self.save_kwargs(classname, funcname, kwargs)
 
         if hosts == 'all':
-            # run on all available nodes
-            unix.run('srun '
-                    + '--wait=0 '
-                    + join(findpath('system'), 'wrappers/run ')
+            unix.cd(join(findpath('system'), 'wrappers'))
+            unix.run('mpiexec -n {} '.format(PAR.NTASK)
+                    #+ '-wdir ' + join(findpath('system'), 'wrappers') + ' '
+                    + 'run_mpi' + ' '
                     + PATH.OUTPUT + ' '
                     + classname + ' '
                     + funcname)
 
         elif hosts == 'head':
-            # run on head node
-            unix.run('srun '
-                    + '--wait=0 '
-                    + join(findpath('system'), 'wrappers/run_head ')
+            unix.cd(join(findpath('system'), 'wrappers'))
+            unix.run('mpiexec -n 1 '
+                    #+ '-wdir ' + join(findpath('system'), 'wrappers') + ' '
+                    + 'run_mpi_head' + ' '
                     + PATH.OUTPUT + ' '
                     + classname + ' '
                     + funcname)
 
+        else:
+            raise(KeyError('Hosts parameter not set/recognized'))
 
     def getnode(self):
-        """ Gets number of running task
-        """
-        gid = os.getenv('SLURM_GTIDS').split(',')
-        lid = int(os.getenv('SLURM_LOCALID'))
-        return int(gid[lid])
-
+        """Gets number of running task"""
+        return int(os.environ['OMPI_COMM_WORLD_RANK'])
 
     def mpiargs(self):
-        return 'mpirun -np %d '%PAR.NPROC
-
+        """ Wrapper for mpiexec
+        """
+        return ''
 
     def save_kwargs(self, classname, funcname, kwargs):
         kwargspath = join(PATH.OUTPUT, 'SeisflowsObjects', classname+'_kwargs')

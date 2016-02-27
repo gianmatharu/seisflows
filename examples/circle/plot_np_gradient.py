@@ -4,7 +4,7 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 
-sys.path.append('/Users/gianmatharu/Desktop/fwpy_examples/circles')
+sys.path.append('/home/gian/Desktop/seisflows/examples/circle')
 import parameters
 
 input_file = "../../solver/INPUT/par.cfg"
@@ -13,7 +13,7 @@ input_file = "../../solver/INPUT/par.cfg"
 p = Par()
 p.read_par_file(input_file)
 
-
+parameters.PARAMETERS=['vp']
 npar = len(parameters.PARAMETERS)
 print(npar)
 

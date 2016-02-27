@@ -1,4 +1,7 @@
 import system
+import optimize
+import preprocess
+import postprocess
 
 from os.path import join
 from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, ParameterError
@@ -9,7 +12,7 @@ PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
 
 
-class generate_data(object):
+class test_gradient(object):
     """ Generates synthetic data.
     """
 
@@ -19,10 +22,21 @@ class generate_data(object):
         # check paths
         if 'DATA' not in PATH:
             setattr(PATH, 'DATA', None)
-    #     setattr(PATH, 'DATA', join(PATH.SUBMIT, 'data'))
+
+        if 'GRAD' not in PATH:
+            setattr(PATH, 'GRAD', join(PATH.GLOBAL, 'evalgrad'))
+
+        if 'OPTIMIZE' not in PATH:
+            setattr(PATH, 'OPTIMIZE', join(PATH.GLOBAL, 'optimize'))
 
         if 'MODEL_TRUE' not in PATH:
             raise ParameterError(PATH, 'MODEL_TRUE')
+
+        if 'MODELS' not in PATH:
+            setattr(PATH, 'MODELS', join(PATH.SUBMIT, 'models'))
+
+        if 'MODEL_EST' not in PATH:
+            setattr(PATH, 'MODEL_EST', join(PATH.MODELS, 'model_est'))
 
     def main(self):
         """ Generates data
@@ -32,9 +46,18 @@ class generate_data(object):
         self.clean_directory(PATH.OUTPUT)
         self.clean_directory(PATH.GLOBAL)
 
+        preprocess.setup()
+        postprocess.setup()
+        optimize.setup()
+
         print('Generating data...')
         system.run('solver', 'setup',
                    hosts='all')
+
+        print('Computing gradient...')
+        system.run('solver', 'compute_gradient',
+                    hosts='all')
+        postprocess.write_gradient(PATH.GRAD)
         print('Finished')
 
     def clean_directory(self, path):

@@ -24,10 +24,10 @@ class test_gradient(object):
             setattr(PATH, 'DATA', None)
 
         if 'GRAD' not in PATH:
-            setattr(PATH, 'GRAD', join(PATH.GLOBAL, 'evalgrad'))
+            setattr(PATH, 'GRAD', join(PATH.SCRATCH, 'evalgrad'))
 
         if 'OPTIMIZE' not in PATH:
-            setattr(PATH, 'OPTIMIZE', join(PATH.GLOBAL, 'optimize'))
+            setattr(PATH, 'OPTIMIZE', join(PATH.SCRATCH, 'optimize'))
 
         if 'MODEL_TRUE' not in PATH:
             raise ParameterError(PATH, 'MODEL_TRUE')
@@ -44,7 +44,7 @@ class test_gradient(object):
 
         # clean directories
         self.clean_directory(PATH.OUTPUT)
-        self.clean_directory(PATH.GLOBAL)
+        self.clean_directory(PATH.SCRATCH)
 
         preprocess.setup()
         postprocess.setup()

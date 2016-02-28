@@ -83,8 +83,8 @@ class alt_inversion(loadclass('workflow', 'inversion')):
         """
         # clean scratch directories
         if PAR.BEGIN == 1:
-            unix.rm(PATH.GLOBAL)
-            unix.mkdir(PATH.GLOBAL)
+            unix.rm(PATH.SCRATCH)
+            unix.mkdir(PATH.SCRATCH)
 
             preprocess.setup()
             postprocess.setup()

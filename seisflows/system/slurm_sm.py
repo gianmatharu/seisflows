@@ -21,6 +21,12 @@ class slurm_sm(loadclass('system', 'base')):
       classes provide a consistent command set across different computing
       environments.
 
+      Intermediate files are written to a global scratch path PATH.SCRATCH,
+      which must be accessible to all compute nodes.
+
+      Optionally, users can provide a local scratch path PATH.LOCAL if each
+      compute node has its own local filesystem.
+
       For more informations, see 
       http://seisflows.readthedocs.org/en/latest/manual/manual.html#system-interfaces
     """
@@ -30,13 +36,10 @@ class slurm_sm(loadclass('system', 'base')):
         """ Checks parameters and paths
         """
 
-        if 'TITLE' not in PAR:
-            setattr(PAR, 'TITLE', unix.basename(abspath('..')))
-
-        if 'SUBTITLE' not in PAR:
-            setattr(PAR, 'SUBTITLE', unix.basename(abspath('.')))
-
         # check parameters
+        if 'TITLE' not in PAR:
+            setattr(PAR, 'TITLE', unix.basename(abspath('.')))
+
         if 'WALLTIME' not in PAR:
             setattr(PAR, 'WALLTIME', 30.)
 
@@ -53,8 +56,8 @@ class slurm_sm(loadclass('system', 'base')):
             setattr(PAR, 'SLURM_ARGS', '')
 
         # check paths
-        if 'GLOBAL' not in PATH:
-            setattr(PATH, 'GLOBAL', join(abspath('.'), 'scratch'))
+        if 'SCRATCH' not in PATH:
+            setattr(PATH, 'SCRATCH', join(abspath('.'), 'scratch'))
 
         if 'LOCAL' not in PATH:
             setattr(PATH, 'LOCAL', None)
@@ -77,7 +80,7 @@ class slurm_sm(loadclass('system', 'base')):
         # submit workflow
         unix.run('sbatch '
                 + PAR.SLURM_ARGS + ' '
-                + '--job-name=%s '%PAR.SUBTITLE
+                + '--job-name=%s '%PAR.TITLE
                 + '--output=%s '%(PATH.SUBMIT +'/'+ 'output.log')
                 + '--cpus-per-task=%d '%PAR.NPROC
                 + '--ntasks=%d '%PAR.NTASK

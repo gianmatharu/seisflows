@@ -24,6 +24,12 @@ class lsf_lg(loadclass('system', 'base')):
       classes provide a consistent command set across different computing
       environments.
 
+      Intermediate files are written to a global scratch path PATH.SCRATCH,
+      which must be accessible to all compute nodes.
+
+      Optionally, users can provide a local scratch path PATH.LOCAL if each
+      compute node has its own local filesystem.
+
       For more informations, see 
       http://seisflows.readthedocs.org/en/latest/manual/manual.html#system-interfaces
     """
@@ -32,13 +38,10 @@ class lsf_lg(loadclass('system', 'base')):
         """ Checks parameters and paths
         """
 
-        if 'TITLE' not in PAR:
-            setattr(PAR, 'TITLE', unix.basename(abspath('..')))
-
-        if 'SUBTITLE' not in PAR:
-            setattr(PAR, 'SUBTITLE', unix.basename(abspath('.')))
-
         # check parameters
+        if 'TITLE' not in PAR:
+            setattr(PAR, 'TITLE', unix.basename(abspath('.')))
+
         if 'WALLTIME' not in PAR:
             setattr(PAR, 'WALLTIME', 30.)
 
@@ -64,8 +67,8 @@ class lsf_lg(loadclass('system', 'base')):
             setattr(PAR, 'LSF_ARGS', '')
 
         # check paths
-        if 'GLOBAL' not in PATH:
-            setattr(PATH, 'GLOBAL', join(abspath('.'), 'scratch'))
+        if 'SCRATCH' not in PATH:
+            setattr(PATH, 'SCRATCH', join(abspath('.'), 'scratch'))
 
         if 'LOCAL' not in PATH:
             setattr(PATH, 'LOCAL', None)
@@ -77,7 +80,7 @@ class lsf_lg(loadclass('system', 'base')):
             setattr(PATH, 'OUTPUT', join(PATH.SUBMIT, 'output'))
 
         if 'SYSTEM' not in PATH:
-            setattr(PATH, 'SYSTEM', join(PATH.GLOBAL, 'system'))
+            setattr(PATH, 'SYSTEM', join(PATH.SCRATCH, 'system'))
 
 
     def submit(self, workflow):
@@ -94,7 +97,7 @@ class lsf_lg(loadclass('system', 'base')):
         # prepare bsub arguments
         unix.run('bsub '
                 + PAR.LSF_ARGS + ' '
-                + '-J %s ' % PAR.SUBTITLE
+                + '-J %s ' % PAR.TITLE
                 + '-o %s ' % (PATH.SUBMIT+'/'+'output.log')
                 + '-n %d ' % PAR.NODESIZE
                 + '-e %s ' % (PATH.SUBMIT+'/'+'error.log')
@@ -130,7 +133,7 @@ class lsf_lg(loadclass('system', 'base')):
                 + '-n %d ' % PAR.NPROC 
                 + '-R "span[ptile=%d]" ' % PAR.NODESIZE
                 + '-W %d:00 ' % PAR.STEPTIME
-                + '-J "%s' %PAR.SUBTITLE
+                + '-J "%s' %PAR.TITLE
                 + self.launch_args(hosts)
                 + findpath('system') +'/'+ 'wrapper/run '
                 + PATH.OUTPUT + ' '

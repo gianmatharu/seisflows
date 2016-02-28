@@ -16,11 +16,11 @@ PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
 
 
-class slurm_lg(loadclass('system', 'base')):
-    """ An interface through which to submit workflows, run tasks in serial or 
+class pbs_lg(loadclass('system', 'base')):
+    """ An interface through which to submit workflows, run tasks in serial or
       parallel, and perform other system functions.
 
-      By hiding environment details behind a python interface layer, these 
+      By hiding environment details behind a python interface layer, these
       classes provide a consistent command set across different computing
       environments.
 
@@ -30,7 +30,7 @@ class slurm_lg(loadclass('system', 'base')):
       Optionally, users can provide a local scratch path PATH.LOCAL if each
       compute node has its own local filesystem.
 
-      For more informations, see 
+      For more informations, see
       http://seisflows.readthedocs.org/en/latest/manual/manual.html#system-interfaces
     """
 
@@ -63,8 +63,8 @@ class slurm_lg(loadclass('system', 'base')):
         if 'NODESIZE' not in PAR:
             raise ParameterError(PAR, 'NODESIZE')
 
-        if 'SLURM_ARGS' not in PAR:
-            setattr(PAR, 'SLURM_ARGS', '')
+        if 'PBS_ARGS' not in PAR:
+            setattr(PAR, 'PBS_ARGS', '')
 
         # check paths
         if 'SCRATCH' not in PATH:
@@ -88,33 +88,39 @@ class slurm_lg(loadclass('system', 'base')):
         """
         unix.mkdir(PATH.OUTPUT)
         unix.cd(PATH.OUTPUT)
-        unix.mkdir(PATH.SUBMIT+'/'+'output.slurm')
+        unix.mkdir(PATH.SUBMIT+'/'+'output.pbs')
 
         self.checkpoint()
 
-        # prepare sbatch arguments
-        unix.run('sbatch '
-                + PAR.SLURM_ARGS + ' '
-                + '--job-name=%s ' % PAR.TITLE
-                + '--output %s ' % (PATH.SUBMIT+'/'+'output.log')
-                + '--ntasks-per-node=%d ' % PAR.NODESIZE
-                + '--nodes=%d ' % 1
-                + '--time=%d ' % PAR.WALLTIME
-                + findpath('system') +'/'+ 'wrappers/submit '
+        hours = PAR.WALLTIME/60
+        minutes = PAR.WALLTIME%60
+        walltime = 'walltime=%02d:%02d:00 ' % (hours, minutes)
+
+        ncpus = PAR.NODESIZE
+        mpiprocs = PAR.NODESIZE
+
+        # prepare qsub arguments
+        unix.run( 'qsub '
+                + PAR.PBS_ARGS + ' '
+                + '-l select=1:ncpus=%d:mpiprocs=%d ' % (ncpus, mpiprocs)
+                + '-l %s ' % walltime
+                + '-N %s ' % PAR.TITLE
+                + '-j %s '%'oe'
+                + '-o %s ' % (PATH.SUBMIT+'/'+'output.log')
+                + '-V '
+                + ' -- ' + findpath('system') +'/'+ 'wrappers/submit '
                 + PATH.OUTPUT)
 
 
     def run(self, classname, funcname, hosts='all', **kwargs):
-        """  Runs tasks in serial or parallel on specified hosts.
+        """ Runs tasks in serial or parallel on specified hosts.
         """
         self.checkpoint()
 
         self.save_kwargs(classname, funcname, kwargs)
         jobs = self._launch(classname, funcname, hosts)
         while True:
-            # wait a few seconds before checking status
             time.sleep(60.*PAR.SLEEPTIME)
-
             self._timestamp()
             isdone, jobs = self._status(classname, funcname, jobs)
             if isdone:
@@ -122,16 +128,16 @@ class slurm_lg(loadclass('system', 'base')):
 
 
     def mpiargs(self):
-        return 'srun '
+        return 'mpirun '
 
 
     def getnode(self):
         """ Gets number of running task
         """
         try:
-            return int(os.getenv('SLURM_ARRAY_TASK_ID'))
+            return os.getenv('PBS_ARRAY_INDEX')
         except:
-            raise Exception("TASK_ID environment variable not defined.")
+            raise Exception("PBS_ARRAY_INDEX environment variable not defined.")
 
 
     ### private methods
@@ -139,42 +145,58 @@ class slurm_lg(loadclass('system', 'base')):
     def _launch(self, classname, funcname, hosts='all'):
         unix.mkdir(PATH.SYSTEM)
 
+        nodes = math.ceil(PAR.NTASK/float(PAR.NODESIZE))
+        ncpus = PAR.NPROC
+        mpiprocs = PAR.NPROC
+
+        hours = PAR.STEPTIME/60
+        minutes = PAR.STEPTIME%60
+        walltime = 'walltime=%02d:%02d:00 '%(hours, minutes)
+
+        # submit job
         with open(PATH.SYSTEM+'/'+'job_id', 'w') as f:
-            subprocess.call('sbatch '
-                + PAR.SLURM_ARGS + ' '
-                + '--job-name=%s ' % PAR.TITLE
-                + '--nodes=%d ' % math.ceil(PAR.NPROC/float(PAR.NODESIZE))
-                + '--ntasks-per-node=%d ' % PAR.NODESIZE
-                + '--ntasks=%d ' % PAR.NPROC
-                + '--time=%d ' % PAR.STEPTIME
-                + self._launch_args(hosts)
-                + findpath('system') +'/'+ 'wrappers/run '
+            subprocess.call('qsub '
+                + PAR.PBS_ARGS + ' '
+                + '-l select=%d:ncpus=%d:mpiprocs=%d ' (nodes, ncpus, mpiprocs)
+                + '-l %s ' % walltime
+                + '-J 0-%s ' % (PAR.NTASK-1)
+                + '-N %s ' % PAR.TITLE
+                + '-o %s ' % (PATH.SUBMIT+'/'+'output.pbs/' + '$PBS_ARRAYID')
+                + '-r y '
+                + '-j oe '
+                + '-V '
+                + self.launch_args(hosts)
                 + PATH.OUTPUT + ' '
                 + classname + ' '
-                + funcname + ' ',
-                shell=1,
-                stdout=f)
-
+                + funcname + ' '
+                + findpath('seisflows'),
+                stdout=f,
+                shell=True)
+           
         # retrieve job ids
         with open(PATH.SYSTEM+'/'+'job_id', 'r') as f:
             line = f.readline()
             job = line.split()[-1].strip()
         if hosts == 'all' and PAR.NTASK > 1:
-            return [job+'_'+str(ii) for ii in range(PAR.NTASK)]
+            nn = range(PAR.NTASK)
+            job0 = job.strip('[].sdb')
+            return [job0+'['+str(ii)+'].sdb' for ii in nn]
         else:
             return [job]
 
 
-    def _launch_args(self, hosts):
+    def launch_args(self, hosts):
         if hosts == 'all':
-            args = ('--array=%d-%d ' % (0,PAR.NTASK-1)
-                   +'--output %s ' % (PATH.SUBMIT+'/'+'output.slurm/'+'%A_%a'))
+          arg = ('-J 0-%s ' % (PAR.NTASK-1)
+                +'-o %s ' % (PATH.SUBMIT+'/'+'output.pbs/' + '$PBS_ARRAYID')
+                + ' -- ' + findpath('system') +'/'+ 'wrappers/run_pbsdsh ')
 
         elif hosts == 'head':
-            args = ('--array=%d-%d ' % (0,0)
-                   +'--output=%s ' % (PATH.SUBMIT+'/'+'output.slurm/'+'%j'))
+          arg = ('-J 0-0 '
+                 +'-o %s ' % (PATH.SUBMIT+'/'+'output.pbs/' + '$PBS_JOBID')
+                 + ' -- ' + findpath('system') +'/'+ 'wrappers/run_pbsdsh_head ')
 
-        return args
+        return arg
 
 
     def _status(self, classname, funcname, jobs):
@@ -183,12 +205,12 @@ class slurm_lg(loadclass('system', 'base')):
         for job in jobs:
             state = self._query(job)
             states = []
-            if state in ['COMPLETED']:
+            if state in ['C']:
                 states += [1]
             else:
                 states += [0]
-            if state in ['FAILED', 'NODE_FAIL', 'TIMEOUT']:
-                print msg.TaskError_SLURM % (classname, funcname, job)
+            if state in ['F']:
+                print msg.TaskError_PBS % (classname, funcname, job)
                 sys.exit(-1)
         isdone = all(states)
 
@@ -196,10 +218,15 @@ class slurm_lg(loadclass('system', 'base')):
 
 
     def _query(self, jobid):
-        """ Queries job state from SLURM database
+        """ Queries job state from PBS database
         """
+        # TODO: replace shell utilities with native Python
         with open(PATH.SYSTEM+'/'+'job_status', 'w') as f:
-            subprocess.call('sacct -n -o state -j '+jobid, shell=True, stdout=f)
+            subprocess.call('qstat -x -tJ ' + jobid + ' | '
+                + 'tail -n 1 ' + ' | '
+                + 'awk \'{print $5}\'',
+                shell=True,
+                stdout=f)
 
         with open(PATH.SYSTEM+'/'+'job_status', 'r') as f:
             line = f.readline()
@@ -215,10 +242,10 @@ class slurm_lg(loadclass('system', 'base')):
             line = time.strftime('%H:%M:%S')+'\n'
             f.write(line)
 
-
     def save_kwargs(self, classname, funcname, kwargs):
         kwargspath = join(PATH.OUTPUT, 'SeisflowsObjects', classname+'_kwargs')
         kwargsfile = join(kwargspath, funcname+'.p')
         unix.mkdir(kwargspath)
         saveobj(kwargsfile, kwargs)
+
 

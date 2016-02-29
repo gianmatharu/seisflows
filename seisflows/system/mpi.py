@@ -32,10 +32,6 @@ class mpi(loadclass('system', 'base')):
         if 'TITLE' not in PAR:
             setattr(PAR, 'TITLE', unix.basename(abspath('..')))
 
-        if 'SUBTITLE' not in PAR:
-            setattr(PAR, 'SUBTITLE', unix.basename(abspath('.')))
-
-        # check parameters
         if 'NTASK' not in PAR:
             setattr(PAR, 'NTASK', 1)
 
@@ -82,7 +78,7 @@ class mpi(loadclass('system', 'base')):
         if hosts == 'all':
             unix.cd(join(findpath('system'), 'wrappers'))
             unix.run('mpiexec -n {} '.format(PAR.NTASK)
-                    #+ '-wdir ' + join(findpath('system'), 'wrappers') + ' '
+                    + '--mca mpi_warn_on_fork 0' + ' '
                     + 'run_mpi' + ' '
                     + PATH.OUTPUT + ' '
                     + classname + ' '
@@ -91,7 +87,7 @@ class mpi(loadclass('system', 'base')):
         elif hosts == 'head':
             unix.cd(join(findpath('system'), 'wrappers'))
             unix.run('mpiexec -n 1 '
-                    #+ '-wdir ' + join(findpath('system'), 'wrappers') + ' '
+                    + '--mca mpi_warn_on_fork 0' + ' '
                     + 'run_mpi_head' + ' '
                     + PATH.OUTPUT + ' '
                     + classname + ' '

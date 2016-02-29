@@ -179,7 +179,7 @@ class alt_inversion(loadclass('workflow', 'inversion')):
 
         # save new model to working dir
         src = join(PATH.OPTIMIZE, 'm_new')
-        dst = PATH.MODELS
+        dst = PATH.MODEL_EST
         solver.split(src, dst, '.bin')
 
         if divides(optimize.iter, PAR.SAVEMODEL):
@@ -216,7 +216,7 @@ class alt_inversion(loadclass('workflow', 'inversion')):
         src = PATH.OPTIMIZE +'/'+ 'm_' + suffix
         dst = path +'/'+ 'model'
         unix.mkdir(dst)
-        unix.cp(glob(join(PATH.MODELS, '*.bin')), dst)
+        unix.cp(glob(join(PATH.MODEL_EST, '*.bin')), dst)
         solver.split(src, dst, '.bin')
 
 

@@ -30,7 +30,7 @@ class generate_data(object):
 
         # clean directories
         self.clean_directory(PATH.OUTPUT)
-        self.clean_directory(PATH.GLOBAL)
+        self.clean_directory(PATH.SCRATCH)
 
         print('Generating data...')
         system.run('solver', 'setup',

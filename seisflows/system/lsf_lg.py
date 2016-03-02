@@ -90,9 +90,7 @@ class lsf_lg(loadclass('system', 'base')):
         unix.cd(PATH.OUTPUT)
         unix.mkdir(PATH.SUBMIT+'/'+'output.lsf')
 
-        self.save_objects()
-        self.save_parameters()
-        self.save_paths()
+        self.checkpoint()
 
         # prepare bsub arguments
         unix.run('bsub '
@@ -101,7 +99,7 @@ class lsf_lg(loadclass('system', 'base')):
                 + '-o %s ' % (PATH.SUBMIT+'/'+'output.log')
                 + '-n %d ' % PAR.NODESIZE
                 + '-e %s ' % (PATH.SUBMIT+'/'+'error.log')
-                + '-R "span[ptile=%d' % PAR.NODESIZE + ']" '
+                + '-R "span[ptile=%d]" ' % PAR.NODESIZE
                 + '-W %d:00 ' % PAR.WALLTIME
                 +  findpath('system') +'/'+ 'wrappers/submit '
                 + PATH.OUTPUT)

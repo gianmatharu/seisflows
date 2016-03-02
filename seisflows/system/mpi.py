@@ -14,14 +14,14 @@ PATH = SeisflowsPaths()
 
 
 class mpi(loadclass('system', 'base')):
-    """ An interface through which to submit workflows, run tasks in serial or 
+    """ An interface through which to submit workflows, run tasks in serial or
       parallel, and perform other system functions.
 
-      By hiding environment details behind a python interface layer, these 
+      By hiding environment details behind a python interface layer, these
       classes provide a consistent command set across different computing
       environments.
 
-      For more informations, see 
+      For more informations, see
       http://seisflows.readthedocs.org/en/latest/manual/manual.html#system-interfaces
     """
 
@@ -30,7 +30,7 @@ class mpi(loadclass('system', 'base')):
         """
 
         if 'TITLE' not in PAR:
-            setattr(PAR, 'TITLE', unix.basename(abspath('..')))
+            setattr(PAR, 'TITLE', unix.basename(abspath('.')))
 
         if 'NTASK' not in PAR:
             setattr(PAR, 'NTASK', 1)
@@ -94,7 +94,7 @@ class mpi(loadclass('system', 'base')):
                     + funcname)
 
         else:
-            raise(KeyError('Hosts parameter not set/recognized'))
+            raise(KeyError('Hosts parameter not set/recognized.'))
 
     def getnode(self):
         """Gets number of running task"""

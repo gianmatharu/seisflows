@@ -1,19 +1,22 @@
 
 import os
-import subprocess
+import math
 import sys
+import subprocess
+import time
 from os.path import abspath, join
 
+from seisflows.tools import msg
 from seisflows.tools import unix
 from seisflows.tools.code import saveobj
-from seisflows.tools.config import ParameterError, findpath, loadclass, \
-    SeisflowsObjects, SeisflowsParameters, SeisflowsPaths
+from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, \
+    ParameterError, findpath, loadclass
 
 PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
 
 
-class slurm_sm(loadclass('system', 'mpi')):
+class lsf_sm(loadclass('system', 'mpi')):
     """ An interface through which to submit workflows, run tasks in serial or 
       parallel, and perform other system functions.
 
@@ -31,7 +34,6 @@ class slurm_sm(loadclass('system', 'mpi')):
       http://seisflows.readthedocs.org/en/latest/manual/manual.html#system-interfaces
     """
 
-
     def check(self):
         """ Checks parameters and paths
         """
@@ -43,17 +45,26 @@ class slurm_sm(loadclass('system', 'mpi')):
         if 'WALLTIME' not in PAR:
             setattr(PAR, 'WALLTIME', 30.)
 
+        if 'STEPTIME' not in PAR:
+            setattr(PAR, 'STEPTIME', 30.)
+
+        if 'SLEEPTIME' not in PAR:
+            setattr(PAR, 'SLEEPTIME', 1.)
+
         if 'VERBOSE' not in PAR:
             setattr(PAR, 'VERBOSE', 1)
-
-        if 'NPROC' not in PAR:
-            raise ParameterError(PAR, 'NPROC')
 
         if 'NTASK' not in PAR:
             raise ParameterError(PAR, 'NTASK')
 
-        if 'SLURM_ARGS' not in PAR:
-            setattr(PAR, 'SLURM_ARGS', '')
+        if 'NPROC' not in PAR:
+            raise ParameterError(PAR, 'NPROC')
+
+        if 'NODESIZE' not in PAR:
+            raise ParameterError(PAR, 'NODESIZE')
+
+        if 'LSF_ARGS' not in PAR:
+            setattr(PAR, 'LSF_ARGS', '')
 
         # check paths
         if 'SCRATCH' not in PATH:
@@ -68,23 +79,27 @@ class slurm_sm(loadclass('system', 'mpi')):
         if 'OUTPUT' not in PATH:
             setattr(PATH, 'OUTPUT', join(PATH.SUBMIT, 'output'))
 
+        if 'SYSTEM' not in PATH:
+            setattr(PATH, 'SYSTEM', join(PATH.SCRATCH, 'system'))
+
 
     def submit(self, workflow):
         """ Submits workflow
         """
         unix.mkdir(PATH.OUTPUT)
         unix.cd(PATH.OUTPUT)
+        unix.mkdir(PATH.SUBMIT+'/'+'output.lsf')
 
         self.checkpoint()
 
-        # submit workflow
-        unix.run('sbatch '
-                + PAR.SLURM_ARGS + ' '
-                + '--job-name=%s '%PAR.TITLE
-                + '--output=%s '%(PATH.SUBMIT +'/'+ 'output.log')
-                + '--cpus-per-task=%d '%PAR.NPROC
-                + '--ntasks=%d '%PAR.NTASK
-                + '--time=%d '%PAR.WALLTIME
+        # prepare bsub arguments
+        unix.run('bsub '
+                + PAR.LSF_ARGS + ' '
+                + '-J %s ' % PAR.TITLE
+                + '-o %s ' % (PATH.SUBMIT+'/'+'output.log')
+                + '-n %d ' % PAR.NTASK
+                + '-e %s ' % (PATH.SUBMIT+'/'+'error.log')
+                + '-W %d:00 ' % PAR.WALLTIME
                 + findpath('system') +'/'+ 'wrappers/submit '
                 + PATH.OUTPUT)
 

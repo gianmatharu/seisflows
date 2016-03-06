@@ -5,7 +5,7 @@ import socket
 import subprocess
 import sys
 
-from os.path import abspath, basename, dirname, isdir, isfile, join
+from os.path import abspath, basename, isdir, isfile, join
 
 
 def cat(src, *dst):
@@ -46,10 +46,6 @@ def cp(src='', dst=''):
 
     elif isdir(src):
         shutil.copytree(src, dst)
-
-
-def hostname():
-    return socket.gethostname()
 
 
 def ln(src, dst):
@@ -96,10 +92,6 @@ def mv(src='', dst=''):
     shutil.move(src, dst)
 
 
-def pwd():
-    return os.getcwd()
-
-
 def rename(old, new, names):
     for name in names:
         if name.find(old) >= 0:
@@ -142,11 +134,6 @@ def touch(filename, times=None):
     with open(filename, 'a'):
         os.utime(filename, times)
 
-
-def whoami():
-    import getpass
-
-    return getpass.getuser()
 
 
 def _strlist(object):

@@ -1,18 +1,18 @@
 
 import os
-from os.path import abspath, join
+from os.path import abspath, basename, join
 
 import numpy as np
 
 from seisflows.tools import unix
 from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, \
-    ParameterError, loadclass
+    ParameterError, custom_import
 
 PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
 
 
-class serial(loadclass('system', 'base')):
+class serial(custom_import('system', 'base')):
     """ An interface through which to submit workflows, run tasks in serial or 
       parallel, and perform other system functions.
 
@@ -30,7 +30,7 @@ class serial(loadclass('system', 'base')):
 
         # check parameters
         if 'TITLE' not in PAR:
-            setattr(PAR, 'TITLE', unix.basename(abspath('.')))
+            setattr(PAR, 'TITLE', basename(abspath('.')))
 
         if 'NTASK' not in PAR:
             setattr(PAR, 'NTASK', 1)
@@ -49,7 +49,7 @@ class serial(loadclass('system', 'base')):
             setattr(PATH, 'LOCAL', '')
 
         if 'SUBMIT' not in PATH:
-            setattr(PATH, 'SUBMIT', unix.pwd())
+            setattr(PATH, 'SUBMIT', abspath('.'))
 
         if 'OUTPUT' not in PATH:
             setattr(PATH, 'OUTPUT', join(PATH.SUBMIT, 'output'))

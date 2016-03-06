@@ -1,17 +1,16 @@
 
-import uuid
+from getpass import getuser
+from os.path import abspath, exists, join
+from uuid import uuid4
 
-from os.path import abspath, join
 from seisflows.tools import unix
-from seisflows.tools.code import exists
-from seisflows.tools.config import loadclass
-from seisflows.tools.config import ParameterError, SeisflowsParameters, SeisflowsPaths
+from seisflows.tools.config import ParameterError, SeisflowsParameters, SeisflowsPaths, custom_import
 
 PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
 
 
-class tiger_sm(loadclass('system', 'slurm_sm')):
+class tiger_sm(custom_import('system', 'slurm_sm')):
     """ Specially designed system interface for tiger.princeton.edu
 
       See parent class for more information.
@@ -22,10 +21,10 @@ class tiger_sm(loadclass('system', 'slurm_sm')):
         """
 
         if 'UUID' not in PAR:
-            setattr(PAR, 'UUID', str(uuid.uuid4()))
+            setattr(PAR, 'UUID', str(uuid4()))
  
         if 'SCRATCH' not in PATH:
-            setattr(PATH, 'SCRATCH', join('/scratch/gpfs', unix.whoami(), 'seisflows', PAR.UUID))
+            setattr(PATH, 'SCRATCH', join('/scratch/gpfs', getuser(), 'seisflows', PAR.UUID))
 
         if 'LOCAL' not in PATH:
             setattr(PATH, 'LOCAL', '')
@@ -34,7 +33,7 @@ class tiger_sm(loadclass('system', 'slurm_sm')):
 
 
     def submit(self, *args, **kwargs):
-        """Submits job
+        """ Submits job
         """
         if not exists(PATH.SUBMIT + '/' + 'scratch'):
             unix.ln(PATH.SCRATCH, PATH.SUBMIT + '/' + 'scratch')

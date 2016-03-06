@@ -2,18 +2,18 @@
 import os
 import subprocess
 import sys
-from os.path import abspath, join
+from os.path import abspath, basename, join
 
 from seisflows.tools import unix
-from seisflows.tools.code import saveobj
-from seisflows.tools.config import ParameterError, findpath, loadclass, \
-    SeisflowsObjects, SeisflowsParameters, SeisflowsPaths
+from seisflows.tools.code import findpath, saveobj
+from seisflows.tools.config import ParameterError, custom_import, \
+    SeisflowsParameters, SeisflowsPaths
 
 PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
 
 
-class slurm_sm(loadclass('system', 'base')):
+class slurm_sm(custom_import('system', 'base')):
     """ An interface through which to submit workflows, run tasks in serial or 
       parallel, and perform other system functions.
 
@@ -38,7 +38,7 @@ class slurm_sm(loadclass('system', 'base')):
 
         # check parameters
         if 'TITLE' not in PAR:
-            setattr(PAR, 'TITLE', unix.basename(abspath('.')))
+            setattr(PAR, 'TITLE', basename(abspath('.')))
 
         if 'WALLTIME' not in PAR:
             setattr(PAR, 'WALLTIME', 30.)
@@ -63,7 +63,7 @@ class slurm_sm(loadclass('system', 'base')):
             setattr(PATH, 'LOCAL', None)
 
         if 'SUBMIT' not in PATH:
-            setattr(PATH, 'SUBMIT', unix.pwd())
+            setattr(PATH, 'SUBMIT', abspath('.'))
 
         if 'OUTPUT' not in PATH:
             setattr(PATH, 'OUTPUT', join(PATH.SUBMIT, 'output'))
@@ -85,7 +85,7 @@ class slurm_sm(loadclass('system', 'base')):
                 + '--cpus-per-task=%d '%PAR.NPROC
                 + '--ntasks=%d '%PAR.NTASK
                 + '--time=%d '%PAR.WALLTIME
-                + findpath('system') +'/'+ 'wrappers/submit '
+                + findpath('seisflows.system') +'/'+ 'wrappers/submit '
                 + PATH.OUTPUT)
 
 
@@ -99,7 +99,7 @@ class slurm_sm(loadclass('system', 'base')):
             # run on all available nodes
             unix.run('srun '
                     + '--wait=0 '
-                    + join(findpath('system'), 'wrappers/run ')
+                    + join(findpath('seisflows.system'), 'wrappers/run ')
                     + PATH.OUTPUT + ' '
                     + classname + ' '
                     + funcname)
@@ -108,7 +108,7 @@ class slurm_sm(loadclass('system', 'base')):
             # run on head node
             unix.run('srun '
                     + '--wait=0 '
-                    + join(findpath('system'), 'wrappers/run_head ')
+                    + join(findpath('seisflows.system'), 'wrappers/run_head ')
                     + PATH.OUTPUT + ' '
                     + classname + ' '
                     + funcname)

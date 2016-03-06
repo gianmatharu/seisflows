@@ -4,19 +4,19 @@ import math
 import sys
 import subprocess
 import time
-from os.path import abspath, join
+from os.path import abspath, basename, join
 
 from seisflows.tools import msg
 from seisflows.tools import unix
-from seisflows.tools.code import saveobj
+from seisflows.tools.code import findpath, saveobj
 from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, \
-    ParameterError, findpath, loadclass
+    ParameterError, custom_import
 
 PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
 
 
-class slurm_lg(loadclass('system', 'base')):
+class slurm_lg(custom_import('system', 'base')):
     """ An interface through which to submit workflows, run tasks in serial or 
       parallel, and perform other system functions.
 
@@ -40,7 +40,7 @@ class slurm_lg(loadclass('system', 'base')):
 
         # check parameters
         if 'TITLE' not in PAR:
-            setattr(PAR, 'TITLE', unix.basename(abspath('.')))
+            setattr(PAR, 'TITLE', basename(abspath('.')))
 
         if 'WALLTIME' not in PAR:
             setattr(PAR, 'WALLTIME', 30.)
@@ -74,7 +74,7 @@ class slurm_lg(loadclass('system', 'base')):
             setattr(PATH, 'LOCAL', None)
 
         if 'SUBMIT' not in PATH:
-            setattr(PATH, 'SUBMIT', unix.pwd())
+            setattr(PATH, 'SUBMIT', abspath('.'))
 
         if 'OUTPUT' not in PATH:
             setattr(PATH, 'OUTPUT', join(PATH.SUBMIT, 'output'))
@@ -100,7 +100,7 @@ class slurm_lg(loadclass('system', 'base')):
                 + '--ntasks-per-node=%d ' % PAR.NODESIZE
                 + '--nodes=%d ' % 1
                 + '--time=%d ' % PAR.WALLTIME
-                + findpath('system') +'/'+ 'wrappers/submit '
+                + findpath('seisflows.system') +'/'+ 'wrappers/submit '
                 + PATH.OUTPUT)
 
 
@@ -148,7 +148,7 @@ class slurm_lg(loadclass('system', 'base')):
                 + '--ntasks=%d ' % PAR.NPROC
                 + '--time=%d ' % PAR.STEPTIME
                 + self._launch_args(hosts)
-                + findpath('system') +'/'+ 'wrappers/run '
+                + findpath('seisflows.system') +'/'+ 'wrappers/run '
                 + PATH.OUTPUT + ' '
                 + classname + ' '
                 + funcname + ' ',

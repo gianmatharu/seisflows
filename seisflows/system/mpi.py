@@ -1,19 +1,19 @@
 
 import os
-from os.path import abspath, join
+from os.path import abspath, basename, join
 
 import numpy as np
 
 from seisflows.tools import unix
-from seisflows.tools.code import saveobj
+from seisflows.tools.code import findpath, saveobj
 from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, \
-    ParameterError, loadclass, findpath
+    ParameterError, custom_import
 
 PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
 
 
-class mpi(loadclass('system', 'base')):
+class mpi(custom_import('system', 'base')):
     """ An interface through which to submit workflows, run tasks in serial or
       parallel, and perform other system functions.
 
@@ -30,7 +30,7 @@ class mpi(loadclass('system', 'base')):
         """
 
         if 'TITLE' not in PAR:
-            setattr(PAR, 'TITLE', unix.basename(abspath('.')))
+            setattr(PAR, 'TITLE', basename(abspath('.')))
 
         if 'NTASK' not in PAR:
             setattr(PAR, 'NTASK', 1)
@@ -49,7 +49,7 @@ class mpi(loadclass('system', 'base')):
             setattr(PATH, 'LOCAL', '')
 
         if 'SUBMIT' not in PATH:
-            setattr(PATH, 'SUBMIT', unix.pwd())
+            setattr(PATH, 'SUBMIT', abspath('.'))
 
         if 'OUTPUT' not in PATH:
             setattr(PATH, 'OUTPUT', join(PATH.SUBMIT, 'output'))
@@ -76,7 +76,7 @@ class mpi(loadclass('system', 'base')):
         self.save_kwargs(classname, funcname, kwargs)
 
         if hosts == 'all':
-            unix.cd(join(findpath('system'), 'wrappers'))
+            unix.cd(join(findpath('seisflows.system'), 'wrappers'))
             unix.run('mpiexec -n {} '.format(PAR.NTASK)
                     + '--mca mpi_warn_on_fork 0' + ' '
                     + 'run_mpi' + ' '
@@ -85,7 +85,7 @@ class mpi(loadclass('system', 'base')):
                     + funcname)
 
         elif hosts == 'head':
-            unix.cd(join(findpath('system'), 'wrappers'))
+            unix.cd(join(findpath('seisflows.system'), 'wrappers'))
             unix.run('mpiexec -n 1 '
                     + '--mca mpi_warn_on_fork 0' + ' '
                     + 'run_mpi_head' + ' '

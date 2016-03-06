@@ -5,41 +5,40 @@ import os
 import sys
 import types
 
-from os.path import abspath, join
+from importlib import import_module
+from os.path import abspath, join, exists
 
 from seisflows.tools import unix
-from seisflows.tools.code import Struct, loadjson, loadobj, savejson, saveobj
+from seisflows.tools.code import Struct, loadjson, loadobj, savejson, saveobj, loadpy
 from seisflows.tools.msg import WarningOverwrite
 
 
 class SeisflowsObjects(object):
     """ SeisFlows consists of interacting 'system', 'preprocess', 'solver',
       'postprocess', 'optimize', and 'workflow' objects. The role of the
-      SeisflowsObjects utility is to load these objects into memory and make 
-      them accessible via the standard Python import system. Once in memory,
-      these objects can be thought of as comprising the complete 'state' of a
+      SeisflowsObjects utility is to instantiate these objects and make them
+      accessible via the standard Python import system. Once in memory, these
+      objects should be thought of as comprising the complete 'state' of a
       SeisFlows session.
 
-      Each entry in 'objects' below corresponds simultaneously to a parameter in
+      The following list is one of the few hardwired aspects of the whole 
+      SeisFlows package. Any changes may result in circular imports or other
+      problems. Each entry corresponds simultaneously to a parameter in
       SeisflowsParameters; a module in the SeisFlows package; and a class that
       is instantiated and made accessible via the Python import system.
-
-      The list 'objects' is is one of the few hardwired aspects of the whole
-      SeisFlows package. Any changes may result in circular imports or other
-      problems.
     """
 
-    objects = []
-    objects += ['system']
-    objects += ['preprocess']
-    objects += ['solver']
-    objects += ['postprocess']
-    objects += ['optimize']
-    objects += ['workflow']
+    names = []
+    names += ['system']
+    names += ['optimize']
+    names += ['preprocess']
+    names += ['solver']
+    names += ['postprocess']
+    names += ['workflow']
 
 
     def load(self):
-        """ Load objects from the above list into memeory
+        """ Imports and instantiates objects from the above list
         """
         if 'SeisflowsParameters' not in sys.modules.keys():
             raise Exception
@@ -48,16 +47,16 @@ class SeisflowsObjects(object):
             raise Exception
 
         # check if objects from previous run exist on disk
-        if os.path.isdir(self.fullpath()):
+        if exists(full(path())):
             print WarningOverwrite
             sys.exit()
 
-        for obj in self.objects:
-            # instantiate objects
-            key = sys.modules['SeisflowsParameters'][obj.upper()]
+        for name in self.names:
+            # import and instantiate object
+            obj = custom_import(name)()
 
-            # make them accessible via the stanard Python import system
-            sys.modules[obj] = loadclass(obj, key)()
+            # make accessible via standard Python import system
+            sys.modules[name] = obj
 
         self.check()
 
@@ -65,41 +64,40 @@ class SeisflowsObjects(object):
     def save(self, path):
         """ Save objects to disk for later reference
         """
-        fullpath = self.fullpath(path)
-        unix.mkdir(fullpath)
-        for key in self.objects:
-            saveobj(fullpath +'/'+ key+'.p', sys.modules[key])
+        unix.mkdir(full(path))
+        for name in self.names:
+            fullfile = join(full(path), name+'.p')
+            saveobj(fullfile, sys.modules[name])
 
 
     def reload(self, path):
         """ Load saved objects from disk
         """
-        fullpath = self.fullpath(path)
-        for obj in self.objects:
-            fullfile = join(fullpath, obj+'.p')
-            sys.modules[obj] = loadobj(fullfile)
+        for name in self.names:
+            fullfile = join(full(path), name+'.p')
+            sys.modules[name] = loadobj(fullfile)
+
         self.check()
 
 
     def check(self):
-        for obj in ['system', 'optimize', 'workflow', 'solver', 'preprocess', 'postprocess']:
-        #for obj in self.objects:
-            sys.modules[obj].check()
+        for name in self.names:
+            sys.modules[name].check()
 
 
-    def fullpath(self, path=None):
-        if not path:
-            try:
-                path = sys.modules['SeisflowsParameters']['OUTPUT']
-            except:
-                path = './output'
+def path():
+    try:
+        return SeisflowsPaths()['OUTPUT']
+    except:
+        cwd = abspath('.')
+        return join(cwd, 'output')
 
-        try:
-            fullpath = join(abspath(path), 'SeisflowsObjects')
-        except:
-            raise IOError(path)
 
-        return fullpath
+def full(path):
+    try:
+        return join(abspath(path), 'SeisflowsObjects')
+    except:
+        raise IOError
 
 
 class ParameterObj(object):
@@ -140,7 +138,7 @@ class SeisflowsParameters(ParameterObj):
             sys.modules['SeisflowsParameters'] = self
 
     def load(self):
-        mydict = loadvars('parameters', '.')
+        mydict = loadpy(abspath('parameters.py'))
         self.update(mydict)
         return self
 
@@ -166,7 +164,7 @@ class SeisflowsPaths(ParameterObj):
             sys.modules['SeisflowsPaths'] = self
 
     def load(self):
-        mydict = loadvars('paths', '.')
+        mydict = loadpy(abspath('paths.py'))
         super(ParameterObj, self).__setattr__('__dict__', mydict)
         return self
 
@@ -218,111 +216,50 @@ class ParameterError(ValueError):
             super(ParameterError, self).__init__(msg)
 
 
-def loadclass(*args):
-    """ Given name of module relative to package directory, returns
-        corresponding class. (The module should have a class with exactly the
-        same name.)
+def custom_import(*names):
+    """ Imports SeisFlows module and extracts class of same name. For example,
+
+            custom_import('workflow', 'inversion') 
+
+        imports 'seisflows.workflow.inversion' and, from this module, extracts
+        class 'inversion'.
     """
-    if not args:
+    # parse input arguments
+    if len(names) == 0:
+        raise Exception()
+    if names[0] not in SeisflowsObjects.names:
+        raise Exception()
+    if len(names) == 1:
+        names += (_val(names[0]),)
+    if not names[1]:
         return Null
 
-    if not args[-1]:
-        return Null
+    # import module
+    for package in ['seisflows', 'seisflows_research']:
+        try:
+            full_dotted_name = package+'.'+names[0]+'.'+names[1]
+            module = import_module(full_dotted_name)
+            break
+        except:
+            pass
 
-    # first, try importing relative to main package directory
-    list = _parse(args, package='seisflows')
-    string = '.'.join(list)
-    if _exists(list):
-        obj = getattr(_import(string), list[-1])
-        return obj
-
-    # next, try importing relative to extensions directory
-    list = _parse(args, package='seisflows_research')
-    string = '.'.join(list)
-    if _exists(list):
-        obj = getattr(_import(string), list[-1])
-        return obj
-
-    raise ImportError('Not found in SeisFlows path.')
-
-
-def loadvars(*args, **kwargs):
-    return _vars(_import(*args, **kwargs))
-
-
-def findpath(obj):
-    """ Determines absolute path of
-            - a module, from an instance
-            - a file, from its name
-            - a seisflow module, from its full (dotted) name
-    """
-    if isinstance(obj, types.ModuleType):
-        path = obj.__file__
-    elif os.path.isfile(obj):
-        path = os.path.abspath(obj)
+    # extract class
+    if hasattr(module, names[1]):
+        return getattr(module, names[1])
     else:
-        string = '.'.join(_parse([obj], package='seisflows'))
-        moduleobj = _import(string)
-        path = moduleobj.__file__
-    return os.path.dirname(path)
+        raise Exception()
 
 
-### utility functions
-
-def _import(string, path=None):
-    """Imports from string"""
-    if path:
-        # temporarily adjust python path
-        sys.path.append(path)
-
-    moduleobj = __import__(string, fromlist='dummy')
-
-    if path:
-        sys.path.pop()
-
-    return moduleobj
+def _val(key):
+    if key.upper() in SeisflowsParameters():
+        return SeisflowsParameters()[key.upper()]
+    else:
+        return ''
 
 
-def _vars(obj):
-    """Returns an object's __dict__ with private variables removed"""
-    mydict = {}
-    for key, val in vars(obj).items():
-        if key[0] != '_':
-            mydict[key] = val
-    return Struct(mydict)
+# the following code changes how instance methods are handled by pickle.  placing it here, in this module, ensures that pickle changes will be in effect for all SeisFlows workflows
 
-
-def _parse(args, package=None):
-    """Determines path of module relative to package directory"""
-    arglist = []
-    for arg in args:
-        arglist.extend(arg.split('.'))
-    if package:
-        parglist = package.split('.')
-        nn = min(len(arglist), len(parglist))
-        for ii in range(nn + 1):
-            if parglist[ii:nn] == arglist[0:nn - ii]:
-                break
-        arglist = parglist[0:ii] + arglist
-    return arglist
-
-
-def _exists(parts):
-    """Checks if a module exists without importing it
-
-    Takes an array of strings.
-    """
-    try:
-        path = None
-        for part in parts[:-1]:
-            args = imp.find_module(part, path)
-            obj = imp.load_module(part, *args)
-            path = obj.__path__
-        args = imp.find_module(parts[-1], path)
-        return True
-    except ImportError:
-        return False
-
+# for relevant discussion, see stackoverflow thread "Can't pickle <type 'instancemethod'> when using python's multiprocessing Pool.map()"
 
 def _pickle_method(method):
     func_name = method.im_func.__name__
@@ -341,8 +278,6 @@ def _unpickle_method(func_name, obj, cls):
             break
     return func.__get__(obj, cls)
 
-
-# the following changes how instance methods are handled by pickle.  placing it here, in this module, ensures that pickle changes will be in effect for all SeisFlows workflows
 
 copy_reg.pickle(types.MethodType, _pickle_method, _unpickle_method)
 

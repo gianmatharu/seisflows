@@ -1,17 +1,17 @@
 import os
 import subprocess
-from os.path import abspath, join, dirname
+from os.path import abspath, basename, join, dirname
 
 from seisflows.tools import unix
-from seisflows.tools.code import saveobj
-from seisflows.tools.config import ParameterError, findpath, loadclass, \
-    SeisflowsObjects, SeisflowsParameters, SeisflowsPaths
+from seisflows.tools.code import findpath, saveobj
+from seisflows.tools.config import ParameterError, custom_import, \
+    SeisflowsParameters, SeisflowsPaths
 
 PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
 
 
-class pbs_sm(loadclass('system', 'mpi')):
+class pbs_sm(custom_import('system', 'mpi')):
     """ An interface through which to submit workflows, run tasks in serial or
       parallel, and perform other system functions.
 
@@ -35,7 +35,7 @@ class pbs_sm(loadclass('system', 'mpi')):
 
         # check parameters
         if 'TITLE' not in PAR:
-            setattr(PAR, 'TITLE', unix.basename(abspath('.')))
+            setattr(PAR, 'TITLE', basename(abspath('.')))
 
         if 'WALLTIME' not in PAR:
             setattr(PAR, 'WALLTIME', 30.)
@@ -66,7 +66,7 @@ class pbs_sm(loadclass('system', 'mpi')):
             setattr(PATH, 'SYSTEM', join(PATH.SCRATCH, 'system'))
 
         if 'SUBMIT' not in PATH:
-            setattr(PATH, 'SUBMIT', unix.pwd())
+            setattr(PATH, 'SUBMIT', abspath('.'))
 
         if 'OUTPUT' not in PATH:
             setattr(PATH, 'OUTPUT', join(PATH.SUBMIT, 'output'))
@@ -99,6 +99,6 @@ class pbs_sm(loadclass('system', 'mpi')):
                 + '-o %s '%(PATH.SUBMIT +'/'+ 'output.log')
                 + '-l %s '%resources
                 + '-j %s '%'oe'
-                + findpath('system') +'/'+ 'wrappers/submit '
+                + findpath('seisflows.system') +'/'+ 'wrappers/submit '
                 + '-F %s '%PATH.OUTPUT)
 

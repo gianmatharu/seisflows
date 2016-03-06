@@ -4,19 +4,19 @@ import math
 import sys
 import subprocess
 import time
-from os.path import abspath, join
+from os.path import abspath, basename, join
 
 from seisflows.tools import msg
 from seisflows.tools import unix
-from seisflows.tools.code import saveobj
+from seisflows.tools.code import findpath, saveobj
 from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, \
-    ParameterError, findpath, loadclass
+    ParameterError, custom_import
 
 PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
 
 
-class pbs_lg(loadclass('system', 'base')):
+class pbs_lg(custom_import('system', 'base')):
     """ An interface through which to submit workflows, run tasks in serial or
       parallel, and perform other system functions.
 
@@ -40,7 +40,7 @@ class pbs_lg(loadclass('system', 'base')):
 
         # check parameters
         if 'TITLE' not in PAR:
-            setattr(PAR, 'TITLE', unix.basename(abspath('.')))
+            setattr(PAR, 'TITLE', basename(abspath('.')))
 
         if 'WALLTIME' not in PAR:
             setattr(PAR, 'WALLTIME', 30.)
@@ -74,7 +74,7 @@ class pbs_lg(loadclass('system', 'base')):
             setattr(PATH, 'LOCAL', None)
 
         if 'SUBMIT' not in PATH:
-            setattr(PATH, 'SUBMIT', unix.pwd())
+            setattr(PATH, 'SUBMIT', abspath('.'))
 
         if 'OUTPUT' not in PATH:
             setattr(PATH, 'OUTPUT', join(PATH.SUBMIT, 'output'))
@@ -108,7 +108,7 @@ class pbs_lg(loadclass('system', 'base')):
                 + '-j %s '%'oe'
                 + '-o %s ' % (PATH.SUBMIT+'/'+'output.log')
                 + '-V '
-                + ' -- ' + findpath('system') +'/'+ 'wrappers/submit '
+                + ' -- ' + findpath('seisflows.system') +'/'+ 'wrappers/submit '
                 + PATH.OUTPUT)
 
 
@@ -189,12 +189,12 @@ class pbs_lg(loadclass('system', 'base')):
         if hosts == 'all':
           arg = ('-J 0-%s ' % (PAR.NTASK-1)
                 +'-o %s ' % (PATH.SUBMIT+'/'+'output.pbs/' + '$PBS_ARRAYID')
-                + ' -- ' + findpath('system') +'/'+ 'wrappers/run_pbsdsh ')
+                + ' -- ' + findpath('seisflows.system') +'/'+ 'wrappers/run_pbsdsh ')
 
         elif hosts == 'head':
           arg = ('-J 0-0 '
                  +'-o %s ' % (PATH.SUBMIT+'/'+'output.pbs/' + '$PBS_JOBID')
-                 + ' -- ' + findpath('system') +'/'+ 'wrappers/run_pbsdsh_head ')
+                 + ' -- ' + findpath('seisflows.system') +'/'+ 'wrappers/run_pbsdsh_head ')
 
         return arg
 

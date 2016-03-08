@@ -63,8 +63,8 @@ class pbs_lg(custom_import('system', 'base')):
         if 'NODESIZE' not in PAR:
             raise ParameterError(PAR, 'NODESIZE')
 
-        if 'PBS_ARGS' not in PAR:
-            setattr(PAR, 'PBS_ARGS', '')
+        if 'PBSARGS' not in PAR:
+            setattr(PAR, 'PBSARGS', '')
 
         # check paths
         if 'SCRATCH' not in PATH:
@@ -101,7 +101,7 @@ class pbs_lg(custom_import('system', 'base')):
 
         # prepare qsub arguments
         unix.run( 'qsub '
-                + PAR.PBS_ARGS + ' '
+                + '%s ' % PAR.PBSARGS
                 + '-l select=1:ncpus=%d:mpiprocs=%d ' % (ncpus, mpiprocs)
                 + '-l %s ' % walltime
                 + '-N %s ' % PAR.TITLE
@@ -127,8 +127,10 @@ class pbs_lg(custom_import('system', 'base')):
                 return
 
 
-    def mpiargs(self):
-        return 'mpirun '
+    def mpiexec(self):
+        """ Specifies MPI exectuable; used to invoke solver
+        """
+        return 'mpiexec '
 
 
     def getnode(self):
@@ -156,7 +158,7 @@ class pbs_lg(custom_import('system', 'base')):
         # submit job
         with open(PATH.SYSTEM+'/'+'job_id', 'w') as f:
             subprocess.call('qsub '
-                + PAR.PBS_ARGS + ' '
+                + '%s ' % PAR.PBSARGS
                 + '-l select=%d:ncpus=%d:mpiprocs=%d ' (nodes, ncpus, mpiprocs)
                 + '-l %s ' % walltime
                 + '-J 0-%s ' % (PAR.NTASK-1)

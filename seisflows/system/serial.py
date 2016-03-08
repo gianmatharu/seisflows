@@ -90,16 +90,19 @@ class serial(custom_import('system', 'base')):
             raise(KeyError('Hosts parameter not set/recognized'))
 
     def getnode(self):
-        """Gets number of running task"""
+        """ Gets number of running task
+        """
         return int(os.environ['SEISFLOWS_TASKID'])
 
     def setnode(self, itask):
-        """Sets number of running task"""
+        """ Sets number of running task
+        """
         os.environ['SEISFLOWS_TASKID'] = str(itask)
 
     def mpiexec(self):
-        """Wrapper for mpiexec"""
-        return 'mpiexec -np %d '%PAR.NPROC
+        """ Specifies MPI exectuable; used to invoke solver
+        """
+        return 'mpiexec -np %d ' % PAR.NPROC
 
     def mpiargs(self):
         """ Wrapper for mpiexec
@@ -107,6 +110,7 @@ class serial(custom_import('system', 'base')):
         return 'mpiexec -np {0} '.format(PAR.NPROC)
 
     def progress(self, itask=None):
-        """Prints status updates"""
+        """ Provides status updates
+        """
         if PAR.VERBOSE and PAR.NTASK > 1:
             print ' task ' + '%02d'%(itask + 1) + ' of ' + '%02d'%PAR.NTASK

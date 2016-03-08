@@ -6,11 +6,12 @@ import sys
 import types
 
 from importlib import import_module
+from pkgutil import find_loader
 from os.path import abspath, join, exists
 
 from seisflows.tools import unix
 from seisflows.tools.code import Struct, loadjson, loadobj, savejson, saveobj, loadpy
-from seisflows.tools.msg import WarningOverwrite
+from seisflows.tools.msg import WarningOverwrite, ImportError1, ImportError2, ImportError3, ImportError4
 
 
 class SeisflowsObjects(object):
@@ -27,7 +28,6 @@ class SeisflowsObjects(object):
       SeisflowsParameters; a module in the SeisFlows package; and a class that
       is instantiated and made accessible via the Python import system.
     """
-
     names = []
     names += ['system']
     names += ['optimize']
@@ -47,7 +47,7 @@ class SeisflowsObjects(object):
             raise Exception
 
         # check if objects from previous run exist on disk
-        if exists(full(path())):
+        if exists(_full(_path())):
             print WarningOverwrite
             sys.exit()
 
@@ -64,9 +64,9 @@ class SeisflowsObjects(object):
     def save(self, path):
         """ Save objects to disk for later reference
         """
-        unix.mkdir(full(path))
+        unix.mkdir(_full(path))
         for name in self.names:
-            fullfile = join(full(path), name+'.p')
+            fullfile = join(_full(path), name+'.p')
             saveobj(fullfile, sys.modules[name])
 
 
@@ -74,7 +74,7 @@ class SeisflowsObjects(object):
         """ Load saved objects from disk
         """
         for name in self.names:
-            fullfile = join(full(path), name+'.p')
+            fullfile = join(_full(path), name+'.p')
             sys.modules[name] = loadobj(fullfile)
 
         self.check()
@@ -83,21 +83,6 @@ class SeisflowsObjects(object):
     def check(self):
         for name in self.names:
             sys.modules[name].check()
-
-
-def path():
-    try:
-        return SeisflowsPaths()['OUTPUT']
-    except:
-        cwd = abspath('.')
-        return join(cwd, 'output')
-
-
-def full(path):
-    try:
-        return join(abspath(path), 'SeisflowsObjects')
-    except:
-        raise IOError
 
 
 class ParameterObj(object):
@@ -226,28 +211,51 @@ def custom_import(*names):
     """
     # parse input arguments
     if len(names) == 0:
-        raise Exception()
+        raise Exception(ImportError1)
     if names[0] not in SeisflowsObjects.names:
-        raise Exception()
+        raise Exception(ImportError2)
     if len(names) == 1:
         names += (_val(names[0]),)
     if not names[1]:
         return Null
 
-    # import module
+    # does module exist?
+    status = False
     for package in ['seisflows', 'seisflows_research']:
-        try:
-            full_dotted_name = package+'.'+names[0]+'.'+names[1]
-            module = import_module(full_dotted_name)
+        full_dotted_name = package+'.'+names[0]+'.'+names[1]
+        if find_loader(full_dotted_name):
+            status = True
             break
-        except:
-            pass
+    if not status:
+        raise Exception(ImportError3 % 
+            (names[0], names[1], names[0].upper()))
+
+    # import module
+    module = import_module(full_dotted_name)
 
     # extract class
     if hasattr(module, names[1]):
         return getattr(module, names[1])
     else:
-        raise Exception()
+        raise Exception(ImportError4 % 
+            (names[0], names[1], names[1]))
+
+
+# utility functions
+
+def _path():
+    try:
+        return SeisflowsPaths()['OUTPUT']
+    except:
+        cwd = abspath('.')
+        return join(cwd, 'output')
+
+
+def _full(path):
+    try:
+        return join(abspath(path), 'SeisflowsObjects')
+    except:
+        raise IOError
 
 
 def _val(key):

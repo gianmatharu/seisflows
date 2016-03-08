@@ -173,6 +173,21 @@ SYSTEM CONFIGURATION ERROR
 
 """
 
+mpiError3 = """
+
+SYSTEM CONFIGURATION ERROR
+
+    The following system configuration insists that NTASK % NPROCMAX = 0:
+
+        system.%s
+
+    All processes must be assigned to ensure none are idling when running task
+    parallelism.
+
+    Consider implementing alternate system configurations to address this issue.
+
+"""
+
 
 ###
 

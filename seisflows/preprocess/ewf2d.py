@@ -5,13 +5,13 @@ import obspy
 
 from seisflows.seistools.ewf2d import Par
 from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, \
-    ParameterError, loadclass
+    ParameterError, custom_import
 
 PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
 
 
-class ewf2d(loadclass('preprocess', 'base')):
+class ewf2d(custom_import('preprocess', 'base')):
     """ Data preprocessing class
     """
 

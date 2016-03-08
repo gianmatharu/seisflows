@@ -7,7 +7,7 @@ from seisflows.tools import unix
 from seisflows.tools.array import savenpy
 from seisflows.tools.code import exists
 from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, \
-    ParameterError, loadclass
+    ParameterError, custom_import
 
 PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
@@ -16,7 +16,7 @@ import system
 import solver
 
 
-class ewf2d(loadclass('postprocess', 'base')):
+class ewf2d(custom_import('postprocess', 'base')):
     """ Gradient postprocessing class
     """
 

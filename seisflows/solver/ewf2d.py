@@ -94,9 +94,6 @@ class ewf2d(loadclass('solver', 'base')):
         unix.cp(src, dst)
 
     ### higher level interface
-    def test(self):
-        ID = os.getenv('OMPI_COMM_WORLD_RANK')
-        print('Hello from rank {}'.format(ID))
 
     def setup(self):
         """ Perform setup. Generates synthetic observed data.

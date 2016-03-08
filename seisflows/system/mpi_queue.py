@@ -58,8 +58,8 @@ class mpi_queue(custom_import('system', 'mpi')):
             queue = range(PAR.NTASK)
 
             while True:
-                unix.cd(join(findpath('seisflows.system'), 'wrappers'))
                 os.environ['SEISFLOWS_TASKID'] = str(iter)
+                unix.cd(join(findpath('seisflows.system'), 'wrappers'))
                 unix.run('mpiexec -n {} '.format(PAR.NPROCMAX)
                         + PAR.MPIARGS + ' '
                         + 'run_mpi' + ' '
@@ -74,6 +74,7 @@ class mpi_queue(custom_import('system', 'mpi')):
                     break
 
         elif hosts == 'head':
+            os.environ['SEISFLOWS_TASKID'] = str(0)
             unix.cd(join(findpath('seisflows.system'), 'wrappers'))
             unix.run('mpiexec -n 1 '
                     + PAR.MPIARGS + ' '

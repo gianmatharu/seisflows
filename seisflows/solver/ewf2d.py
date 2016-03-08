@@ -11,7 +11,7 @@ from seisflows.seistools.ewf2d import Par, read_cfg_file, write_cfg_file, event_
 from seisflows.tools import unix
 from seisflows.tools.code import exists
 from seisflows.tools.array import gridsmooth, loadnpy, savenpy
-from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, ParameterError, loadclass
+from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, ParameterError, custom_import
 
 PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
@@ -24,7 +24,7 @@ p = Par()
 p.read_par_file(join(PATH.SOLVER_INPUT, 'par_template.cfg'))
 
 
-class ewf2d(loadclass('solver', 'base')):
+class ewf2d(custom_import('solver', 'base')):
 
     def check(self):
         super(ewf2d, self).check()

@@ -45,6 +45,9 @@ class ewf2d(custom_import('solver', 'base')):
         if 'USE_SRC_FILE' not in PAR:
             setattr(PAR, 'USE_SRC_FILE', False)
 
+        if 'LS_NODE' not in PAR:
+            setattr(PAR, 'LS_NODE', 'getnode')
+
         self.set_source_array()
 
     ### low level interface
@@ -132,7 +135,7 @@ class ewf2d(custom_import('solver', 'base')):
         """ Evaluate test function
         """
         # generate synthetic data
-        itask = system.getnode()
+        itask = getattr(system, PAR.LS_NODE)()
 
         output_dir = join(path, event_dirname(itask + 1))
         model_dir = join(path, 'model')

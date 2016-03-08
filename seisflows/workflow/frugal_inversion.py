@@ -25,16 +25,17 @@ class frugal_inversion(custom_import('workflow', 'alt_inversion')):
       Compute iterative non-linear inversion. Designed to fit EWF2D solver.
       Follows a more generic design to base class.
 
-      To allow customization, the inversion workflow is divided into generic 
-      methods such as 'initialize', 'finalize', 'evaluate_function', 
-      'evaluate_gradient', which can be easily overloaded.
+      Specialized class that reduces the number of events used to evaluate
+      trial misfit functions. Ideally used with mpi_queue.
 
-      Calls to forward and adjoint solvers are abstracted through the 'solver'
-      interface so that various forward modeling packages can be used
-      interchangeably.
+      Class requires that 3 extra routines be defined in the system class
+      - system.getsubnode - must set PAR.LS_NODE = 'getsubnode'
+      - system.run_subset
+      - system.queue_subset
 
-      Commands for running in serial or parallel on a workstation or cluster
-      are abstracted through the 'system' interface.
+      Will perform trial misfit calculations for NPROCMAX events (assumed to
+      be in a line). This reduces the number of forward calculations required
+      to evaluate a line search.
     """
 
     def check(self):
@@ -47,9 +48,22 @@ class frugal_inversion(custom_import('workflow', 'alt_inversion')):
         if 'NPROCMAX' not in PAR:
             raise ParameterError(PAR, 'NPROCMAX')
 
-        if 'SAVERESIDUALS' not in PAR:
-            setattr(PAR, 'SAVERESIDUALS', 1)
+        # check for getsubnode
+        if PAR.LS_NODE != 'getsubnode':
+            raise ValueError('LS_NODE must be set to getsubnode in PAR')
+        else:
+            try:
+                getattr(system, 'getsubnode')
+            except:
+                raise AttributeError('No method getsubnode found in system class')
 
+        # check for run_subset
+        if not getattr(system, 'run_subset', False):
+            raise AttributeError('No run_subset method defined in system class')
+
+        #check for queue_subset
+        if not getattr(system, 'queue_subset', False):
+            raise AttributeError('No queue_subset method defined in system class')
 
     def compute_gradient(self):
         """ Compute gradients. Designed to avoid excessive storage
@@ -74,8 +88,7 @@ class frugal_inversion(custom_import('workflow', 'alt_inversion')):
         """
         self.write_model(path=PATH.FUNC, suffix='try')
 
-        system.run('solver', 'evaluate_function',
-                   hosts='subset',
+        system.run_subset('solver', 'evaluate_function',
                    path=PATH.FUNC)
 
         self.sum_residuals(path=PATH.FUNC, suffix='try', set='subset')
@@ -90,7 +103,7 @@ class frugal_inversion(custom_import('workflow', 'alt_inversion')):
         if set == 'all':
             queue = range(PAR.NTASK)
         elif set == 'subset':
-            queue = np.linspace(0, PAR.NTASK, PAR.NPROCMAX, dtype='int')
+            queue = system.queue_subset()
         else:
             raise KeyError('Accepted set values are all or subset')
 

@@ -63,14 +63,11 @@ class ewf2d(custom_import('preprocess', 'base')):
 
         for ir in range(n):
 
-            # detrend
-            stream[ir].detrend()
-
             # filter data
             if PAR.FREQLO and PAR.FREQHI:
-                stream[ir].filter('bandpass', freqmin=PAR.FREQLO, freqmax=PAR.FREQHI, zerophase=True)
+                stream[ir].filter('bandpass', freqmin=PAR.FREQLO, freqmax=PAR.FREQHI)
             elif PAR.FREQHI:
-                stream[ir].filter('lowpass', freq=PAR.FREQHI, zerophase=True)
+                stream[ir].filter('lowpass', freq=PAR.FREQHI)
             else:
                 raise ParameterError(PAR, 'BANDPASS')
 

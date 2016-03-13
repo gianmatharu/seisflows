@@ -46,7 +46,7 @@ class ewf2d(custom_import('preprocess', 'base')):
         """
         for channel in self.channels:
             obs = self.reader(path+'/'+'traces/obs', channel)
-            syn = self.reader(path_try, channel)
+            syn = self.reader(path_try+'/'+'traces/syn', channel)
 
             obs = self.process_traces(obs)
             syn = self.process_traces(syn)
@@ -62,7 +62,6 @@ class ewf2d(custom_import('preprocess', 'base')):
         df = dt**-1
 
         for ir in range(n):
-
             # filter data
             if PAR.FREQLO and PAR.FREQHI:
                 stream[ir].filter('bandpass', freqmin=PAR.FREQLO, freqmax=PAR.FREQHI)
@@ -81,6 +80,23 @@ class ewf2d(custom_import('preprocess', 'base')):
 
         return stream
 
+    def process_adjoint_trace(self, trace):
+        """ Implements adjoint of process_traces method
+        """
+
+        trace.data = trace.data[::-1]
+
+        if PAR.FREQLO and PAR.FREQHI:
+            trace.filter('bandpass', freqmin=PAR.FREQLO, freqmax=PAR.FREQHI)
+        elif PAR.FREQHI:
+            trace.filter('lowpass', freq=PAR.FREQHI)
+        else:
+            raise ParameterError(PAR, 'BANDPASS')
+
+        # workaround obspy dtype conversion
+        trace.data = trace.data[::-1].astype(np.float32)
+
+        return trace
 
     def write_residuals(self, path, s, d):
         """ Computes residuals from observations and synthetics
@@ -96,7 +112,6 @@ class ewf2d(custom_import('preprocess', 'base')):
 
         np.savetxt(filename, r)
 
-
     def write_adjoint_traces(self, path, s, d, channel):
         """ Generates adjoint traces from observed and synthetic traces
         """
@@ -105,6 +120,7 @@ class ewf2d(custom_import('preprocess', 'base')):
 
         for i in range(n):
             s[i].data = self.adjoint(s[i].data, d[i].data, nt, dt)
+            s[i] = self.process_adjoint_trace(s[i])
 
         # normalize traces
         if PAR.NORMALIZE:

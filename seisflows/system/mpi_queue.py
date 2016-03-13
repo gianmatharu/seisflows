@@ -85,38 +85,12 @@ class mpi_queue(custom_import('system', 'mpi')):
         else:
             raise(KeyError('Hosts parameter not set/recognized.'))
 
-    def run_subset(self, classname, funcname, **kwargs):
-        """ Run tasks on all hosts once.
-        """
-        self.checkpoint()
-        self.save_kwargs(classname, funcname, kwargs)
-
-        os.environ['SEISFLOWS_TASKID'] = str(0)
-        unix.cd(join(findpath('seisflows.system'), 'wrappers'))
-        unix.run('mpiexec -n {} '.format(PAR.NPROCMAX)
-                + PAR.MPIARGS + ' '
-                + 'run_mpi' + ' '
-                + PATH.OUTPUT + ' '
-                + classname + ' '
-                + funcname)
-
     def getnode(self):
         """Gets number of running task"""
         from mpi4py import MPI
         rank = MPI.COMM_WORLD.Get_rank()
         iter = int(os.environ['SEISFLOWS_TASKID'])
         return int(iter * PAR.NPROCMAX + rank)
-
-    def getsubnode(self):
-        """To run on a subset of nodes """
-        from mpi4py import MPI
-        rank = MPI.COMM_WORLD.Get_rank()
-        queue = self.queue_subset()
-        return queue[rank]
-
-    def queue_subset(self):
-        """To run on a subset of nodes """
-        return np.linspace(0, PAR.NTASK - 1, PAR.NPROCMAX, dtype='int')
 
     def check_mpi(self):
         """ Checks MPI dependencies

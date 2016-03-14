@@ -45,9 +45,6 @@ class ewf2d(custom_import('solver', 'base')):
         if 'USE_SRC_FILE' not in PAR:
             setattr(PAR, 'USE_SRC_FILE', False)
 
-        if 'LS_NODE' not in PAR:
-            setattr(PAR, 'LS_NODE', 'getnode')
-
         self.set_source_array()
 
     ### low level interface
@@ -135,15 +132,35 @@ class ewf2d(custom_import('solver', 'base')):
         """ Evaluate test function
         """
         # generate synthetic data
-        itask = getattr(system, PAR.LS_NODE)()
+        itask = system.getnode()
 
-        output_dir = join(path, event_dirname(itask + 1))
+        basedir = join(path, event_dirname(itask + 1))
+        output_dir = join(basedir, 'traces', 'syn')
         model_dir = join(path, 'model')
         unix.mkdir(output_dir)
 
         self.generate_data(model_dir=model_dir, output_dir=output_dir)
 
-        preprocess.evaluate_trial_step(self.getpath, output_dir)
+        preprocess.evaluate_trial_step(self.getpath, basedir)
+
+    # frugal inversion functions
+
+    def fg_compute_gradient(self):
+        """ Sequential event gradient computation, reduces storage requirement.
+        """
+        # prepare adjoint sources
+        preprocess.prepare_eval_grad(self.getpath)
+
+        # compute event gradient
+        self.evaluate_gradient(model_dir=PATH.MODEL_EST)
+
+    def export_trial_solution(self, path=''):
+        """ Evaluate test function
+        """
+        # transfer synthetic data
+        src = join(path, basename(self.getpath), 'traces', 'syn')
+        dst = join(self.getpath, 'traces', 'syn')
+        unix.mv(src, dst)
 
     # per event functions
 
@@ -231,7 +248,6 @@ class ewf2d(custom_import('solver', 'base')):
                 else:
                     gradient += ev_grad
                     self.save(join(PATH.GRAD, filename), gradient)
-
 
     def smooth(self, precond=False, span=0.):
         """ Process gradient

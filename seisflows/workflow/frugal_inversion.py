@@ -22,99 +22,94 @@ import postprocess
 class frugal_inversion(custom_import('workflow', 'alt_inversion')):
     """ Seismic inversion base class.
 
-      Compute iterative non-linear inversion. Designed to fit EWF2D solver.
-      Follows a more generic design to base class.
-
-      Specialized class that reduces the number of events used to evaluate
-      trial misfit functions. Ideally used with mpi_queue.
-
-      Class requires that 3 extra routines be defined in the system class
-      - system.getsubnode - must set PAR.LS_NODE = 'getsubnode'
-      - system.run_subset
-      - system.queue_subset
-
-      Will perform trial misfit calculations for NPROCMAX events (assumed to
-      be in a line). This reduces the number of forward calculations required
-      to evaluate a line search.
+        Frugal inversion saves wavefield and data during line search
+        function evaluations to prevent re-computation during gradient
+        computation. Only useable with a backtracking linesearch. If
+        conditions are not met, the class launches a standard inversion.
     """
 
-    def check(self):
-        """ Check parameters and paths
+    def solver_status(self, maxiter=1):
+        """ Keeps track of whether a forward simulation would be redundant
         """
+        if optimize.iter <= maxiter:
+            # forward simulation not redundant because solver files do not exist
+            # prior to first iteration
+            return False
 
-        super(frugal_inversion, self).check()
+        elif optimize.iter == PAR.BEGIN:
+            # forward simulation not redundant because solver files need to be
+            # reinstated after possible multiscale transition
+            return False
 
-        # check PAR
-        if 'NPROCMAX' not in PAR:
-            raise ParameterError(PAR, 'NPROCMAX')
+        elif PAR.LINESEARCH != 'Backtrack':
+            # thrifty inversion only implemented for backtracking line search,
+            # not bracketing line search
+            return False
 
-        # check for getsubnode
-        if PAR.LS_NODE != 'getsubnode':
-            raise ValueError('LS_NODE must be set to getsubnode in PAR')
+        elif optimize.restarted:
+            # forward simulation not redundant following optimization algorithm
+            # restart
+            return False
+
         else:
-            try:
-                getattr(system, 'getsubnode')
-            except:
-                raise AttributeError('No method getsubnode found in system class')
+            # if none of the above conditions are triggered, then forward
+            # simulation is redundant, can be skipped
+            return True
 
-        # check for run_subset
-        if not getattr(system, 'run_subset', False):
-            raise AttributeError('No run_subset method defined in system class')
+    def setup(self):
+        """ Lays groundwork for inversion
+        """
+        # clean scratch directories
+        if PAR.BEGIN == 1:
+            unix.rm(PATH.SCRATCH)
+            unix.mkdir(PATH.SCRATCH)
 
-        #check for queue_subset
-        if not getattr(system, 'queue_subset', False):
-            raise AttributeError('No queue_subset method defined in system class')
+            preprocess.setup()
+            postprocess.setup()
+            optimize.setup()
+
+        isready = self.solver_status()
+        if not isready:
+            if PATH.DATA:
+                print 'Copying data...'
+            else:
+                print 'Generating data...'
+
+            system.run('solver', 'setup',
+                       hosts='all')
 
     def compute_gradient(self):
         """ Compute gradients. Designed to avoid excessive storage
             of boundary files.
         """
+        # are prerequisites for gradient evaluation in place?
+        isready = self.solver_status(maxiter=2)
 
-        # output for inversion history
-        unix.mkdir(join(PATH.OUTPUT, iter_dirname(optimize.iter)))
-
-        # compute gradients
-        system.run('solver', 'compute_gradient',
-                   hosts='all')
-        postprocess.write_gradient(PATH.GRAD)
-
-        # evaluate misfit function
-        self.sum_residuals(path=PATH.SOLVER, suffix='main', set='all')
-        self.sum_residuals(path=PATH.SOLVER, suffix='new', set='subset')
-
-
-    def evaluate_function(self):
-        """ Performs forward simulation to evaluate objective function
-        """
-        self.write_model(path=PATH.FUNC, suffix='try')
-
-        system.run_subset('solver', 'evaluate_function',
-                   path=PATH.FUNC)
-
-        self.sum_residuals(path=PATH.FUNC, suffix='try', set='subset')
-
-
-    def sum_residuals(self, path='', suffix='', set='all'):
-        """ Returns sum of squares of residuals for a subset of the data.
-        """
-        dst = PATH.OPTIMIZE +'/'+ 'f_' + suffix
-        residuals = []
-
-        if set == 'all':
-            queue = range(PAR.NTASK)
-        elif set == 'subset':
-            queue = system.queue_subset()
+        # if not, then prepare for gradient evaluation
+        if not isready:
+            super(frugal_inversion, self).compute_gradient()
         else:
-            raise KeyError('Accepted set values are all or subset')
+            # output for inversion history
+            unix.mkdir(join(PATH.OUTPUT, iter_dirname(optimize.iter)))
 
-        for itask in queue:
-            src = path +'/'+ event_dirname(itask + 1) +'/'+ 'residuals'
-            fromfile = np.loadtxt(src)
-            residuals.append(fromfile**2.)
-        np.savetxt(dst, [np.sum(residuals)])
+            # compute gradients
+            system.run('solver', 'fg_compute_gradient',
+                       hosts='all')
+            postprocess.write_gradient(PATH.GRAD)
+
+            # evaluate misfit function
+            self.sum_residuals(path=PATH.SOLVER, suffix='new')
 
 
-    def save_residuals(self):
-        src = join(PATH.OPTIMIZE, 'f_main')
-        dst = join(PATH.OUTPUT, iter_dirname(optimize.iter), 'misfit')
-        unix.mv(src, dst)
+    def iterate_search(self):
+        super(frugal_inversion, self).iterate_search()
+
+        isdone = optimize.isdone
+        isready = self.solver_status()
+
+        # to avoid redundant forward simulation, save solver files associated
+        # with 'best' trial model
+        if isready and isdone:
+            system.run('solver', 'export_trial_solution',
+                       hosts='all',
+                       path=PATH.FUNC)

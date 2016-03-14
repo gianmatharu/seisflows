@@ -139,14 +139,14 @@ class ewf2d(custom_import('solver', 'base')):
         model_dir = join(path, 'model')
         unix.mkdir(output_dir)
 
-        self.generate_data(model_dir=model_dir, output_dir=output_dir)
+        self.generate_data(model_dir=model_dir, output_dir=output_dir, save_wavefield=True)
 
         preprocess.evaluate_trial_step(self.getpath, basedir)
 
     # frugal inversion functions
 
     def fg_compute_gradient(self):
-        """ Sequential event gradient computation, reduces storage requirement.
+        """ Evaluate gradient in frugal inversion.
         """
         # prepare adjoint sources
         preprocess.prepare_eval_grad(self.getpath)
@@ -155,10 +155,10 @@ class ewf2d(custom_import('solver', 'base')):
         self.evaluate_gradient(model_dir=PATH.MODEL_EST)
 
     def export_trial_solution(self, path=''):
-        """ Evaluate test function
+        """ Save trial solution for frugal inversion.
         """
         # transfer synthetic data
-        src = join(path, basename(self.getpath), 'traces', 'syn')
+        src = glob(join(path, basename(self.getpath), 'traces', 'syn', '*'))
         dst = join(self.getpath, 'traces', 'syn')
         unix.mv(src, dst)
 

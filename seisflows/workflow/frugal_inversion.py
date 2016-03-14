@@ -87,8 +87,10 @@ class frugal_inversion(custom_import('workflow', 'alt_inversion')):
 
         # if not, then prepare for gradient evaluation
         if not isready:
+            print('Computing gradient...')
             super(frugal_inversion, self).compute_gradient()
         else:
+            print('Computing gradient (frugal)...')
             # output for inversion history
             unix.mkdir(join(PATH.OUTPUT, iter_dirname(optimize.iter)))
 

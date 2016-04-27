@@ -7,6 +7,39 @@ import scipy.interpolate as _interp
 from seisflows.tools.math import gauss2
 
 
+def normalize(a):
+    """ Normalize an array by its maximum value
+    a: array_like
+    """
+    a = np.asarray(a)
+    return a / abs(a.max())
+
+
+def as_ndarrays(*args):
+    """ Convert a list of array_like objects to numpy arrays.
+
+    Parameters
+    ----------
+    args: list of array_like objects
+
+    Returns
+    -------
+    list of ndarrays
+    """
+    if len(args) == 1:
+        return list(map(np.asarray, args))[0]
+    else:
+        return list(map(np.asarray, args))
+
+
+def check_2d(*args):
+    """ Check that ndarrays are 2-dimensional.
+    args: list of ndarrays.
+    """
+    for item in args:
+        if item.ndim != 2:
+            raise ValueError('Array must be 2-dimensional.')
+
 def sortrows(a, return_index=False, return_inverse=False):
     """ Sorts rows of numpy array
     """
@@ -67,8 +100,6 @@ def savenpy(filename, v):
     """Saves numpy binary file."""
     np.save(filename, v)
     os.rename(filename + '.npy', filename)
-
-
 
 
 # in the function and variable names, we use 'grid' to describe a set of
@@ -183,3 +214,19 @@ def grid2mesh(V, grid, mesh):
     """
     return _interp.griddata(grid, V.flatten(), mesh, 'linear')
 
+def readgrid(file, nx, ny, **kwargs):
+    """ Read a binary file and return as ndarray.
+    """
+
+    # read binary file
+    x = np.fromfile(file, **kwargs)
+
+    # check dimensions
+    try:
+        len(x) == nx * ny
+    except:
+        raise ValueError('Dimension mismatch; Supplied nx * ny =/= file length')
+
+    # reshape and return ndarray
+    x = x.reshape((ny, nx))
+    return x

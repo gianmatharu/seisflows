@@ -38,7 +38,6 @@ class ewf2d(custom_import('postprocess', 'base')):
         dst = join(PATH.MODELS, 'model_est')
         unix.cp(src, dst)
 
-
     def write_gradient(self, path):
         """ Reads kernels and writes gradient of objective function
         """
@@ -50,14 +49,13 @@ class ewf2d(custom_import('postprocess', 'base')):
 
     def combine_kernels(self, path, parameters):
         system.run('solver', 'combine',
-                   hosts='head')
-
+                   hosts='head',
+                   precond=PAR.MASK)
 
     def process_kernels(self, path, parameters):
         if PAR.SMOOTH > 0.:
             system.run('solver', 'smooth',
                        hosts='head',
-                       precond=PAR.MASK,
                        span=PAR.SMOOTH)
 
 

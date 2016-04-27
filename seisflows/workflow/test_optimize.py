@@ -122,7 +122,7 @@ class test_optimize(object):
                 continue
 
             else:
-                retry = optimize.retry_status
+                retry = optimize.retry_status()
                 if retry:
                     print ' Line search failed... retry'
                     optimize.restart()
@@ -138,7 +138,6 @@ class test_optimize(object):
         m = loadnpy('m_try')
         f = problem.func(m)
         savetxt('f_try',f)
-        print f
 
 
     def evaluate_gradient(cls):

@@ -21,11 +21,10 @@ import postprocess
 
 
 class inversion(object):
-    """ Seismic inversion base class.
+    """ Waveform inversion base class.
 
-      Computes iterative model updates in accordance with parameter file 
-      settings and provides a base class on top of which custom inversion 
-      strategies can be implemented.
+      Peforms iterative nonlinear inversion and provides a base class on top
+      of which specialized strategies can be implemented.
 
       To allow customization, the inversion workflow is divided into generic 
       methods such as 'initialize', 'finalize', 'evaluate_function', 
@@ -37,9 +36,6 @@ class inversion(object):
 
       Commands for running in serial or parallel on a workstation or cluster
       are abstracted through the 'system' interface.
-
-      For assistance using this package, please view online documentation, 
-      browse comments, or email rmodrak -at- princeton -dot- edu
     """
 
     def check(self):
@@ -56,7 +52,7 @@ class inversion(object):
         if 'VERBOSE' not in PAR:
             setattr(PAR, 'VERBOSE', 1)
 
-        # check paths
+        # scratch paths
         if 'SCRATCH' not in PATH:
             raise ParameterError(PATH, 'SCRATCH')
 
@@ -75,17 +71,14 @@ class inversion(object):
         if 'OPTIMIZE' not in PATH:
             setattr(PATH, 'OPTIMIZE', join(PATH.SCRATCH, 'optimize'))
 
-        # input settings
+        # input paths
         if 'DATA' not in PATH:
             setattr(PATH, 'DATA', None)
-
-        if not exists(PATH.DATA):
-            assert 'MODEL_TRUE' in PATH
 
         if 'MODEL_INIT' not in PATH:
             raise ParameterError(PATH, 'MODEL_INIT')
 
-        # output settings
+        # output paths
         if 'OUTPUT' not in PATH:
             raise ParameterError(PATH, 'OUTPUT')
 
@@ -104,8 +97,16 @@ class inversion(object):
         if 'SAVERESIDUALS' not in PAR:
             setattr(PAR, 'SAVERESIDUALS', 0)
 
-        # assertions
+        # parameter assertions
         assert 1 <= PAR.BEGIN <= PAR.END
+
+        # path assertions
+        if not exists(PATH.DATA):
+            assert 'MODEL_TRUE' in PATH
+            assert exists(PATH.MODEL_TRUE)
+
+        if not exists(PATH.MODEL_INIT):
+            raise Exception()
 
 
     def main(self):
@@ -113,6 +114,7 @@ class inversion(object):
         """
         optimize.iter = PAR.BEGIN
         self.setup()
+        print ''
 
         while optimize.iter <= PAR.END:
             print "Starting iteration", optimize.iter
@@ -147,9 +149,9 @@ class inversion(object):
             optimize.setup()
 
         if PATH.DATA:
-            print 'Copying data...' 
+            print 'Copying data' 
         else:
-            print 'Generating data...' 
+            print 'Generating data' 
 
         system.run('solver', 'setup', 
                    hosts='all')
@@ -191,12 +193,12 @@ class inversion(object):
             else:
                 retry = optimize.retry_status()
                 if retry:
-                    print ' Line search failed...\n\n Retrying...'
+                    print ' Line search failed\n\n Retrying...'
                     optimize.restart()
                     self.line_search()
                     break
                 else:
-                    print ' Line search failed...\n\n Aborting...'
+                    print ' Line search failed\n\n Aborting...'
                     sys.exit(-1)
 
 

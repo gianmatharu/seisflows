@@ -326,7 +326,7 @@ class base(object):
 
         unix.mkdir(path +'/'+ 'sum')
         for name in parameters:
-            self.mpirun(
+            self.call(
                 PATH.SPECFEM_BIN +'/'+ 'xcombine_sem '
                 + name + '_kernel' + ' '
                 + 'kernel_paths' + ' '
@@ -344,7 +344,7 @@ class base(object):
         unix.cd(self.getpath)
         for name in parameters:
             print ' smoothing', name
-            self.mpirun(
+            self.call(
                 PATH.SPECFEM_BIN +'/'+ 'xsmooth_sem '
                 + str(span) + ' '
                 + str(span) + ' '
@@ -375,7 +375,7 @@ class base(object):
 
         unix.cd(self.getpath)
         for name in self.parameters:
-            self.mpirun(
+            self.call(
                 PATH.SPECFEM_BIN +'/'+ 'xclip_sem '
                 + str(minval) + ' '
                 + str(maxval) + ' '
@@ -559,14 +559,25 @@ class base(object):
 
     ### miscellaneous
 
-    def mpirun(self, script, output='/dev/null'):
-        """ Wrapper for mpirun
+    def call(self, executable, output='/dev/null'):
+        """ Calls solver through subprocess
         """
-        with open(output,'w') as f:
-            subprocess.call(
-                system.mpiexec() + script,
+        # a less complicated version, without error catching, would simply be
+        # subprocess.call(system.mpiexec() + executable, shell=True)
+        try:
+            f = open(output,'w')
+            subprocess.check_call(
+                system.mpiexec() + executable,
                 shell=True,
                 stdout=f)
+        except subprocess.CalledProcessError, err:
+            print msg.SolverError % (system.mpiexec() + executable)
+            sys.exit(-1)
+        except OSError:
+            print msg.SolverError % (system.mpiexec() + executable)
+            sys.exit(-1)
+        finally:
+            f.close()
 
     @property
     def getnode(self):

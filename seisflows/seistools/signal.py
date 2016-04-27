@@ -8,9 +8,9 @@ def sbandpass(s, h, freqlo, freqhi):
     nr = h.nr
     dt = h.dt
     fs = 1/dt
-
     for ir in range(0, nr):
-        s[:,ir] = bandpass(s[:,ir],freqlo,freqhi,fs)
+        s[:,ir] = bandpass2(s[:,ir],freqlo,freqhi,fs) 
+
     return s
 
 
@@ -37,14 +37,15 @@ def shighpass(s, h, freq):
     raise NotImplementedError
 
 
-def smute(s, h, vel, toff, xoff=0, constant_spacing=False):
+# mute early arrivals
+def smute(s, h, vel, toff, xoff, constant_spacing=False):
     nt = h.nt
     dt = h.dt
     nr = h.nr
 
     # construct tapered window
     length = 400
-    win = np.sin(np.linspace(0, 1, 2*length))
+    win = np.sin(np.linspace(0, np.pi, 2*length))
     win = win[0:length]
 
     for ir in range(0, nr):
@@ -61,7 +62,8 @@ def smute(s, h, vel, toff, xoff=0, constant_spacing=False):
             ixoff = (ir-xoff)/dt
         else:
             itoff = toff/dt
-            ixoff = (h.rx[ir]-h.sx[0]-xoff)/dt
+            #ixoff = (h.rx[ir]-h.sx[0]-xoff)/dt
+            ixoff = np.sqrt((h.rx[ir]-h.sx[0])**2 + (h.ry[ir]-h.sy[0])**2)/dt
 
         itmin = int(np.ceil(slope*abs(ixoff)+itoff)) - length/2
         itmax = itmin + length
@@ -71,11 +73,59 @@ def smute(s, h, vel, toff, xoff=0, constant_spacing=False):
             s[0:itmin,ir] = 0.
             s[itmin:itmax,ir] = win*s[itmin:itmax,ir]
         elif itmin < 1 <= itmax:
-            s[1:itmax,ir] = win[length-itmax+1:length]*s[1:itmax,ir]
+            s[0:itmax,ir] = win[length-itmax:length]*s[0:itmax,ir] 
         elif itmin < nt < itmax:
             s[0:itmin,ir] = 0.
-            s[itmin:nt,ir] = win[1:nt-itmin+1]*s[itmin:nt,ir]
+            s[itmin:nt,ir] = win[0:nt-itmin]*s[itmin:nt,ir] 
         elif itmin > nt:
+            s[:,ir] = 0.
+
+        # inner mute 
+        if ixoff*dt < xoff:
+            s[:,ir] = 0.
+
+    return s
+
+
+# mute late arrivals
+def smutelow(s, h, vel, toff, xoff, constant_spacing=False):
+    nt = h.nt
+    dt = h.dt
+    nr = h.nr
+
+    # construct tapered window
+    length = 400
+    win = np.cos(np.linspace(0, np.pi, 2*length))
+    win = win[0:length]
+
+    for ir in range(0,h.nr):
+        # calculate slope
+        if vel!=0:
+            slope = 1./vel
+        else:
+            slope = 0
+
+        # calculate offsets
+        if constant_spacing:
+            itoff = toff/dt
+        else:
+            itoff = toff/dt
+            ixoff = np.sqrt((h.rx[ir]-h.sx[0])**2 + (h.ry[ir]-h.sy[0])**2)/dt
+
+        itmin = int(np.ceil(slope*abs(ixoff)+itoff)) - length/2
+        itmax = itmin + length
+
+        # apply window
+        if 1 < itmin and itmax < nt:
+            s[itmax:nt,ir] = 0.
+            s[itmin:itmax,ir] = win*s[itmin:itmax,ir]
+        elif itmin < 1 <= itmax:
+            s[0:itmax,ir] = win[length-itmax:length]*s[0:itmax,ir]
+        elif itmin < nt < itmax:
+            s[itmin:nt,ir] = win[0:nt-itmin]*s[itmin:nt,ir]
+
+        # inner mute
+        if ixoff*dt < xoff:
             s[:,ir] = 0.
 
     return s
@@ -114,8 +164,16 @@ def correlate(u, v):
 
 def bandpass(w, freqlo, freqhi, fs, npass=2):
     wn = [2*freqlo/fs, 2*freqhi/fs]
-    b, a = signal.butter(npass, wn, btype='band')
+    (b,a) = signal.butter(npass, wn, btype='band')
     w = signal.lfilter(b, a, w)
+    return w
+
+
+# A forward-backward linear filter (filtfilt) 
+def bandpass2(w, freqlo, freqhi, fs, npass=3):
+    wn = [2*freqlo/fs, 2*freqhi/fs]
+    (b,a) = signal.butter(npass, wn, 'bandpass')
+    w = signal.filtfilt(b, a, w)
     return w
 
 

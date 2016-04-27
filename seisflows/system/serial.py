@@ -20,8 +20,8 @@ class serial(custom_import('system', 'base')):
       classes provide a consistent command set across different computing
       environments.
 
-      For more informations, see 
-      http://seisflows.readthedocs.org/en/latest/manual/manual.html#system-interfaces
+      For important additional information, please see 
+      http://seisflows.readthedocs.org/en/latest/manual/manual.html#system-configuration
     """
 
     def check(self):
@@ -102,7 +102,10 @@ class serial(custom_import('system', 'base')):
     def mpiexec(self):
         """ Specifies MPI exectuable; used to invoke solver
         """
-        return 'mpiexec -np %d ' % PAR.NPROC
+        if PAR.NPROC > 1:
+            return 'mpiexec -np %d ' % PAR.NPROC
+        else:
+            return ''
 
     def mpiargs(self):
         """ Wrapper for mpiexec

@@ -2,6 +2,7 @@
 import copy_reg
 import imp
 import os
+import re
 import sys
 import types
 
@@ -148,6 +149,9 @@ class SeisflowsPaths(ParameterObj):
         if 'SeisflowsPaths' not in sys.modules:
             sys.modules['SeisflowsPaths'] = self
 
+    def __setattr__(self, key, val):
+        super(SeisflowsPaths, self).__setattr__(*_sub(key, val))
+
     def load(self):
         mydict = loadpy(abspath('paths.py'))
         super(ParameterObj, self).__setattr__('__dict__', mydict)
@@ -219,14 +223,23 @@ def custom_import(*names):
     if not names[1]:
         return Null
 
+    # generate package list
+    packages = ['seisflows']
+    if os.getenv('SEISFLOWS_PACKAGES'):
+        for package in os.getenv('SEISFLOWS_PACKAGES').split(','):
+            if package in packages:
+                continue
+            if find_loader(package):
+                packages += [package]
+
     # does module exist?
-    status = False
-    for package in ['seisflows', 'seisflows_research']:
+    _exists = False
+    for package in packages:
         full_dotted_name = package+'.'+names[0]+'.'+names[1]
         if find_loader(full_dotted_name):
-            status = True
+            _exists = True
             break
-    if not status:
+    if not _exists:
         raise Exception(ImportError3 % 
             (names[0], names[1], names[0].upper()))
 
@@ -263,6 +276,19 @@ def _val(key):
         return SeisflowsParameters()[key.upper()]
     else:
         return ''
+
+
+def _sub(key, val):
+    if val is None:
+        val = ''
+    if type(val) not in [str, unicode]:
+        raise ValueError('Must be string or unicode: PATH.%s' % key)
+    try:
+        val = re.sub('~', os.getenv('HOME'), val)
+    except:
+        raise Exception('Tilde "~" expansion failed.')
+    return key, val
+
 
 
 # the following code changes how instance methods are handled by pickle.  placing it here, in this module, ensures that pickle changes will be in effect for all SeisFlows workflows

@@ -179,8 +179,17 @@ def su_specfem3d(prefix='SEM', channel=None, suffix='', verbose=False):
     nn = [h.nr]
     nr = h.nr
 
+    # define proc number
+    i_proc_buf = file.split('/')[-1]
+    i_proc = int(i_proc_buf.split('_')[0])
+    ip = [i_proc]
+
     for file in files:
         d_, h_ = segyreader.readsu(file)
+
+        # define proc number  
+        i_proc_buf = file.split('/')[-1]
+        i_proc = int(i_proc_buf.split('_')[0])
 
         # combine arrays
         d = _np.column_stack((d, d_))
@@ -200,6 +209,7 @@ def su_specfem3d(prefix='SEM', channel=None, suffix='', verbose=False):
         sz.extend(h_.sz)
         nn.append(h_.nr)
         nr = nr + h_.nr
+        ip.append(i_proc)
 
     h.rx = _np.array(rx)
     h.ry = _np.array(ry)
@@ -210,6 +220,7 @@ def su_specfem3d(prefix='SEM', channel=None, suffix='', verbose=False):
 
     h.nn = nn
     h.nr = nr
+    h.ip = ip
 
     return d, h
 

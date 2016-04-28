@@ -45,6 +45,15 @@ class ewf2d(custom_import('solver', 'base')):
         if 'USE_SRC_FILE' not in PAR:
             setattr(PAR, 'USE_SRC_FILE', False)
 
+        if 'PRECOND_TYPE' not in PAR:
+            setattr(PAR, 'PRECOND_TYPE', 'ILLUMINATION')
+
+        if 'PRECOND_THRESH' not in PAR:
+            setattr(PAR, 'PRECOND_THRESH', 1e-4)
+
+        if 'PRECOND_SMOOTH' not in PAR:
+            setattr(PAR, 'PRECOND_SMOOTH', None)
+
         self.set_source_array()
 
     ### low level interface
@@ -54,7 +63,7 @@ class ewf2d(custom_import('solver', 'base')):
         """
         unix.cd(join(self.getpath, 'bin'))
         script = './xewf2d'
-        super(ewf2d, self).mpirun(script, PATH.SUBMIT + '/dump')
+        super(ewf2d, self).call(script, PATH.SUBMIT + '/dump')
 
         unix.cd(PATH.SUBMIT)
 
@@ -63,7 +72,7 @@ class ewf2d(custom_import('solver', 'base')):
         """
         unix.cd(join(self.getpath, 'bin'))
         script = './xewf2d'
-        super(ewf2d, self).mpirun(script, PATH.SUBMIT + '/dump')
+        super(ewf2d, self).call(script, PATH.SUBMIT + '/dump')
 
         unix.cd(PATH.SUBMIT)
 
@@ -218,55 +227,41 @@ class ewf2d(custom_import('solver', 'base')):
 
     # serial/reduction function
 
-    def combine(self):
+    def combine(self, precond=True):
         """ sum event gradients to compute misfit gradient
         """
 
-        # sum gradient preconditioner
-        precond = np.zeros((p.nz * p.nx), dtype='float32')
-        filename = 'precond.bin'
-        for itask in range(PAR.NTASK):
-            syn_dir = join(PATH.SOLVER, event_dirname(itask + 1), 'traces', 'syn')
-            try:
-                ev_precond = self.load(join(syn_dir, filename))
-            except IOError:
-                print('Could not open precond.bin for task {}'.format(itask))
-            else:
-                precond += ev_precond
-                self.save(join(PATH.GRAD, filename), precond)
-
-        # sum kernels
+        # sum gradient
         for par in self.parameters:
             filename = par + '_kernel.bin'
             gradient = np.zeros((p.nz * p.nx), dtype='float32')
+            rgradient = np.zeros((p.nz * p.nx), dtype='float32')
             for itask in range(PAR.NTASK):
                 syn_dir = join(PATH.SOLVER, event_dirname(itask + 1), 'traces', 'syn')
-                try:
-                    ev_grad = self.load(join(syn_dir, filename))
-                except IOError:
-                    print('Could not open {} for task {}'.format(filename, itask))
-                else:
-                    gradient += ev_grad
-                    self.save(join(PATH.GRAD, filename), gradient)
 
-    def smooth(self, precond=False, span=0.):
+                ev_grad = self.load(join(syn_dir, filename))
+                rgradient += ev_grad
+
+                if precond:
+                    ev_precond = self._prepare_preconditioner(syn_dir)
+                    #self.save(join(PATH.GRAD, 'precond_inv.bin'), ev_precond)
+                    ev_grad *= ev_precond
+
+                gradient += ev_grad
+                self.save(join(PATH.GRAD, filename), gradient)
+                #self.save(join(PATH.GRAD, 'gradient.bin'), rgradient)
+
+    def smooth(self, span=0.):
         """ Process gradient
         """
-
-        if precond:
-            print('Applying preconditioner..')
-            Pr = self.load(join(PATH.GRAD, 'precond.bin'))
-            Pr = Pr.reshape((p.nz, p.nx))
-        else:
-            Pr = 1
 
         for par in self.parameters:
             filename = par + '_kernel.bin'
             g = self.load(join(PATH.GRAD, filename))
             g = g.reshape((p.nz, p.nx))
-            g *= Pr
-            gs = gridsmooth(g, span)
-            self.save(join(PATH.GRAD, par + '_smooth_kernel.bin'), gs)
+            startx, startz, endx, endz = self.get_grid_indicies()
+            g[startz:endz, startx:endx] = gridsmooth(g[startz:endz, startx:endx], span)
+            self.save(join(PATH.GRAD, par + '_smooth_kernel.bin'), g)
 
         g_new = self.merge(PATH.GRAD, '_smooth_kernel.bin')
         savenpy(join(PATH.OPTIMIZE, 'g_new'), g_new)
@@ -276,7 +271,11 @@ class ewf2d(custom_import('solver', 'base')):
     def load(self, filename):
         """ Loads a float32 numpy 2D array
         """
-        arr = np.fromfile(filename, dtype='float32')
+
+        try:
+            arr = np.fromfile(filename, dtype='float32')
+        except:
+            raise IOError('Could not read file: {}'.format(filename))
 
         return arr
 
@@ -410,6 +409,55 @@ class ewf2d(custom_import('solver', 'base')):
                 script,
                 shell=True,
                 stdout=f)
+
+    def _prepare_preconditioner(self, dir):
+        """ Prepare preconditioner
+        """
+
+        if PAR.PRECOND_TYPE == 'IGEL':
+            return self.load(join(dir, 'precond_f.bin'))
+        elif PAR.PRECOND_TYPE == 'ILLUMINATION':
+            precond = self.load(join(dir, 'precond.bin'))
+            precond = self._invert_grid_interior(precond)
+            return precond
+        elif PAR.PRECOND_TYPE == 'APPROX_HESS':
+            precond = abs(self.load(join(dir, 'hess.bin')))
+            precond = self._invert_grid_interior(precond, smooth=True)
+            return precond
+        else:
+            raise ValueError('Preconditioner type not found.')
+
+    def _invert_grid_interior(self, x, smooth=False):
+        """ Invert grid interior
+        """
+        x = x.reshape((p.nz, p.nx))
+
+        startx, startz, endx, endz = self.get_grid_indicies()
+
+        if smooth:
+            x[startz:endz, startx:endx] = gridsmooth(x[startz:endz, startx:endx], PAR.PRECOND_SMOOTH)
+
+        # normalize initial input
+        x /= abs(x.max())
+        x[startz:endz, startx:endx] = 1 / (x[startz:endz, startx:endx] + PAR.PRECOND_THRESH)
+        x /= abs(x.max())
+        x = x.reshape(p.nz * p.nx)
+
+        return x
+
+    def get_grid_indicies(self):
+
+        # get size of interior grid
+        nx = p.nx - (p.use_cpml_left + p.use_cpml_right) * p.ncpml
+        nz = p.nz - (p.use_cpml_top + p.use_cpml_bottom) * p.ncpml
+
+        startx = p.ncpml if p.use_cpml_left else 0
+        startz = p.ncpml if p.use_cpml_top else 0
+        endx = startx + nx
+        endz = startz + nz
+
+        return startx, startz, endx, endz
+
 
     @property
     def getpath(self):

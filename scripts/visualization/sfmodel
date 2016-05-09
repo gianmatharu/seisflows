@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+# script to plot velocity models.
+
 import argparse
 from seisflows.tools.graphics import plot_model
 

@@ -5,68 +5,34 @@ from os.path import join
 import matplotlib.pyplot as plt
 from matplotlib.cm import get_cmap
 from seisflows.tools.array import readgrid
-from mpl_toolkits.axes_grid1 import ImageGrid
 
-def event_dirname(n):
-    """ return string with event directory name
-    """
-    return '{:03d}'.format(n)
 
-def _convert_to_array(stream):
-    """ Extract trace data from an Obspy stream and return a 2D array
-
-    Parameters
-    ----------
-    stream: Obspy stream object
-        Stream storing trace data.
-
-    Returns
-    -------
-    output: ndarray, ndim=2
-        Returns an (nt*nr) array. nt and nr are the number of sample points
-        and receivers respectively. Each column stores trace data for a single
-        receiver. Assumes trace lengths are equal for all traces.
+def plot(file, time_series=False, xlabel='', ylabel='', title=''):
+    """ Plot an ASCII file.
     """
 
-    try:
-        isinstance(stream, Stream)
-    except:
-        raise TypeError('Input object should be an Obspy stream')
+    if time_series:
+        t, data = _read_time_series(file)
     else:
-        nt = len(stream.traces[0].data)
-        nr = len(stream)
-        output = np.zeros((nt, nr))
-        i = 0
-        for trace in stream:
-            output[:, i] = trace.data[:]
-            i += 1
+        data = _read_vector(file)
+        t = range(len(data))
 
-        return output
+    data = plt.plot(t, data)
 
-def plot_section(file, format='SU', cmap='seismic_r', clip=100):
-    """ Return a seismic section:
-    """
-
-    # check arguments
-    get_cmap(cmap)
-
-    # convert data to image array
-    stream = read(file, format)
-    im = _convert_to_array(stream)
-    vmin, vmax = -np.abs(im).max(), np.abs(im).max()
-    vmin *= clip / 100
-    vmax *= clip / 100
-
-    # plot section
-    plt.set_cmap(cmap)
-    plt.imshow(im, aspect='auto')
-    plt.clim(vmin, vmax)
-    plt.xlabel('Offset')
-    plt.ylabel('Time (s)')
+    # labels
+    if xlabel:
+        plt.xlabel(xlabel)
+    if ylabel:
+        plt.ylabel(ylabel)
+    if title:
+        plt.title(title)
 
     plt.show()
 
+
 def plot_model(nx=None, nz=None, path='.', dtype='float32', cmap='seismic_r', mode=0):
+    """ Plot velocity model.
+    """
 
     # check parameters
     if nx is None or nz is None:
@@ -94,7 +60,6 @@ def plot_model(nx=None, nz=None, path='.', dtype='float32', cmap='seismic_r', mo
         params.append(rho)
         titles.append('Rho')
 
-
     # prepare plot
     plt.set_cmap(cmap)
 
@@ -105,33 +70,30 @@ def plot_model(nx=None, nz=None, path='.', dtype='float32', cmap='seismic_r', mo
 
     plt.show()
 
-def plot(file, time_series=False, xlabel='', ylabel='', title=''):
 
-    if time_series:
-        t, data = _read_time_series(file)
-    else:
-        data = _read_vector(file)
-        t = range(len(data))
+def plot_section(file, format='SU', cmap='seismic_r', clip=100):
+    """ Return a seismic section:
+    """
 
-    data = plt.plot(t, data)
+    # check arguments
+    get_cmap(cmap)
 
-    # labels
-    if xlabel:
-        plt.xlabel(xlabel)
-    if ylabel:
-        plt.ylabel(ylabel)
-    if title:
-        plt.title(title)
+    # convert data to image array
+    stream = read(file, format)
+    im = _convert_to_array(stream)
+    vmin, vmax = -np.abs(im).max(), np.abs(im).max()
+    vmin *= clip / 100
+    vmax *= clip / 100
+
+    # plot section
+    plt.set_cmap(cmap)
+    plt.imshow(im, aspect='auto')
+    plt.clim(vmin, vmax)
+    plt.xlabel('Offset')
+    plt.ylabel('Time (s)')
 
     plt.show()
 
-def _read_vector(file):
-    A = np.loadtxt(file)
-    return A[:, 0]
-
-def _read_time_series(file):
-    A = np.loadtxt(file)
-    return A[:, 0], A[:, 1]
 
 def plot_data(path, eventid, data=True, syn=False, res=False, cmap='seismic_r', clip=100):
 
@@ -177,6 +139,7 @@ def plot_data(path, eventid, data=True, syn=False, res=False, cmap='seismic_r', 
         create_im_subplot(seis[i][0], axes[i], title=seis[i][1], clip=clip)
 
     plt.show()
+
 
 def plot_grad(path, nx=None, nz=None, alpha=True, beta=True, smooth=True,
               cmap='seismic_r', clip=100):
@@ -246,6 +209,7 @@ def plot_ev_grad(path, eventid, nx=None, nz=None, alpha=True, beta=True, rho=Fal
 
     plt.show()
 
+
 def create_im_subplot(data, ax=None, title='', clip=100):
     """ Create a subplot
     """
@@ -274,3 +238,51 @@ def _read_components(path):
     uz = _convert_to_array(zstream)
 
     return ux, uz
+
+
+def _read_vector(file):
+    A = np.loadtxt(file)
+    return A[:, 0]
+
+
+def _read_time_series(file):
+    A = np.loadtxt(file)
+    return A[:, 0], A[:, 1]
+
+
+def _convert_to_array(stream):
+    """ Extract trace data from an Obspy stream and return a 2D array
+
+    Parameters
+    ----------
+    stream: Obspy stream object
+        Stream storing trace data.
+
+    Returns
+    -------
+    output: ndarray, ndim=2
+        Returns an (nt*nr) array. nt and nr are the number of sample points
+        and receivers respectively. Each column stores trace data for a single
+        receiver. Assumes trace lengths are equal for all traces.
+    """
+
+    try:
+        isinstance(stream, Stream)
+    except:
+        raise TypeError('Input object should be an Obspy stream')
+    else:
+        nt = len(stream.traces[0].data)
+        nr = len(stream)
+        output = np.zeros((nt, nr))
+        i = 0
+        for trace in stream:
+            output[:, i] = trace.data[:]
+            i += 1
+
+        return output
+
+
+def event_dirname(n):
+    """ return string with event directory name
+    """
+    return '{:03d}'.format(n)

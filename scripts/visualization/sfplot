@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+
+# Plots simple ASCII files. Allows for a vector of data or time series.
+
+import argparse
+from seisflows.tools.graphics import plot
+
+# Parse input arguments
+parser = argparse.ArgumentParser(description='Plot a seismic section.')
+
+# file and format flags
+parser.add_argument('file')
+parser.add_argument('-t', '--tseries', action='store_true', help='Flag for time series files.')
+parser.add_argument('-xl', '--xlabel', default='', help='xlabel')
+parser.add_argument('-yl', '--ylabel', default='', help='ylabel')
+parser.add_argument('-tl', '--title', default='', help='Title')
+
+args = parser.parse_args()
+
+plot(args.file, time_series=args.tseries, xlabel=args.xlabel, ylabel=args.ylabel, title=args.title)

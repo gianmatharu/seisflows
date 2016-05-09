@@ -1,0 +1,25 @@
+#!/usr/bin/env python3
+
+import argparse
+from seisflows.tools.graphics import plot_section
+from os.path import join
+
+# Parse input arguments
+parser = argparse.ArgumentParser(description='Plot a seismic section.')
+
+# file and format flags
+parser.add_argument('file')
+parser.add_argument('-f', '--format', default='SU', help='File format, must be Obspy readable.')
+parser.add_argument('-p', '--path', default='', help='Path to file.')
+
+# plot options
+parser.add_argument('-cm', '--cmap', default='seismic_r', help='Matplotlib colormap scheme. \
+                    See matplotlib documentation.')
+parser.add_argument('-c', '--clip', type=int, default='100', help='Clip amplitudes')
+
+args = parser.parse_args()
+
+# execute program
+file = join(args.path, args.file)
+
+plot_section(file, format=args.format, cmap=args.cmap, clip=args.clip)

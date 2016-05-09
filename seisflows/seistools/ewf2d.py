@@ -1,4 +1,6 @@
 
+import numpy as np
+from seisflows.tools.array import check_2d, as_ndarrays
 import ConfigParser
 
 # Contains all utility functions corresponding to EWF2D solver.
@@ -138,3 +140,77 @@ def extend_pml_velocities(v, nx, nz, ncpml, left=True, right=True, top=True, bot
         v[nz - ncpml:, :] = v[nz - ncpml - 1, :]
 
     return v
+
+def inspect_model(Lx, Lz, vp, vs=None, vpvs=1.76, nu=None, f=[1.0]):
+    """ Inspect a Vp model and return characteristics about the model.
+    Vs model is either supplied or constructed.
+    :param model:
+    :param f0:
+    :return:
+    """
+
+    vp = np.asarray(vp)
+    if vp.ndim != 2:
+        raise TypeError('Check only suitable for 2D models.')
+
+    if vs == None:
+        if nu is None:
+            vs = vp / vpvs
+        else:
+            vs = vp / _get_vpvs_from_poisson(nu)
+    else:
+        vs = np.asarray(vs)
+        if vs.ndim != 2:
+            raise TypeError('Check only suitable for 2D models.')
+
+
+    f = np.asarray(f)
+    f.sort()
+
+    fmin = f[0]
+    fmax = f[-1]
+
+    vpmin = vp.min()
+    vpmax = vp.max()
+
+    vsmin = vs.min()
+    vsmax = vs.max()
+
+    vsmean = vs.mean()
+    vpmean = vp.mean()
+
+    wpmax = vpmean / fmin
+    wsmax = vsmean / fmin
+
+    wpmin = [int((vpmean / item)) for item in f]
+    wsmin = [int((vsmean / item)) for item in f]
+
+    vpdisp = vpmin / (5 * fmax)
+    vsdisp = vsmin / (5 * fmax)
+
+    print('MODEL DIAGNOSTICS')
+    print('X dimension (km):    {}'.format(Lx))
+    print('Z dimension (km):    {}'.format(Lz))
+    print('Vp Min/Max (km/s):      {:.0f} - {:.0f}'.format(vpmin, vpmax))
+    print('Vs Min/Max (km/s):      {:.0f} - {:.0f}'.format(vsmin, vsmax))
+    print('\n')
+
+    print('FREQUENCY SELECTION CRITERIA')
+    print('Freqs (Hz):      {}'.format(f))
+    print('P wave min wavelengths (m):      {}'.format(wpmin))
+    print('S wave min wavelengths (m):      {}'.format(wsmin))
+    print('P wave max wavelengths (m):      {:.0f}'.format(wpmax))
+    print('S wave max wavelengths (m):      {:.0f}'.format(wsmax))
+    print('P wavelengths propagated:    {:2f}'.format(1000 * Lz / wpmax))
+    print('S wavelengths propagated:    {:2f}'.format(1000 * Lz / wsmax))
+    print('\n')
+
+    print('STABILITY CRITERIA')
+    print('P wave dispersion - dx (m) < {:.0f}'.format(vpdisp))
+    print('S wave dispersion - dx (m) < {:.0f}'.format(vsdisp))
+    print('P wave Aliasing - dx (m) < {:.0f}'.format(wpmin[-1] / 2))
+    print('S wave Aliasing - dx (m) < {:.0f}'.format(wsmin[-1] / 2))
+    print('\n')
+
+def _get_vpvs_from_poisson(nu):
+    return np.sqrt(((2 * nu - 2) / (2 * nu - 1)))

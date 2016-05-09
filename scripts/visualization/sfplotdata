@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+
+# Specialized script used to visualize observed and synthetic data. For convenience this routine assumes a
+# particular directory structure that allows simple access to inversion workflows.
+# The directories should be set up as scratch/solver/($EVENTID)/traces/obs and
+# scratch/solver/($EVENTID)/traces/syn. Designed to be run from the working directory.
+
+import argparse
+from seisflows.tools.graphics import plot_data
+from os.path import join
+
+# Parse input arguments
+parser = argparse.ArgumentParser(description='Plot a seismic section.')
+
+# file and format flags
+parser.add_argument('-d', action='store_true', help='Show data')
+parser.add_argument('-s', action='store_true', help='Show synthetics')
+parser.add_argument('-r', action='store_true', help='Show residuals')
+
+parser.add_argument('-p', '--path', default='./scratch/solver', help='Path to')
+
+parser.add_argument('-id', '--eventid', type=int, default=1, help='Event number')
+parser.add_argument('-i', '--interactive', action='store_true', help='Enable interactive plotting')
+parser.add_argument('-cm', '--cmap', default='seismic_r', help='Matplotlib colormap scheme. \
+                    See matplotlib documentation.')
+parser.add_argument('-c', '--clip', type=int, default='100', help='Clip amplitudes')
+
+args = parser.parse_args()
+
+if args.interactive:
+    # Plot until escape or EOF
+    while True:
+      eid = input("Event id: ")
+      if eid:
+          try:
+              eid = int(eid)
+          except:
+              raise ValueError('Input is not an int!')
+          else:
+              print('Section for event #{}'.format(eid))
+              plot_data(args.path, eid, data=args.d, syn=args.s, res=args.r, cmap=args.cmap, clip=args.clip)
+      else:
+          break
+else:
+    plot_data(args.path, args.eventid, data=args.d, syn=args.s, res=args.r, cmap=args.cmap, clip=args.clip)
+

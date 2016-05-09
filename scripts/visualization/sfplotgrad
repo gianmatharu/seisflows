@@ -28,5 +28,5 @@ parser.add_argument('-c', '--clip', type=int, default='100', help='Clip amplitud
 args = parser.parse_args()
 
 plot_grad(args.path, nx=args.nx, nz=args.nz, alpha=args.a, beta=args.b,
-            smooth=args.s, cmap='seismic_r', clip=100)
+            smooth=args.s, cmap=args.cmap, clip=100)
 

@@ -43,10 +43,10 @@ if args.interactive:
             else:
                 print('Section for event #{}'.format(eid))
                 plot_ev_grad(args.path, eid, nx=args.nx, nz=args.nz, alpha=args.a, beta=args.b,
-                rho=args.r, precond=args.m, cmap='seismic_r', clip=100)
+                rho=args.r, precond=args.m, cmap=args.cmap, clip=100)
         else:
             break
 else:
     plot_ev_grad(args.path, args.eventid, nx=args.nx, nz=args.nz, alpha=args.a, beta=args.b,
-    rho=args.r, precond=args.m, cmap='seismic_r', clip=100)
+    rho=args.r, precond=args.m, cmap=args.cmap, clip=100)
 

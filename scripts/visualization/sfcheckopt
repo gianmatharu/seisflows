@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+
+# Specialized script used to visualize gradients.
+
+# For convenience this routine assumes a particular directory structure that allows
+# simple access to inversion workflows.
+
+import argparse
+from os.path import join
+from seisflows.tools.graphics import check_opt
+
+# Parse input arguments
+parser = argparse.ArgumentParser(description='Check optimization output.')
+
+# file and format flags
+parser.add_argument('file', help='Numpy array file')
+parser.add_argument('-p', '--path', default='.', help='Standard path to optimization dir')
+
+parser.add_argument('-nx', type=int, help='pixels in x direction.')
+parser.add_argument('-nz', type=int, help='pixels in z direction.')
+
+# parameters
+parser.add_argument('-m', '--mode',  type=int, choices=[0, 1], default=1, help='Acoustic - 0, Elastic -1')
+parser.add_argument('-t', '--title', default='')
+
+# plot options
+parser.add_argument('-cm', '--cmap', default='seismic_r', help='Matplotlib colormap scheme. \
+                    See matplotlib documentation.')
+parser.add_argument('-c', '--clip', type=int, default='100', help='Clip amplitudes')
+parser.add_argument('--clim', default='mirror', help='Select clim mode')
+
+args = parser.parse_args()
+
+file = join(args.path, args.file)
+
+if args.mode == 0:
+    materials = 'Acoustic'
+elif args.mode == 1:
+    materials = 'Elastic'
+
+check_opt(file, nx=args.nx, nz=args.nz, title=args.title, materials=materials, cmap=args.cmap, clim=args.clim)
+

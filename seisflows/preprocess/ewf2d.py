@@ -1,7 +1,6 @@
 
 from os.path import join
 import numpy as np
-import obspy
 
 from seisflows.seistools.ewf2d import Par
 from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, \
@@ -20,7 +19,7 @@ class ewf2d(custom_import('preprocess', 'base')):
         super(ewf2d, self).check()
 
         if 'DAMPING' not in PAR:
-            setattr(PAR, 'DAMPING', 0.0)
+            setattr(PAR, 'DAMPING', None)
 
         if 'GAIN' not in PAR:
             setattr(PAR, 'GAIN', False)
@@ -61,6 +60,12 @@ class ewf2d(custom_import('preprocess', 'base')):
         n, _ = self.get_network_size(stream)
         df = dt**-1
 
+        if PAR.DAMPING:
+            stream = self.apply_damping(stream)
+
+        if PAR.GAIN:
+            stream = self.apply_gain(stream)
+
         for ir in range(n):
             # filter data
             if PAR.FREQLO and PAR.FREQHI:
@@ -69,12 +74,6 @@ class ewf2d(custom_import('preprocess', 'base')):
                 stream[ir].filter('lowpass', freq=PAR.FREQHI)
             else:
                 raise ParameterError(PAR, 'BANDPASS')
-
-        if PAR.DAMPING:
-            stream = self.apply_damping(stream)
-
-        if PAR.GAIN:
-            stream = self.apply_gain(stream)
 
         stream = self.convert_to_float(stream)
 

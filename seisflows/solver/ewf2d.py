@@ -235,21 +235,18 @@ class ewf2d(custom_import('solver', 'base')):
         for par in self.parameters:
             filename = par + '_kernel.bin'
             gradient = np.zeros((p.nz * p.nx), dtype='float32')
-            rgradient = np.zeros((p.nz * p.nx), dtype='float32')
+
             for itask in range(PAR.NTASK):
                 syn_dir = join(PATH.SOLVER, event_dirname(itask + 1), 'traces', 'syn')
 
                 ev_grad = self.load(join(syn_dir, filename))
-                rgradient += ev_grad
 
                 if precond:
                     ev_precond = self._prepare_preconditioner(syn_dir)
-                    #self.save(join(PATH.GRAD, 'precond_inv.bin'), ev_precond)
                     ev_grad *= ev_precond
 
                 gradient += ev_grad
                 self.save(join(PATH.GRAD, filename), gradient)
-                #self.save(join(PATH.GRAD, 'gradient.bin'), rgradient)
 
     def smooth(self, span=0.):
         """ Process gradient

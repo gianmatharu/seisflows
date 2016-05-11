@@ -141,76 +141,117 @@ def extend_pml_velocities(v, nx, nz, ncpml, left=True, right=True, top=True, bot
 
     return v
 
-def inspect_model(Lx, Lz, vp, vs=None, vpvs=1.76, nu=None, f=[1.0]):
+
+def model_diagnosis(p, vp, vs, f, dx, dr):
     """ Inspect a Vp model and return characteristics about the model.
     Vs model is either supplied or constructed.
-    :param model:
-    :param f0:
-    :return:
     """
+    if not isinstance(p, Par):
+        raise TypeError('p should be of type Par')
 
-    vp = np.asarray(vp)
+    # extract grid interior
+    vp, vs = np.asarray(vp), np.asarray(vs)
+
     if vp.ndim != 2:
         raise TypeError('Check only suitable for 2D models.')
 
-    if vs == None:
-        if nu is None:
-            vs = vp / vpvs
-        else:
-            vs = vp / _get_vpvs_from_poisson(nu)
-    else:
-        vs = np.asarray(vs)
-        if vs.ndim != 2:
-            raise TypeError('Check only suitable for 2D models.')
+    if vs.ndim != 2:
+        raise TypeError('Check only suitable for 2D models.')
 
+    # extract grid interior
+    startx, startz, endx, endz = get_grid_indicies(p)
+    vp, vs = vp[startz:endz, startx:endx], vs[startz:endz, startx:endx],
 
-    f = np.asarray(f)
-    f.sort()
+    if vp.ndim != 2:
+        raise TypeError('Check only suitable for 2D models.')
 
-    fmin = f[0]
-    fmax = f[-1]
+    if vs.ndim != 2:
+        raise TypeError('Check only suitable for 2D models.')
 
-    vpmin = vp.min()
-    vpmax = vp.max()
+    # Length of model (excluding boundaries)
+    nx = p.nx - (p.use_cpml_left + p.use_cpml_right) * p.ncpml
+    nz = p.nz - (p.use_cpml_top + p.use_cpml_bottom) * p.ncpml
 
-    vsmin = vs.min()
-    vsmax = vs.max()
+    Lx = nx * p.dx
+    Lz = nz * p.dz
 
-    vsmean = vs.mean()
-    vpmean = vp.mean()
+    # Get min/max velocities
+    vpmin, vpmax = vp.min(), vp.max()
+    vsmin, vsmax = vs.min(), vs.max()
+    vpmean, vsmean = vp.mean(), vs.mean()
 
-    wpmax = vpmean / fmin
-    wsmax = vsmean / fmin
+    wp, ws = (vpmean / f), (vsmean / f)
 
-    wpmin = [int((vpmean / item)) for item in f]
-    wsmin = [int((vsmean / item)) for item in f]
+    vpdisp, vsdisp = (vpmin / (5 * f)), (vsmin / (5 * f))
 
-    vpdisp = vpmin / (5 * fmax)
-    vsdisp = vsmin / (5 * fmax)
+    # Courant number for fourth order derivative operator
+    courant = 7.0 / 6.0
+    cfl = p.dx / (courant * np.sqrt(2) * vpmax)
 
-    print('MODEL DIAGNOSTICS')
+    print('\n')
+    print('MODEL DIMENSIONS ------------------------')
+    print('Nx, Nz:          ({}, {})'.format(nx, nz))
+    print('dx - spacing (m):    {}'.format(p.dx))
     print('X dimension (km):    {}'.format(Lx))
     print('Z dimension (km):    {}'.format(Lz))
-    print('Vp Min/Max (km/s):      {:.0f} - {:.0f}'.format(vpmin, vpmax))
-    print('Vs Min/Max (km/s):      {:.0f} - {:.0f}'.format(vsmin, vsmax))
     print('\n')
 
-    print('FREQUENCY SELECTION CRITERIA')
+    print('VELOCITY ATTRIBUTES ------------------------')
+    print('Vp Min/Max (km/s):      {:.0f} - {:.0f}'.format(vpmin, vpmax))
+    print('Vs Min/Max (km/s):      {:.0f} - {:.0f}'.format(vsmin, vsmax))
+    print('Vp mean (km/s):      {:.0f}'.format(vpmean))
+    print('Vs mean (km/s):      {:.0f}'.format(vsmean))
+    print('\n')
+
+    print('FREQUENCY SELECTION CRITERIA ------------------------')
     print('Freqs (Hz):      {}'.format(f))
-    print('P wave min wavelengths (m):      {}'.format(wpmin))
-    print('S wave min wavelengths (m):      {}'.format(wsmin))
-    print('P wave max wavelengths (m):      {:.0f}'.format(wpmax))
-    print('S wave max wavelengths (m):      {:.0f}'.format(wsmax))
-    print('P wavelengths propagated:    {:2f}'.format(1000 * Lz / wpmax))
-    print('S wavelengths propagated:    {:2f}'.format(1000 * Lz / wsmax))
+    print('P wave min wavelengths (m):      {:.0f}'.format(wp))
+    print('S wave min wavelengths (m):      {:.0f}'.format(ws))
+    print('P wavelengths propagated:    {:.2f}'.format(Lz / wp))
+    print('S wavelengths propagated:    {:.2f}'.format(Lz / ws))
+    print('\n')
+
+
+    print('SAMPLING CRITERIA ------------------------')
+    print('Source spacing (m):        {}'.format(dx))
+    print('Receiver spacing (m):        {}'.format(dr))
+    print('P aliasing limit (horz) (m):       {:.0f}'.format(wp * 0.5))
+    print('S aliasing limit (horz) (m):       {:.0f}'.format(ws * 0.5))
     print('\n')
 
     print('STABILITY CRITERIA')
-    print('P wave dispersion - dx (m) < {:.0f}'.format(vpdisp))
-    print('S wave dispersion - dx (m) < {:.0f}'.format(vsdisp))
-    print('P wave Aliasing - dx (m) < {:.0f}'.format(wpmin[-1] / 2))
-    print('S wave Aliasing - dx (m) < {:.0f}'.format(wsmin[-1] / 2))
+    if p.dt < cfl:
+        print('CFL condition passes:      dt < dx / (dqrt(2)*C*Vmax) = {:.2e}'.format(cfl))
+    else:
+        print('CFL condition fails:      dt > dx / (dqrt(2)*C*Vmax) = {:.2e}'.format(cfl))
+        print('Current dt:      {:.2e}'.format(p.dt))
+    if p.dx < vpdisp:
+        print('P wave dispersion (5 ppw):        dx < {:.0f}'.format(vpdisp))
+    else:
+        print('P wave dispersion expected:       dx  > {:.0f}'.format(vpdisp))
+    if p.dx < vsdisp:
+        print('S wave dispersion (5 ppw):       dx  < {:.0f}'.format(vsdisp))
+    else:
+        print('S wave dispersion expected:      dx > {:.0f}'.format(vsdisp))
     print('\n')
+
+
 
 def _get_vpvs_from_poisson(nu):
     return np.sqrt(((2 * nu - 2) / (2 * nu - 1)))
+
+def get_grid_indicies(p):
+
+    if not isinstance(p, Par):
+        raise TypeError('p should be of type Par')
+
+    # get size of interior grid
+    nx = p.nx - (p.use_cpml_left + p.use_cpml_right) * p.ncpml
+    nz = p.nz - (p.use_cpml_top + p.use_cpml_bottom) * p.ncpml
+
+    startx = p.ncpml if p.use_cpml_left else 0
+    startz = p.ncpml if p.use_cpml_top else 0
+    endx = startx + nx
+    endz = startz + nz
+
+    return startx, startz, endx, endz

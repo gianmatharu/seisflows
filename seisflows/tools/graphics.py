@@ -95,11 +95,11 @@ def plot_section(file, format='SU', cmap='seismic_r', clip=100):
     plt.show()
 
 
-def plot_data(path, eventid, data=True, syn=False, res=False, cmap='seismic_r', clip=100):
+def plot_data(path, eventid, data=True, syn=False, res=False, adj=False, cmap='seismic_r', clip=100):
 
     # set subplot dimensions.
     rows = 2
-    cols = data + syn + res
+    cols = data + syn + res + adj
     eventid = event_dirname(eventid)
     path = join(path, eventid, 'traces')
 
@@ -134,6 +134,12 @@ def plot_data(path, eventid, data=True, syn=False, res=False, cmap='seismic_r', 
 
         seis.append((xres, '{} - Ux - residuals'.format(eventid)))
         seis.append((zres, '{} - Uz - residuals'.format(eventid)))
+
+    if adj:
+        xadj, zadj = _read_components(join(path, 'adj'), adj=True)
+        seis.append((xadj, '{} - Ux - adjoint'.format(eventid)))
+        seis.append((zadj,  '{} - Uz - adjoint'.format(eventid)))
+
 
     for i, item in enumerate(seis):
         create_im_subplot(seis[i][0], axes[i], title=seis[i][1], clip=clip)
@@ -209,8 +215,40 @@ def plot_ev_grad(path, eventid, nx=None, nz=None, alpha=True, beta=True, rho=Fal
 
     plt.show()
 
+def check_opt(filename, nx=None, nz=None, title='', materials='Elastic', cmap='seismic_r', clim='mirror'):
 
-def create_im_subplot(data, ax=None, title='', clip=100):
+    parameters = []
+    if materials == 'Elastic':
+        parameters += ['vp']
+        parameters += ['vs']
+    elif materials == 'Acoustic':
+        parameters += ['vp']
+
+    npar = len(parameters)
+    seis = []
+
+    # load numpy file
+    nv = np.load(filename)
+    n = int(len(nv) / npar)
+
+    # split and reshape vectors
+    for ipar, par in enumerate(parameters):
+
+        v = nv[(ipar*n):(ipar*n) + n]
+        v = v.reshape((nz, nx))
+        seis.append((v, '{} - {}'.format(par, title)))
+
+    # prepare plots
+    f, axes = plt.subplots(npar, 1)
+    plt.set_cmap(cmap)
+
+    for i, item in enumerate(seis):
+        create_im_subplot(seis[i][0], axes[i], title=seis[i][1], clim=clim)
+
+    plt.show()
+
+
+def create_im_subplot(data, ax=None, title='', clip=100, clim='mirror'):
     """ Create a subplot
     """
     if ax is None:
@@ -222,15 +260,21 @@ def create_im_subplot(data, ax=None, title='', clip=100):
     vmax *= perc
     sp = ax.imshow(data, aspect='auto')
     ax.set_title(title)
-    sp.set_clim(vmin, vmax)
+
+    if clim == 'mirror':
+        sp.set_clim(vmin, vmax)
 
     return sp
 
 
-def _read_components(path):
+def _read_components(path, adj=False):
 
-    xfile = join(path, 'Ux_data.su')
-    zfile = join(path, 'Uz_data.su')
+    if adj:
+        xfile = join(path, 'Ux_adj.su')
+        zfile = join(path, 'Uz_adj.su')
+    else:
+        xfile = join(path, 'Ux_data.su')
+        zfile = join(path, 'Uz_data.su')
 
     xstream = read(xfile, dtype='float32')
     zstream = read(zfile, dtype='float32')

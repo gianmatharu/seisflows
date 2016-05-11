@@ -16,6 +16,7 @@ parser = argparse.ArgumentParser(description='Plot a seismic section.')
 parser.add_argument('-d', action='store_true', help='Show data')
 parser.add_argument('-s', action='store_true', help='Show synthetics')
 parser.add_argument('-r', action='store_true', help='Show residuals')
+parser.add_argument('-a', action='store_true', help='Show adjoint source')
 
 parser.add_argument('-p', '--path', default='./scratch/solver', help='Path to')
 
@@ -38,9 +39,11 @@ if args.interactive:
               raise ValueError('Input is not an int!')
           else:
               print('Section for event #{}'.format(eid))
-              plot_data(args.path, eid, data=args.d, syn=args.s, res=args.r, cmap=args.cmap, clip=args.clip)
+              plot_data(args.path, eid, data=args.d, syn=args.s, res=args.r, adj=args.a,
+                        cmap=args.cmap, clip=args.clip)
       else:
           break
 else:
-    plot_data(args.path, args.eventid, data=args.d, syn=args.s, res=args.r, cmap=args.cmap, clip=args.clip)
+    plot_data(args.path, args.eventid, data=args.d, syn=args.s, res=args.r, adj=args.a,
+              cmap=args.cmap, clip=args.clip)
 

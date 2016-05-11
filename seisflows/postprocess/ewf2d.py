@@ -1,10 +1,8 @@
 
 from glob import glob
 from os.path import join
-import numpy as np
 
 from seisflows.tools import unix
-from seisflows.tools.array import savenpy
 from seisflows.tools.code import exists
 from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, \
     ParameterError, custom_import
@@ -36,6 +34,10 @@ class ewf2d(custom_import('postprocess', 'base')):
         """
         src = glob(join(PATH.MODEL_INIT, '*.bin'))
         dst = join(PATH.MODELS, 'model_est')
+
+        if not exists(dst):
+            unix.mkdir(dst)
+
         unix.cp(src, dst)
 
     def write_gradient(self, path):

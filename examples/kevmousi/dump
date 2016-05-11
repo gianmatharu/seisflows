@@ -1,0 +1,92 @@
+
+=========== S I M U L A T I O N    D E T A I L S =============
+Running adjoint simulation...
+Adjoint dir = /home/gian/Desktop/seisflows/examples/kevmousi/scratch/solver/094/traces/adj
+Not saving final wavefield ...
+
+MESH SUMMARY
+Elements in x = 520
+Elements in z = 150
+Total number of grid points = 78000
+Grid spacing (m) = 20.000000
+No free surface... 
+
+TIME STEP PARAMETERS
+No. timesteps = 1500
+DT (s) = 4.00e-03
+
+BOUNDARY CONDITIONS (CPML)
+CPML Left boundary = TRUE
+CPML right boundary = TRUE
+CPML top boundary = TRUE
+CPML bottom boundary = TRUE
+Using external model
+Model path = /home/gian/Desktop/seisflows/examples/kevmousi/models/model_est/vp.bin
+Output path = /home/gian/Desktop/seisflows/examples/kevmousi/scratch/solver/094/traces/syn
+
+RECEIVER PARAMETERS
+No. receivers = 249
+Using receiver line
+Coordinates of first receiver = [40.000000,20.000000]
+Coordinates of last receiver = [9960.000000,20.000000]
+
+SOURCE PARAMETERS
+t0 = 1.000000
+f0 = 5.000000
+stf_type = 3
+factor = 10000000000.000000
+angle = 270.000000
+xs = 9580.000000
+zs = 40.000000
+Using explosive source...
+================================================================
+Allocating boundary storage ..
+Max velocity of grid  = 3000.000000
+dt passes courant stability criteria
+Threshold for stability = 0.004041
+Done loading ...
+Completed interation 100 of 1500
+Time elapsed = 0.396000
+Max norm of velocity = 38.206036
+Completed interation 200 of 1500
+Time elapsed = 0.796000
+Max norm of velocity = 40.949947
+Completed interation 300 of 1500
+Time elapsed = 1.196000
+Max norm of velocity = 47.174168
+Completed interation 400 of 1500
+Time elapsed = 1.596000
+Max norm of velocity = 61.114285
+Completed interation 500 of 1500
+Time elapsed = 1.996000
+Max norm of velocity = 120.407433
+Completed interation 600 of 1500
+Time elapsed = 2.396000
+Max norm of velocity = 121.564125
+Completed interation 700 of 1500
+Time elapsed = 2.796000
+Max norm of velocity = 117.790924
+Completed interation 800 of 1500
+Time elapsed = 3.196000
+Max norm of velocity = 115.434471
+Completed interation 900 of 1500
+Time elapsed = 3.596000
+Max norm of velocity = 116.101944
+Completed interation 1000 of 1500
+Time elapsed = 3.996000
+Max norm of velocity = 120.201477
+Completed interation 1100 of 1500
+Time elapsed = 4.396000
+Max norm of velocity = 144.114151
+Completed interation 1200 of 1500
+Time elapsed = 4.796000
+Max norm of velocity = 241.735718
+Completed interation 1300 of 1500
+Time elapsed = 5.196000
+Max norm of velocity = 1.745049
+Completed interation 1400 of 1500
+Time elapsed = 5.596000
+Max norm of velocity = 0.001116
+Completed interation 1500 of 1500
+Time elapsed = 5.996000
+Max norm of velocity = 0.000775

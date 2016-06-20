@@ -191,21 +191,21 @@ DEPENDENCY ERROR
 """
 
 
-mpiError3 = """
-
-SYSTEM CONFIGURATION WARNING
-
-    The following system configuration requires 'mpiexec':
-
-        system.%s
-
-    Please make sure than 'mpiexec' is accessible through your shell's PATH
-    environment variable. If your executable goes by a different name such as
-    'mpirun', consider creating an alias in your shell's configuration file, and
-    remember to source the modified configuration file. If MPI is not available
-    on your system, consider using the 'multithreaded' system interface instead.
-
-"""
+# mpiError3 = """
+#
+# SYSTEM CONFIGURATION WARNING
+#
+#     The following system configuration requires 'mpiexec':
+#
+#         system.%s
+#
+#     Please make sure than 'mpiexec' is accessible through your shell's PATH
+#     environment variable. If your executable goes by a different name such as
+#     'mpirun', consider creating an alias in your shell's configuration file, and
+#     remember to source the modified configuration file. If MPI is not available
+#     on your system, consider using the 'multithreaded' system interface instead.
+#
+# """
 
 mpiError3 = """
 
@@ -213,7 +213,7 @@ SYSTEM CONFIGURATION ERROR
 
     The following system configuration insists that NTASK % NPROCMAX = 0:
 
-        system.%s
+        system.{}
 
     All processes must be assigned to ensure none are idling when running task
     parallelism.

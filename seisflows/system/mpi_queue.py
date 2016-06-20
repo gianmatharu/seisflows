@@ -104,5 +104,5 @@ class mpi_queue(custom_import('system', 'mpi')):
             raise Exception(mpiError2 % PAR.SYSTEM)
 
         if PAR.NTASK % PAR.NPROCMAX != 0:
-            raise Exception(mpiError3 % PAR.SYSTEM)
+            raise Exception(mpiError3.format(PAR.SYSTEM))
 

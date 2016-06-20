@@ -12,7 +12,7 @@ def normalize(a):
     a: array_like
     """
     a = np.asarray(a)
-    return a / abs(a.max())
+    return a / abs(a).max()
 
 
 def as_ndarrays(*args):

@@ -6,7 +6,10 @@ import scipy.interpolate as _interp
 
 from scipy.signal import hilbert as analytic
 
+def nextpow2(n):
 
+    k = np.ceil(np.log2(n))
+    return 2**k
 
 def nabla(Z, order=1, dx=1., dy=1.):
     """ Returns sum of n-th order spatial derivatives of a function defined on

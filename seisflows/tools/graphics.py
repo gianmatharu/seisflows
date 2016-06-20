@@ -6,6 +6,12 @@ import matplotlib.pyplot as plt
 from matplotlib.cm import get_cmap
 from seisflows.tools.array import readgrid
 
+def get_tick_vectors(n, dh, space):
+
+    dind = int(space / dh)
+    ind = np.arange(0, n+1, dind)
+    x = np.arange(0, (n+1) * dh, dh)
+    return ind, x
 
 def plot(file, time_series=False, xlabel='', ylabel='', title=''):
     """ Plot an ASCII file.
@@ -27,6 +33,21 @@ def plot(file, time_series=False, xlabel='', ylabel='', title=''):
     if title:
         plt.title(title)
 
+    plt.show()
+
+def plot_image(file, nx=None, nz=None, dtype='float32', cmap='seismic_r'):
+    """ Plot image.
+    """
+    # check parameters
+    if nx is None or nz is None:
+        raise ValueError('Need image dimensions.')
+
+    image = readgrid(file, nx, nz, dtype=dtype)
+    plt.imshow(image)
+    plt.set_cmap(cmap)
+    clim = (abs(image).max()) / 1
+    print(image.max())
+    plt.clim(-clim, clim)
     plt.show()
 
 
@@ -82,8 +103,8 @@ def plot_section(file, format='SU', cmap='seismic_r', clip=100):
     stream = read(file, format)
     im = _convert_to_array(stream)
     vmin, vmax = -np.abs(im).max(), np.abs(im).max()
-    vmin *= clip / 100
-    vmax *= clip / 100
+    vmin *= (clip / 100.0)
+    vmax *= (clip / 100.0)
 
     # plot section
     plt.set_cmap(cmap)
@@ -93,6 +114,27 @@ def plot_section(file, format='SU', cmap='seismic_r', clip=100):
     plt.ylabel('Time (s)')
 
     plt.show()
+
+def plot_obs_section(stream, cmap='seismic_r', clip=100):
+    """ Return a seismic section:
+    """
+
+    # check arguments
+    get_cmap(cmap)
+
+    # convert data to image array
+    im = _convert_to_array(stream)
+    vmin, vmax = -np.abs(im).max(), np.abs(im).max()
+    vmin *= (clip / 100.0)
+    vmax *= (clip / 100.0)
+
+    # plot section
+    plt.set_cmap(cmap)
+    plt.imshow(im, aspect='auto')
+    plt.clim(vmin, vmax)
+    plt.xlabel('Offset')
+    plt.ylabel('Time (s)')
+
 
 
 def plot_data(path, eventid, data=True, syn=False, res=False, adj=False, cmap='seismic_r', clip=100):
@@ -129,10 +171,10 @@ def plot_data(path, eventid, data=True, syn=False, res=False, adj=False, cmap='s
         if not syn:
             xsyn, zsyn = _read_components(join(path, 'syn'))
 
-        xres = xdata - xsyn
-        zres = zdata - zsyn
+        xres = xsyn - xdata
+        zres = zsyn - zdata
 
-        seis.append((xres, '{} - Ux - residuals'.format(eventid)))
+        seis.append((xres, '{} - Ux - residua ls'.format(eventid)))
         seis.append((zres, '{} - Uz - residuals'.format(eventid)))
 
     if adj:
@@ -177,6 +219,7 @@ def plot_grad(path, nx=None, nz=None, alpha=True, beta=True, smooth=True,
             seis.append((vss, 'Vs - Smooth kernel'))
 
     for i, item in enumerate(seis):
+
         create_im_subplot(seis[i][0], axes[i], title=seis[i][1], clip=clip)
 
     plt.show()
@@ -185,7 +228,7 @@ def plot_grad(path, nx=None, nz=None, alpha=True, beta=True, smooth=True,
 def plot_ev_grad(path, eventid, nx=None, nz=None, alpha=True, beta=True, rho=False, precond=True,
                  cmap='seismic_r', clip=100):
 
-    rows = alpha + beta + rho + precond
+    rows = alpha + beta + rho + precond * (1 + alpha + beta)
     cols = 1
     eventid = event_dirname(eventid)
     path = join(path, eventid, 'traces', 'syn')
@@ -208,10 +251,21 @@ def plot_ev_grad(path, eventid, nx=None, nz=None, alpha=True, beta=True, rho=Fal
         seis.append((rho, 'rho - kernel'.format(eventid)))
     if precond:
         p = readgrid(join(path, 'precond.bin'), nx, nz, dtype='float32')
+        p = p / abs(p).max()
+        p = 1 / (p + 1e-3)
+        p = p / abs(p).max()
         seis.append((p, 'Precond'.format(eventid)))
 
+        if alpha:
+            vpk = p * vp
+            seis.append((vpk, 'Vp - kernel precond'.format(eventid)))
+        if beta:
+            vsk = p * vs
+            seis.append((vsk, 'Vs-kernel precond'.format(eventid)))
+
+
     for i, item in enumerate(seis):
-        create_im_subplot(seis[i][0], axes[i], title=seis[i][1], clip=clip/10)
+        create_im_subplot(seis[i][0], axes[i], title=seis[i][1], clip=clip/100)
 
     plt.show()
 
@@ -239,7 +293,7 @@ def check_opt(filename, nx=None, nz=None, title='', materials='Elastic', cmap='s
         seis.append((v, '{} - {}'.format(par, title)))
 
     # prepare plots
-    f, axes = plt.subplots(npar, 1)
+    f, axes = plt.subplots(npar+1, 1)
     plt.set_cmap(cmap)
 
     for i, item in enumerate(seis):
@@ -266,6 +320,46 @@ def create_im_subplot(data, ax=None, title='', clip=100, clim='mirror'):
 
     return sp
 
+def compare_residuals(dpath, spath, cmap='seismic_r', clip=100):
+
+    # read data
+    xdata, zdata = _read_components(dpath)
+    xsyn, zsyn = _read_components(spath)
+
+    xres = xsyn - xdata
+    zres = zsyn - zdata
+
+    plt.set_cmap(cmap)
+
+    # x components
+    vmin, vmax = -np.abs(xdata).max(), np.abs(xdata).max()
+    vmin *= (clip / 100.0)
+    vmax *= (clip / 100.0)
+    plt.subplot(2, 3, 1)
+    plt.imshow(xdata, aspect='auto')
+    plt.clim(vmin, vmax)
+    plt.subplot(2, 3, 2)
+    plt.imshow(xsyn, aspect='auto')
+    plt.clim(vmin, vmax)
+    plt.subplot(2, 3, 3)
+    plt.imshow(xres * 1, aspect='auto')
+    plt.clim(vmin, vmax)
+
+    # z components
+    vmin, vmax = -np.abs(zdata).max(), np.abs(zdata).max()
+    vmin *= (clip / 100.0)
+    vmax *= (clip / 100.0)
+    plt.subplot(2, 3, 4)
+    plt.imshow(zdata, aspect='auto')
+    plt.clim(vmin, vmax)
+    plt.subplot(2, 3, 5)
+    plt.imshow(zsyn, aspect='auto')
+    plt.clim(vmin, vmax)
+    plt.subplot(2, 3, 6)
+    plt.imshow(zres * 1, aspect='auto')
+    plt.clim(vmin, vmax)
+
+    plt.show()
 
 def _read_components(path, adj=False):
 
@@ -276,8 +370,8 @@ def _read_components(path, adj=False):
         xfile = join(path, 'Ux_data.su')
         zfile = join(path, 'Uz_data.su')
 
-    xstream = read(xfile, dtype='float32')
-    zstream = read(zfile, dtype='float32')
+    xstream = read(xfile, dtype='float32', format='SU')
+    zstream = read(zfile, dtype='float32', format='SU')
     ux = _convert_to_array(xstream)
     uz = _convert_to_array(zstream)
 
@@ -286,7 +380,7 @@ def _read_components(path, adj=False):
 
 def _read_vector(file):
     A = np.loadtxt(file)
-    return A[:, 0]
+    return A[:]
 
 
 def _read_time_series(file):

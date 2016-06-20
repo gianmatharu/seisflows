@@ -55,6 +55,14 @@ class alt_inversion(custom_import('workflow', 'inversion')):
         if 'MODEL_EST' not in PATH:
             setattr(PATH, 'MODEL_EST', join(PATH.MODELS, 'model_est'))
 
+        # check parameters
+        # check parameters
+        if not PAR.USE_STF_FILE:
+            raise ValueError('Must use stf for gradient calculations.')
+        else:
+            if not exists(join(PATH.SOLVER_INPUT, PAR.STF_FILE)):
+                raise IOError('Source time function file not found.')
+
     def main(self):
         """ Carries out seismic inversion
         """
@@ -193,7 +201,6 @@ class alt_inversion(custom_import('workflow', 'inversion')):
 
         if divides(optimize.iter, PAR.SAVETRACES):
             self.save_traces()
-            self.save_traces(type='syn')
 
         if divides(optimize.iter, PAR.SAVERESIDUALS):
             self.save_residuals()
@@ -251,19 +258,22 @@ class alt_inversion(custom_import('workflow', 'inversion')):
         raise NotImplementedError
 
 
-    def save_traces(self, type='obs'):
+    def save_traces(self):
+
         for itask in range(PAR.NTASK):
-            src = glob(join(PATH.SOLVER, 'traces', type, '*.su'))
-            dst = join(PATH.OUTPUT, iter_dirname(optimize.iter), event_dirname(itask + 1), type)
+            src = glob(join(PATH.SOLVER, event_dirname(itask + 1), 'traces/syn', '*.su'))
+            dst = join(PATH.OUTPUT, iter_dirname(optimize.iter), event_dirname(itask + 1), 'syn')
             unix.mkdir(dst)
-            unix.mv(src, dst)
+            unix.cp(src, dst)
 
 
     def save_residuals(self):
-        raise NotImplementedError
-        src = join(PATH.GRAD, 'residuals')
-        dst = join(PATH.OUTPUT, 'residuals_%04d' % optimize.iter)
-        unix.mv(src, dst)
+        for itask in range(PAR.NTASK):
+            src = glob(join(PATH.SOLVER, event_dirname(itask + 1), '*.su'))
+            dst = join(PATH.OUTPUT, iter_dirname(optimize.iter), event_dirname(itask + 1), 'res')
+            unix.mkdir(dst)
+            unix.mv(src, dst)
 
-
+            src = glob(join(PATH.SOLVER, event_dirname(itask + 1), 'residuals'))
+            unix.mv(src, dst)
 

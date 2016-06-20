@@ -38,6 +38,13 @@ class test_gradient(object):
         if 'MODEL_EST' not in PATH:
             setattr(PATH, 'MODEL_EST', join(PATH.MODELS, 'model_est'))
 
+        # check parameters
+        if not PAR.USE_STF_FILE:
+            raise ValueError('Must use stf for gradient calculations.')
+        else:
+            if not exists(join(PATH.SOLVER_INPUT, PAR.STF_FILE)):
+                raise IOError('Source time function file not found.')
+
     def main(self):
         """ Generates data
         """

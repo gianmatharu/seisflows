@@ -10,8 +10,6 @@ import ConfigParser
 class Par(object):
     def __init__(self):
         self.npad = 2
-        self.nprocx = 0
-        self.nprocz = 0
         self.nx = 0
         self.nz = 0
         self.dx = 0.0
@@ -39,8 +37,6 @@ class Par(object):
             p = dict(cfg.items('asection'))
 
             # Assign Par values using key value pairs
-            self.nprocx = int(p["nprocx"])
-            self.nprocz = int(p["nprocz"])
             self.nx = int(p["nx"])
             self.nz = int(p["nz"])
             self.dx = float(p["dx"])
@@ -121,27 +117,6 @@ def event_dirname(n):
     return '{:03d}'.format(n)
 
 
-def extend_pml_velocities(v, nx, nz, ncpml, left=True, right=True, top=True, bottom=True):
-    """ Extends edges of grid velocities into CPML layers to ensure 1D - profiles.
-    """
-
-    v = v.reshape((nz, nx))
-
-    if left:
-        v[:, :ncpml] = v[:, [ncpml]]
-
-    if right:
-        v[:, nx-ncpml:] = v[:, [nx - ncpml - 1]]
-
-    if top:
-        v[:ncpml, :] = v[ncpml, :]
-
-    if bottom:
-        v[nz - ncpml:, :] = v[nz - ncpml - 1, :]
-
-    return v
-
-
 def model_diagnosis(p, vp, vs, f, dx, dr):
     """ Inspect a Vp model and return characteristics about the model.
     Vs model is either supplied or constructed.
@@ -158,10 +133,6 @@ def model_diagnosis(p, vp, vs, f, dx, dr):
     if vs.ndim != 2:
         raise TypeError('Check only suitable for 2D models.')
 
-    # extract grid interior
-    startx, startz, endx, endz = get_grid_indicies(p)
-    vp, vs = vp[startz:endz, startx:endx], vs[startz:endz, startx:endx],
-
     if vp.ndim != 2:
         raise TypeError('Check only suitable for 2D models.')
 
@@ -169,8 +140,8 @@ def model_diagnosis(p, vp, vs, f, dx, dr):
         raise TypeError('Check only suitable for 2D models.')
 
     # Length of model (excluding boundaries)
-    nx = p.nx - (p.use_cpml_left + p.use_cpml_right) * p.ncpml
-    nz = p.nz - (p.use_cpml_top + p.use_cpml_bottom) * p.ncpml
+    nx = p.nx
+    nz = p.nz
 
     Lx = nx * p.dx
     Lz = nz * p.dz
@@ -180,7 +151,7 @@ def model_diagnosis(p, vp, vs, f, dx, dr):
     vsmin, vsmax = vs.min(), vs.max()
     vpmean, vsmean = vp.mean(), vs.mean()
 
-    wp, ws = (vpmean / f), (vsmean / f)
+    wp, ws = (vpmin / f), (vsmin / f)
 
     vpdisp, vsdisp = (vpmin / (5 * f)), (vsmin / (5 * f))
 
@@ -207,6 +178,8 @@ def model_diagnosis(p, vp, vs, f, dx, dr):
     print('Freqs (Hz):      {}'.format(f))
     print('P wave min wavelengths (m):      {:.0f}'.format(wp))
     print('S wave min wavelengths (m):      {:.0f}'.format(ws))
+    print('P Far-field resolution (m):      {:.0f}'.format(wp/2))
+    print('S Far-field resolution (m):      {:.0f}'.format(ws/2))
     print('P wavelengths propagated:    {:.2f}'.format(Lz / wp))
     print('S wavelengths propagated:    {:.2f}'.format(Lz / ws))
     print('\n')
@@ -240,18 +213,3 @@ def model_diagnosis(p, vp, vs, f, dx, dr):
 def _get_vpvs_from_poisson(nu):
     return np.sqrt(((2 * nu - 2) / (2 * nu - 1)))
 
-def get_grid_indicies(p):
-
-    if not isinstance(p, Par):
-        raise TypeError('p should be of type Par')
-
-    # get size of interior grid
-    nx = p.nx - (p.use_cpml_left + p.use_cpml_right) * p.ncpml
-    nz = p.nz - (p.use_cpml_top + p.use_cpml_bottom) * p.ncpml
-
-    startx = p.ncpml if p.use_cpml_left else 0
-    startz = p.ncpml if p.use_cpml_top else 0
-    endx = startx + nx
-    endz = startz + nz
-
-    return startx, startz, endx, endz

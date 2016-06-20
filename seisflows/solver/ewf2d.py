@@ -3,11 +3,8 @@ from os.path import join, basename
 import numpy as np
 from glob import glob
 import subprocess
-import os
 
-from seisflows.seistools import misfit
-from seisflows.seistools.ewf2d import Par, read_cfg_file, write_cfg_file, event_dirname, extend_pml_velocities
-
+from seisflows.seistools.ewf2d import Par, read_cfg_file, write_cfg_file, event_dirname
 from seisflows.tools import unix
 from seisflows.tools.code import exists
 from seisflows.tools.array import gridsmooth, loadnpy, savenpy
@@ -46,13 +43,30 @@ class ewf2d(custom_import('solver', 'base')):
             setattr(PAR, 'USE_SRC_FILE', False)
 
         if 'PRECOND_TYPE' not in PAR:
-            setattr(PAR, 'PRECOND_TYPE', 'ILLUMINATION')
+            setattr(PAR, 'PRECOND_TYPE', 'LOCAL')
 
         if 'PRECOND_THRESH' not in PAR:
             setattr(PAR, 'PRECOND_THRESH', 1e-4)
 
         if 'PRECOND_SMOOTH' not in PAR:
             setattr(PAR, 'PRECOND_SMOOTH', None)
+
+        if 'SAFEUPDATE' not in PAR:
+            setattr(PAR, 'SAFEUPDATE', None)
+
+        if PAR.SAFEUPDATE:
+            if 'VPMIN' not in PAR:
+                raise ParameterError(PAR, 'VPMIN')
+
+            if 'VPMAX' not in PAR:
+                raise ParameterError(PAR, 'VPMAX')
+
+            if PAR.MATERIALS == 'Elastic':
+                if 'VSMIN' not in PAR:
+                    raise ParameterError(PAR, 'VSMIN')
+
+                if 'VSMAX' not in PAR:
+                    raise ParameterError(PAR, 'VSMAX')
 
         self.set_source_array()
 
@@ -121,7 +135,14 @@ class ewf2d(custom_import('solver', 'base')):
         else:
             # generate data on the fly
             output_dir = join(self.getpath, 'traces', 'obs')
-            self.generate_data(model_dir=PATH.MODEL_TRUE, output_dir=output_dir)
+            self.generate_data(model_dir=PATH.MODEL_TRUE, output_dir=output_dir, use_stf_file=PAR.USE_STF_FILE,
+                               stf_file=PAR.STF_FILE)
+
+    def generate_synthetics(self):
+        # generate synthetic data
+        output_dir = join(self.getpath, 'traces', 'syn')
+        self.generate_data(model_dir=PATH.MODEL_INIT, output_dir=output_dir, save_wavefield=False,
+                           use_stf_file=PAR.USE_STF_FILE, stf_file=PAR.STF_FILE)
 
     def compute_gradient(self):
         """ Sequential event gradient computation, reduces storage requirement.
@@ -129,7 +150,8 @@ class ewf2d(custom_import('solver', 'base')):
 
         # generate synthetic data
         output_dir = join(self.getpath, 'traces', 'syn')
-        self.generate_data(model_dir=PATH.MODEL_EST, output_dir=output_dir, save_wavefield=True)
+        self.generate_data(model_dir=PATH.MODEL_EST, output_dir=output_dir, save_wavefield=True,
+                           use_stf_file=PAR.USE_STF_FILE, stf_file='stf_f.txt')
 
         # prepare adjoint sources
         preprocess.prepare_eval_grad(self.getpath)
@@ -148,7 +170,8 @@ class ewf2d(custom_import('solver', 'base')):
         model_dir = join(path, 'model')
         unix.mkdir(output_dir)
 
-        self.generate_data(model_dir=model_dir, output_dir=output_dir, save_wavefield=True)
+        self.generate_data(model_dir=model_dir, output_dir=output_dir, save_wavefield=True,
+                           use_stf_file=PAR.USE_STF_FILE, stf_file='stf_f.txt')
 
         preprocess.evaluate_trial_step(self.getpath, basedir)
 
@@ -173,7 +196,8 @@ class ewf2d(custom_import('solver', 'base')):
 
     # per event functions
 
-    def generate_data(self, model_dir=PATH.MODEL_TRUE, output_dir='', save_wavefield=False):
+    def generate_data(self, model_dir=PATH.MODEL_TRUE, output_dir='', save_wavefield=False, use_stf_file=False,
+                      stf_file=''):
         """ Generate dataset. Defaults to generating synthetic data for true model.
         """
 
@@ -181,12 +205,12 @@ class ewf2d(custom_import('solver', 'base')):
         itask = system.getnode()
 
         # set par.cfg file for solver
-        self.set_par_cfg(external_model_dir=model_dir, output_dir=output_dir, save_forward_wavefield=save_wavefield)
+        self.set_par_cfg(external_model_dir=model_dir, output_dir=output_dir, save_final_wavefield=save_wavefield)
 
         # set src.cfg for solver
         xsrc = self.sources[itask][0]
         zsrc = self.sources[itask][1]
-        self.set_src_cfg(xs=float(xsrc), zs=float(zsrc))
+        self.set_src_cfg(xs=float(xsrc), zs=float(zsrc), use_stf_file=use_stf_file, stf_file=stf_file)
 
         # copy cfg files
         unix.cp(join(self.getpath, 'INPUT', 'par.cfg'), output_dir)
@@ -207,13 +231,13 @@ class ewf2d(custom_import('solver', 'base')):
         adj_dir = join(self.getpath, 'traces', 'adj')
 
         # set par.cfg file for solver
-        self.set_par_cfg(external_model_dir=model_dir, output_dir=syn_dir, save_forward_wavefield=False,
+        self.set_par_cfg(external_model_dir=model_dir, output_dir=syn_dir, save_final_wavefield=False,
                          adjoint_sim=True, adjoint_dir=adj_dir)
 
         # set src.cfg for solver
         xsrc = self.sources[itask][0]
         zsrc = self.sources[itask][1]
-        self.set_src_cfg(xs=float(xsrc), zs=float(zsrc))
+        self.set_src_cfg(xs=float(xsrc), zs=float(zsrc), use_stf_file=True, stf_file='stf_f.txt')
 
         # copy cfg files
         unix.cp(join(self.getpath, 'INPUT', 'par.cfg'), adj_dir)
@@ -242,8 +266,7 @@ class ewf2d(custom_import('solver', 'base')):
                 ev_grad = self.load(join(syn_dir, filename))
 
                 if precond:
-                    ev_precond = self._prepare_preconditioner(syn_dir)
-                    ev_grad *= ev_precond
+                    ev_grad = self.apply_preconditioner(syn_dir, ev_grad)
 
                 gradient += ev_grad
                 self.save(join(PATH.GRAD, filename), gradient)
@@ -256,8 +279,7 @@ class ewf2d(custom_import('solver', 'base')):
             filename = par + '_kernel.bin'
             g = self.load(join(PATH.GRAD, filename))
             g = g.reshape((p.nz, p.nx))
-            startx, startz, endx, endz = self.get_grid_indicies()
-            g[startz:endz, startx:endx] = gridsmooth(g[startz:endz, startx:endx], span)
+            g = gridsmooth(g, span)
             self.save(join(PATH.GRAD, par + '_smooth_kernel.bin'), g)
 
         g_new = self.merge(PATH.GRAD, '_smooth_kernel.bin')
@@ -306,15 +328,14 @@ class ewf2d(custom_import('solver', 'base')):
 
         for par in self.parameters:
             v = nv[(ipar*n):(ipar*n) + n]
-            v = extend_pml_velocities(v, p.nx, p.nz, p.ncpml, p.use_cpml_left, p.use_cpml_right, p.use_cpml_top,
-                                           p.use_cpml_bottom)
-
             filename = join(path, par + suffix)
+            if PAR.SAFEUPDATE:
+                self.check_velocity_model(v, par)
+
             self.save(filename, v)
             ipar += 1
 
     # solver specific format routines
-
     def set_source_array(self):
         """ Generate 1D line of sources using LINE_START and DSRC.
             stores self.sources as a list of tuples (xs, zs).
@@ -340,8 +361,8 @@ class ewf2d(custom_import('solver', 'base')):
         """ Checks whether generated sources are within grid.
         """
 
-        xmax = (p.nx * p.dx) - (int(p.use_cpml_left) + int(p.use_cpml_right)) * p.ncpml * p.dx
-        zmax = (p.nz * p.dz) - (int(p.use_cpml_top) + int(p.use_cpml_bottom)) * p.ncpml * p.dz
+        xmax = (p.nx * p.dx)
+        zmax = (p.nz * p.dz)
 
         for itask in range(PAR.NTASK):
             xsrc = self.sources[itask][0]
@@ -350,6 +371,19 @@ class ewf2d(custom_import('solver', 'base')):
                 raise ValueError('xsrc: {} for task {}, not in grid'.format(xsrc, itask))
             if zsrc < 0 or zsrc > zmax:
                 raise ValueError('zsrc: {} for task {}, not in grid'.format(zsrc, itask))
+
+    def check_velocity_model(self, v, par):
+
+        # check min values
+        minval = PAR.__getattr__(str(par + 'min').upper())
+        maxval = PAR.__getattr__(str(par + 'max').upper())
+
+        indlow = v < minval
+        v[indlow] = minval
+
+        # check max values
+        indhigh = v > maxval
+        v[indhigh] = maxval
 
     # configuration file handling
 
@@ -407,20 +441,27 @@ class ewf2d(custom_import('solver', 'base')):
                 shell=True,
                 stdout=f)
 
-    def _prepare_preconditioner(self, dir):
+    def apply_preconditioner(self, dir, grad):
         """ Prepare preconditioner
         """
 
-        if PAR.PRECOND_TYPE == 'IGEL':
-            return self.load(join(dir, 'precond_f.bin'))
-        elif PAR.PRECOND_TYPE == 'ILLUMINATION':
+        if PAR.PRECOND_TYPE == 'LINEAR':
+            grad = grad.reshape((p.nz, p.nx))
+            precond = np.linspace(0, 1, p.nz)
+            grad = (grad.T * precond).T
+            grad = grad.reshape(p.nz * p.nx)
+            return grad
+        if PAR.PRECOND_TYPE == 'LOCAL':
+            precond = self.load(join(dir, 'precondf.bin'))
+            return precond * grad
+        elif PAR.PRECOND_TYPE == 'ONE_WAY':
             precond = self.load(join(dir, 'precond.bin'))
             precond = self._invert_grid_interior(precond)
-            return precond
-        elif PAR.PRECOND_TYPE == 'APPROX_HESS':
-            precond = abs(self.load(join(dir, 'hess.bin')))
+            return precond * grad
+        elif PAR.PRECOND_TYPE == 'TWO_WAY':
+            precond = abs(self.load(join(dir, 'precond2w.bin')))
             precond = self._invert_grid_interior(precond, smooth=True)
-            return precond
+            return precond * grad
         else:
             raise ValueError('Preconditioner type not found.')
 
@@ -429,31 +470,16 @@ class ewf2d(custom_import('solver', 'base')):
         """
         x = x.reshape((p.nz, p.nx))
 
-        startx, startz, endx, endz = self.get_grid_indicies()
-
         if smooth:
-            x[startz:endz, startx:endx] = gridsmooth(x[startz:endz, startx:endx], PAR.PRECOND_SMOOTH)
+            x = gridsmooth(x, PAR.PRECOND_SMOOTH)
 
         # normalize initial input
-        x /= abs(x.max())
-        x[startz:endz, startx:endx] = 1 / (x[startz:endz, startx:endx] + PAR.PRECOND_THRESH)
-        x /= abs(x.max())
+        x /= abs(x).max()
+        x = 1 / (x + PAR.PRECOND_THRESH)
+        x /= abs(x).max()
         x = x.reshape(p.nz * p.nx)
 
         return x
-
-    def get_grid_indicies(self):
-
-        # get size of interior grid
-        nx = p.nx - (p.use_cpml_left + p.use_cpml_right) * p.ncpml
-        nz = p.nz - (p.use_cpml_top + p.use_cpml_bottom) * p.ncpml
-
-        startx = p.ncpml if p.use_cpml_left else 0
-        startz = p.ncpml if p.use_cpml_top else 0
-        endx = startx + nx
-        endz = startz + nz
-
-        return startx, startz, endx, endz
 
 
     @property

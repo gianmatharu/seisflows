@@ -1,0 +1,86 @@
+#!/usr/bin/env python
+
+# script to plot velocity models.
+
+import argparse
+from os.path import join
+from seisflows.tools.array import readgrid
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Parse input arguments
+parser = argparse.ArgumentParser(description='Plot velocity model.')
+
+# file and format flags
+parser.add_argument('-nx', type=int, help='pixels in x direction.')
+parser.add_argument('-nz', type=int, help='pixels in z direction.')
+parser.add_argument('-p1', '--path1', default='.', help='path to velocity model.')
+parser.add_argument('-p2', '--path2', default='.', help='path to velocity model.')
+parser.add_argument('-d', '--dtype', default='float32', help='numpy data type.')
+
+# plot options
+parser.add_argument('-cm', '--cmap', default='seismic_r', help='Matplotlib colormap scheme. \
+                    See matplotlib documentation')
+
+args = parser.parse_args()
+nx = args.nx
+nz = args.nz
+dtype = args.dtype
+cmap = args.cmap
+path1 = args.path1
+path2 = args.path2
+
+
+# execute program
+
+# check parameters
+if nx is None or nz is None:
+    raise ValueError('Need image dimensions.')
+
+# read model
+vp1 = readgrid(join(path1, 'vp.bin'), nx, nz, dtype=dtype)
+vp2 = readgrid(join(path2, 'vp.bin'), nx, nz, dtype=dtype)
+
+vs1 = readgrid(join(path1, 'vs.bin'), nx, nz, dtype=dtype)
+vs2 = readgrid(join(path2, 'vs.bin'), nx, nz, dtype=dtype)
+
+n = nx * nz
+mvpn = ((vp2 - vp1) / vp1)
+vpnorm = (np.linalg.norm(mvpn)) / n
+mvsn = ((vs2 - vs1) / vs1)
+vsnorm = (np.linalg.norm(mvsn)) / n
+
+print 'MODEL NORMS'
+print 'Vp: {:6e}'.format(vpnorm)
+print 'Vs: {:6e}'.format(vsnorm)
+
+# prepare plo
+plt.set_cmap(cmap)
+
+plt.subplot(2, 3, 1)
+plt.imshow(vp1, aspect ='auto')
+plt.clim(vp1.min(), vp1.max())
+plt.title('Vp initial')
+plt.subplot(2, 3, 2)
+plt.imshow(vp2, aspect ='auto')
+plt.clim(vp1.min(), vp1.max())
+plt.title('Vp update')
+plt.subplot(2, 3, 3)
+plt.imshow(vp2 - vp1, aspect ='auto')
+plt.clim(-200, 200)
+plt.colorbar()
+
+
+plt.subplot(2, 3, 4)
+plt.imshow(vs1, aspect ='auto')
+plt.title('Vs initial')
+plt.clim(vs1.min(), vs1.max())
+plt.subplot(2, 3, 5)
+plt.imshow(vs2, aspect ='auto')
+plt.clim(vs1.min(), vs1.max())
+plt.title('Vs update')
+plt.subplot(2, 3, 6)
+plt.imshow(vs2 - vs1, aspect ='auto')
+plt.clim(-200 / 1.76, 200 / 1.76)
+plt.colorbar()
+plt.show()

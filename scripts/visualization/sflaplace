@@ -1,0 +1,44 @@
+#!/usr/bin/env python3
+
+# Specialized script used to visualize gradients.
+
+# For convenience this routine assumes a particular directory structure that allows
+# simple access to inversion workflows.
+
+import argparse
+import numpy as np
+from scipy.ndimage import laplace
+import matplotlib.pyplot as plt
+from seisflows.tools.array import readgrid
+from os.path import join
+
+# Parse input arguments
+parser = argparse.ArgumentParser(description='Plot laplacian of image')
+
+# file and format flags
+parser.add_argument('file', help='Input file')
+parser.add_argument('-nx', type=int, help='pixels in x direction.')
+parser.add_argument('-nz', type=int, help='pixels in z direction.')
+
+parser.add_argument('-p', '--path', default='', help='Standard path to misfit kernel')
+
+parser.add_argument('-cm', '--cmap', default='seismic_r', help='Matplotlib colormap scheme. \
+                    See matplotlib documentation.')
+
+args = parser.parse_args()
+
+
+file = join(args.path, args.file)
+image = readgrid(file, args.nx, args.nz, dtype='float32')
+laplacian_image = laplace(image)
+vmin, vmax = -np.abs(image).max(), np.abs(image).max()
+
+plt.set_cmap(args.cmap)
+plt.subplot(2, 1, 1)
+plt.imshow(image, aspect='auto')
+plt.clim(vmin, vmax)
+plt.subplot(2, 1, 2)
+plt.imshow(laplacian_image, aspect='auto')
+vmin, vmax = -np.abs(laplacian_image).max(), np.abs(laplacian_image).max()
+plt.clim(vmin/10, vmax/10)
+plt.show()

@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+
+# Specialized script used to visualize observed and synthetic data. For convenience this routine assumes a
+# particular directory structure that allows simple access to inversion workflows.
+# The directories should be set up as scratch/solver/($EVENTID)/traces/obs and
+# scratch/solver/($EVENTID)/traces/syn. Designed to be run from the working directory.
+
+import argparse
+from seisflows.tools.graphics import compare_residuals
+
+from os.path import join
+
+def iter_dirname(n):
+    """ return string with iteration directory name
+    """
+    return 'ITER_{:03d}'.format(n)
+
+
+def event_dirname(n):
+    """ return string with event directory name
+    """
+    return '{:03d}'.format(n)
+
+# Parse input arguments
+parser = argparse.ArgumentParser(description='Plot a seismic section.')
+
+# file and format flags
+parser.add_argument('-r', action='store_true', help='Show residuals')
+parser.add_argument('-a', action='store_true', help='Show adjoint source')
+
+parser.add_argument('-pd', '--datapath', default='./data', help='Path to')
+parser.add_argument('-ps', '--synpath', default='./output', help='Path to')
+
+parser.add_argument('-it', '--iter', type=int, default=1, help='Iteration number')
+parser.add_argument('-id', '--eventid', type=int, default=1, help='Event number')
+
+parser.add_argument('-cm', '--cmap', default='seismic_r', help='Matplotlib colormap scheme. \
+                    See matplotlib documentation.')
+parser.add_argument('-c', '--clip', type=int, default='100', help='Clip amplitudes')
+
+args = parser.parse_args()
+
+dpath = join(args.datapath, event_dirname(args.eventid))
+spath = join(args.synpath, iter_dirname(args.iter), event_dirname(args.eventid), 'syn')
+
+
+compare_residuals(dpath, spath, cmap=args.cmap, clip=args.clip)
+

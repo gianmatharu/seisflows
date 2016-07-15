@@ -3,6 +3,7 @@ import os
 from os.path import abspath, basename, join
 
 import numpy as np
+import subprocess
 
 from seisflows.tools import unix
 from seisflows.tools.code import findpath, saveobj
@@ -53,34 +54,28 @@ class mpi_queue(custom_import('system', 'mpi')):
 
         if hosts == 'all':
 
-            iter = 0
-            queue = range(PAR.NTASK)
-
-            while True:
-                os.environ['SEISFLOWS_TASKID'] = str(iter)
-                unix.cd(join(findpath('seisflows.system'), 'wrappers'))
-                unix.run('mpiexec -n {} '.format(PAR.NPROCMAX)
-                        + PAR.MPIARGS + ' '
-                        + 'run_mpi' + ' '
-                        + PATH.OUTPUT + ' '
-                        + classname + ' '
-                        + funcname)
-
-                del queue[:PAR.NPROCMAX]
-                if queue:
-                    iter += 1
-                else:
-                    break
+            unix.cd(join(findpath('seisflows.system'), 'wrappers'))
+            subprocess.call(PAR.MPIEXEC + ' '
+                    + '-n {} '.format(PAR.NPROCMAX)
+                    + PAR.MPIARGS + ' '
+                    + 'run_mpi_loop' + ' '
+                    + PATH.OUTPUT + ' '
+                    + classname + ' '
+                    + funcname + ' '
+                    + '{}'.format(int(PAR.NTASK / PAR.NPROCMAX)),
+                    shell=True)
 
         elif hosts == 'head':
             os.environ['SEISFLOWS_TASKID'] = str(0)
             unix.cd(join(findpath('seisflows.system'), 'wrappers'))
-            unix.run('mpiexec -n 1 '
+            subprocess.call(PAR.MPIEXEC + ' '
+                    + '-n 1 '
                     + PAR.MPIARGS + ' '
                     + 'run_mpi_head' + ' '
                     + PATH.OUTPUT + ' '
                     + classname + ' '
-                    + funcname)
+                    + funcname,
+                    shell=True)
 
         else:
             raise(KeyError('Hosts parameter not set/recognized.'))
@@ -89,8 +84,13 @@ class mpi_queue(custom_import('system', 'mpi')):
         """Gets number of running task"""
         from mpi4py import MPI
         rank = MPI.COMM_WORLD.Get_rank()
-        iter = int(os.environ['SEISFLOWS_TASKID'])
-        return int(iter * PAR.NPROCMAX + rank)
+        nproc = int(PAR.NTASK / PAR.NPROCMAX)
+
+        rank_file = join(PATH.SUBMIT, 'rank_{:03d}'.format(rank))
+
+        with open(rank_file) as f:
+            ind = int(f.read())
+        return (rank * nproc) + ind
 
     def check_mpi(self):
         """ Checks MPI dependencies

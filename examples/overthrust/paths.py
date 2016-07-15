@@ -1,10 +1,12 @@
 
-MODELS = '/Users/gianmatharu/Desktop/seisflows/examples/overthrust/models'
+#DATA = '/home/gian/Desktop/seisflows/examples/overthrust/data'
 
-MODEL_INIT = '/Users/gianmatharu/Desktop/seisflows/examples/overthrust/models/model_init'
+MODELS = '/home/gian/Desktop/seisflows/examples/overthrust/models'
 
-MODEL_TRUE = '/Users/gianmatharu/Desktop/seisflows/examples/overthrust/models/model_true'
+MODEL_INIT = '/home/gian/Desktop/seisflows/examples/overthrust/models/model_init'
 
-SOLVER_INPUT = '/Users/gianmatharu/Desktop/seisflows/examples/overthrust/solver/INPUT'
+MODEL_TRUE = '/home/gian/Desktop/seisflows/examples/overthrust/models/model_true'
 
-SOLVER_BIN = '/Users/gianmatharu/Desktop/seisflows/examples/overthrust/solver/bin'
+SOLVER_INPUT = '/home/gian/Desktop/seisflows/examples/overthrust/solver/INPUT'
+
+SOLVER_BIN = '/home/gian/Desktop/seisflows/examples/overthrust/solver/bin'

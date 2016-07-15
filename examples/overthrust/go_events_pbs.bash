@@ -9,8 +9,8 @@
 ###########################################################
 # USER PARAMETERS
 
-#PBS -l mem=22gb
-#PBS -l nodes=2:ppn=8,walltime=01:00:00
+#PBS -l mem=11gb
+#PBS -l nodes=1:ppn=8,walltime=00:01:00:00
 #PBS -M gian@ualberta.ca
 #PBS -m bea
 ##PBS -q debug

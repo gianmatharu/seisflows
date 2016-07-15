@@ -1,4 +1,4 @@
-from fwpy.seistools.plotutils import Par
+from seisflows.seistools.ewf2d import Par
 import time
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,8 +10,6 @@ p = Par()
 p.read_par_file(input_file)
 
 # Process information
-nproc = p.nprocx * p.nprocz
-
 npad = p.npad
 nx = p.nx
 nz = p.nz

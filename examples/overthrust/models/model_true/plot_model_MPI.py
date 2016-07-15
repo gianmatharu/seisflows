@@ -1,4 +1,4 @@
-from fwpy.seistools.plotutils import Par
+from seisflows.seistools.ewf2d import Par
 import time
 import numpy as np
 import matplotlib.pyplot as plt
@@ -10,8 +10,6 @@ p = Par()
 p.read_par_file(input_file)
 
 # Process information
-nproc = p.nprocx * p.nprocz
-
 npad = p.npad
 nx = p.nx
 nz = p.nz
@@ -27,7 +25,7 @@ plt.subplot(2, 1, 1)
 plt.imshow(vp)
 plt.title("Vp")
 plt.subplot(2, 1, 2)
-plt.imshow(vs)
+plt.imshow(1.76*vs)
 plt.title("Vs")
 
 plt.show()

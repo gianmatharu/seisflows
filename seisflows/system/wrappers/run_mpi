@@ -4,6 +4,8 @@ if __name__ == '__main__':
     import sys
     from mpi4py import MPI
 
+    comm = MPI.COMM_WORLD
+
     # parse command line arguments
     mypath = sys.argv[1]
     myobj = sys.argv[2]
@@ -24,4 +26,6 @@ if __name__ == '__main__':
     # call function
     func = getattr(sys.modules[myobj], myfunc)
     func(**kwargs)
+
+    comm.Barrier()
 

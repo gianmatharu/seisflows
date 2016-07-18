@@ -150,7 +150,6 @@ def dot(x,y):
 def hilbert(w):
     return np.imag(analytic(w))
 
-
 def eigsorted(A):
     """
     Return sorted eigenvalues and eigenvectors.
@@ -164,4 +163,5 @@ def eigsorted(A):
     return vals[order], vecs[:, order]
 
 
+infinity = np.inf
 

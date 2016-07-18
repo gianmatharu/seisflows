@@ -2,6 +2,9 @@
 from os.path import join
 import numpy as np
 from obspy.core.trace import Trace
+
+from seisflows.tools import msg
+from seisflows.seistools import adjoint, misfit, readers, writers
 from seisflows.seistools.ewf2d import Par
 from seisflows.tools.code import exists
 from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, \
@@ -12,13 +15,58 @@ PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
 
 
-class ewf2d(custom_import('preprocess', 'base')):
+class ewf2d(object):
     """ Data preprocessing class
     """
 
     def check(self):
 
-        super(ewf2d, self).check()
+        if 'MISFIT' not in PAR:
+            setattr(PAR, 'MISFIT', 'Waveform')
+
+        if 'CHANNELS' not in PAR:
+            raise ParameterError(PAR, 'CHANNELS')
+
+        if 'READER' not in PAR:
+          raise ParameterError(PAR, 'READER')
+
+        if 'WRITER' not in PAR:
+          setattr(PAR, 'WRITER', PAR.READER)
+
+        if 'NORMALIZE' not in PAR:
+          setattr(PAR, 'NORMALIZE', True)
+
+        # mute settings
+        if 'MUTE' not in PAR:
+          setattr(PAR, 'MUTE', False)
+
+        if 'MUTESLOPE' not in PAR:
+          setattr(PAR, 'MUTESLOPE', 0.)
+
+        if 'MUTECONST' not in PAR:
+          setattr(PAR, 'MUTECONST', 0.)
+
+        # filter settings
+        if 'BANDPASS' not in PAR:
+          setattr(PAR, 'BANDPASS', False)
+
+        if 'FREQLO' not in PAR:
+          setattr(PAR, 'FREQLO', 0.)
+
+        if 'FREQHI' not in PAR:
+          setattr(PAR, 'FREQHI', 0.)
+
+        # assertions
+        if PAR.READER not in dir(readers):
+            print msg.ReaderError
+            raise ParameterError()
+
+        if PAR.WRITER not in dir(writers):
+            print msg.WriterError
+            raise ParameterError()
+
+        if PAR.READER != PAR.WRITER:
+            print msg.DataFormatWarning % (PAR.READER, PAR.WRITER)
 
         if 'USE_STF_FILE' not in PAR:
             setattr(PAR, 'USE_STF_FILE', False)
@@ -61,7 +109,18 @@ class ewf2d(custom_import('preprocess', 'base')):
 
     def setup(self):
 
-        super(ewf2d, self).setup()
+        # define misfit function and adjoint trace generator
+        self.misfit = getattr(misfit, PAR.MISFIT)
+        self.adjoint = getattr(adjoint, PAR.MISFIT)
+
+        # define seismic data reader and writer
+        self.reader = getattr(readers, PAR.READER)
+        self.writer = getattr(writers, PAR.WRITER)
+
+        # prepare channels list
+        self.channels = []
+        for char in PAR.CHANNELS:
+            self.channels += [char]
 
         if PAR.USE_STF_FILE:
             stf_file = join(PATH.SOLVER_INPUT, PAR.STF_FILE)

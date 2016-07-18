@@ -6,7 +6,7 @@ import subprocess
 
 from seisflows.seistools.ewf2d import Par, read_cfg_file, write_cfg_file, event_dirname
 from seisflows.tools import unix
-from seisflows.tools.code import exists
+from seisflows.tools.code import exists, mpicall
 from seisflows.tools.array import gridsmooth, loadnpy, savenpy
 from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, ParameterError, custom_import
 
@@ -27,6 +27,13 @@ class ewf2d(custom_import('solver', 'base')):
         super(ewf2d, self).check()
 
         # check parameters
+
+        if 'FORMAT' not in PAR:
+            raise ParameterError(PAR, 'FORMAT')
+
+        if PAR.FORMAT != 'su':
+            raise ValueError('Format must be SU')
+
         if 'LINE_DIR' not in PAR:
             setattr(PAR, 'LINE_DIR', 'x')
 
@@ -77,7 +84,7 @@ class ewf2d(custom_import('solver', 'base')):
         """
         unix.cd(join(self.getpath, 'bin'))
         script = './xewf2d'
-        super(ewf2d, self).call(script, PATH.SUBMIT + '/dump')
+        mpicall(system.mpiexec(), script, PATH.SUBMIT + '/dump')
 
         unix.cd(PATH.SUBMIT)
 
@@ -86,7 +93,7 @@ class ewf2d(custom_import('solver', 'base')):
         """
         unix.cd(join(self.getpath, 'bin'))
         script = './xewf2d'
-        super(ewf2d, self).call(script, PATH.SUBMIT + '/dump')
+        mpicall(system.mpiexec(), script, PATH.SUBMIT + '/dump')
 
         unix.cd(PATH.SUBMIT)
 
@@ -170,8 +177,12 @@ class ewf2d(custom_import('solver', 'base')):
         model_dir = join(path, 'model')
         unix.mkdir(output_dir)
 
-        self.generate_data(model_dir=model_dir, output_dir=output_dir, save_wavefield=True,
-                           use_stf_file=PAR.USE_STF_FILE, stf_file='stf_f.txt')
+        if PAR.WORKFLOW == 'frugal_inversion':
+            self.generate_data(model_dir=model_dir, output_dir=output_dir, save_wavefield=True,
+                        use_stf_file=PAR.USE_STF_FILE, stf_file='stf_f.txt')
+        else:
+            self.generate_data(model_dir=model_dir, output_dir=output_dir, save_wavefield=False,
+                        use_stf_file=PAR.USE_STF_FILE, stf_file='stf_f.txt')
 
         preprocess.evaluate_trial_step(self.getpath, basedir)
 
@@ -486,3 +497,33 @@ class ewf2d(custom_import('solver', 'base')):
     def getpath(self):
         itask = system.getnode()
         return join(PATH.SOLVER, event_dirname(itask + 1))
+    #
+    # @property
+    # def data_filenames(self):
+    #     if PAR.CHANNELS:
+    #         if PAR.FORMAT in ['SU', 'su']:
+    #            filenames = []
+    #            for channel in PAR.CHANNELS:
+    #                filenames += ['U%s_file_single.su' % channel]
+    #            return filenames
+    #
+    #     else:
+    #         unix.cd(self.getpath)
+    #         unix.cd('traces/obs')
+    #
+    #         if PAR.FORMAT in ['SU', 'su']:
+    #             return glob('U?_file_single.su')
+    #
+    # @property
+    # def model_databases(self):
+    #     return join(self.getpath, 'DATA')
+    #
+    # @property
+    # def kernel_databases(self):
+    #     return join(self.getpath, 'OUTPUT_FILES')
+    #
+    # @property
+    # def source_prefix(self):
+    #     return 'SOURCE'
+    #
+

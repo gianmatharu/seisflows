@@ -23,6 +23,7 @@ class Par(object):
         self.use_cpml_top = False
         self.use_cpml_bottom = False
         self.ncpml = 0
+        self.ntask = 0
 
     def read_par_file(self, filename):
 
@@ -50,6 +51,7 @@ class Par(object):
             self.use_cpml_top = self.str2bool(p["use_cpml_top"])
             self.use_cpml_bottom = self.str2bool(p["use_cpml_bottom"])
             self.ncpml = int(p["ncpml"])
+            self.ntask = int(p["nsrc"])
             if self.use_free_surface and self.use_cpml_top:
                 self.use_cpml_top = False
 
@@ -97,10 +99,18 @@ def read_cfg_file(filename):
 def write_cfg_file(filename, dict):
     """ Write a libconfig file from a dictionary. Does not retain order.
     """
+    try:
+        with open(filename, 'w') as configfile:
+            for key, value in dict.items():
+                configfile.write(key + ': ' + str(value) + '\n')
+    except IOError:
+        print('Error writing cfg file.')
 
-    with open(filename, 'w') as configfile:
-        for key, value in dict.items():
-            configfile.write(key + ': ' + str(value) + '\n')
+def get_cfg_value(filename, key):
+    """ Return value for corresponding key in cfg file.
+    """
+    cfg = read_cfg_file(filename)
+    return cfg[key]
 
 # misc
 

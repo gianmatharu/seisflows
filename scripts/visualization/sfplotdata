@@ -25,6 +25,8 @@ parser.add_argument('-i', '--interactive', action='store_true', help='Enable int
 parser.add_argument('-cm', '--cmap', default='seismic_r', help='Matplotlib colormap scheme. \
                     See matplotlib documentation.')
 parser.add_argument('-c', '--clip', type=int, default='100', help='Clip amplitudes')
+parser.add_argument('-l', '--all',  type=int, default=0, help='Enable interactive plotting')
+
 
 args = parser.parse_args()
 
@@ -43,6 +45,11 @@ if args.interactive:
                         cmap=args.cmap, clip=args.clip)
       else:
           break
+elif args.all > 0:
+    for itask in range(args.all):
+        plot_data(args.path, itask + 1, data=args.d, syn=args.s, res=args.r, adj=args.a,
+                cmap=args.cmap, clip=args.clip)
+        #input("Press Enter to continue...")
 else:
     plot_data(args.path, args.eventid, data=args.d, syn=args.s, res=args.r, adj=args.a,
               cmap=args.cmap, clip=args.clip)

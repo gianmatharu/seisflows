@@ -242,13 +242,13 @@ def plot_ev_grad(path, eventid, nx=None, nz=None, alpha=True, beta=True, rho=Fal
     # read seismogramgs
     if alpha:
         vp = readgrid(join(path, 'vp_kernel.bin'), nx, nz, dtype='float32')
-        seis.append((vp, 'Vp - kernel'.format(eventid)))
+        seis.append((vp, '{} - Vp - kernel'.format(eventid)))
     if beta:
         vs = readgrid(join(path, 'vs_kernel.bin'), nx, nz, dtype='float32')
-        seis.append((vs, 'Vs - kernel'.format(eventid)))
+        seis.append((vs, '{} - Vs - kernel'.format(eventid)))
     if rho:
         rho = readgrid(join(path, 'rho_kernel.bin'), nx, nz, dtype='float32')
-        seis.append((rho, 'rho - kernel'.format(eventid)))
+        seis.append((rho, '{} - rho - kernel'.format(eventid)))
     if precond:
         p = readgrid(join(path, 'precond.bin'), nx, nz, dtype='float32')
         p = p / abs(p).max()

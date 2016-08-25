@@ -13,7 +13,7 @@ PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
 
 
-class test_gradient(object):
+class ptest_gradient(object):
     """ Generates synthetic data.
     """
 

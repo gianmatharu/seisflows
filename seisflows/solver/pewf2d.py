@@ -22,6 +22,7 @@ p.read_par_file(join(PATH.SOLVER_INPUT, 'par_template.cfg'))
 
 class pewf2d(custom_import('solver', 'base')):
 
+
     def check(self):
         super(pewf2d, self).check()
 
@@ -106,7 +107,7 @@ class pewf2d(custom_import('solver', 'base')):
 
         # generate synthetic data
         output_dir = join(PATH.SOLVER)
-        self.set_par_cfg(external_model_dir=PATH.MODEL_INIT,
+        self.set_par_cfg(external_model_dir=PATH.MODEL_EST,
                          output_dir=output_dir,
                          mode=mode,
                          use_stf_file=PAR.USE_STF_FILE,
@@ -119,11 +120,18 @@ class pewf2d(custom_import('solver', 'base')):
         # prepare adjoint sources
         preprocess.prepare_eval_grad(self.getpath)
 
+    def process_trial_step(self):
+
+        # prepare adjoint sources
+        itask = system.getnode()
+        trial_dir = join(PATH.FUNC, event_dirname(itask + 1))
+        preprocess.evaluate_trial_step(self.getpath, trial_dir)
+
     def compute_gradient(self):
 
         # generate synthetic data
         output_dir = join(PATH.SOLVER)
-        self.set_par_cfg(external_model_dir=PATH.MODEL_INIT,
+        self.set_par_cfg(external_model_dir=PATH.MODEL_EST,
                          output_dir=output_dir,
                          adjoint_dir='traces/adj',
                          mode=2,
@@ -133,37 +141,36 @@ class pewf2d(custom_import('solver', 'base')):
         self.adjoint()
         self.clean_boundary_storage()
 
-   # serial/reduction function
-
-    def evaluate_gradient(self, model_dir=''):
-        """ Compute event gradient by running adjoint simulation
+    def evaluate_function(self, mode=0):
+        """ Evaluate test function for a trial model
         """
 
-        # get task number
-        itask = system.getnode()
+        output_dir = join(PATH.FUNC)
+        model_dir = join(PATH.FUNC, 'model')
+        unix.mkdir(output_dir)
 
-        # setup directories
-        syn_dir = join(self.getpath, 'traces', 'syn')
-        adj_dir = join(self.getpath, 'traces', 'adj')
+        # save forward wavefield here
+        if PAR.WORKFLOW == 'frugal_inversion':
+            raise(NotImplementedError, 'Not implemented yet!')
+        else:
+            mode = 0
 
-        # set par.cfg file for solver
-        self.set_par_cfg(external_model_dir=model_dir, output_dir=syn_dir, save_final_wavefield=False,
-                         adjoint_sim=True, adjoint_dir=adj_dir)
+        self.set_par_cfg(external_model_dir=model_dir,
+                         output_dir=output_dir,
+                         mode=mode,
+                         use_stf_file=PAR.USE_STF_FILE,
+                         stf_file=PAR.STF_FILE)
+        self.forward()
 
-        # set src.cfg for solver
-        xsrc = self.sources[itask][0]
-        zsrc = self.sources[itask][1]
-        self.set_src_cfg(xs=float(xsrc), zs=float(zsrc), use_stf_file=True, stf_file='stf_f.txt')
+    def export_trial_solution(self, path=''):
+        """ Save trial solution for frugal inversion.
+        """
+        # transfer synthetic data
+        src = glob(join(path, basename(self.getpath), 'traces', 'syn', '*'))
+        dst = join(self.getpath, 'traces', 'syn')
+        unix.mv(src, dst)
 
-        # copy cfg files
-        unix.cp(join(self.getpath, 'INPUT', 'par.cfg'), adj_dir)
-        unix.cp(join(self.getpath, 'INPUT', 'src.cfg'), adj_dir)
-
-        # run adjoint sim
-        self.adjoint()
-
-        # clean saved boundaries
-        unix.rm(glob(join(syn_dir, 'proc*')))
+   # serial/reduction function
 
     def combine(self, precond=True):
         """ sum event gradients to compute misfit gradient
@@ -275,6 +282,46 @@ class pewf2d(custom_import('solver', 'base')):
         # check max values
         indhigh = v > maxval
         v[indhigh] = maxval
+
+    def apply_preconditioner(self, dir, grad):
+        """ Prepare preconditioner
+        """
+
+        if PAR.PRECOND_TYPE == 'LINEAR':
+            grad = grad.reshape((p.nz, p.nx))
+            precond = np.linspace(0, 1, p.nz)
+            grad = (grad.T * precond).T
+            grad = grad.reshape(p.nz * p.nx)
+            return grad
+        if PAR.PRECOND_TYPE == 'LOCAL':
+            precond = self.load(join(dir, 'precondf.bin'))
+            return precond * grad
+        elif PAR.PRECOND_TYPE == 'ONE_WAY':
+            precond = self.load(join(dir, 'precond.bin'))
+            precond = self._invert_grid_interior(precond)
+            return precond * grad
+        elif PAR.PRECOND_TYPE == 'TWO_WAY':
+            precond = abs(self.load(join(dir, 'precond2w.bin')))
+            precond = self._invert_grid_interior(precond, smooth=True)
+            return precond * grad
+        else:
+            raise ValueError('Preconditioner type not found.')
+
+    def _invert_grid_interior(self, x, smooth=False):
+        """ Invert grid interior
+        """
+        x = x.reshape((p.nz, p.nx))
+
+        if smooth:
+            x = gridsmooth(x, PAR.PRECOND_SMOOTH)
+
+        # normalize initial input
+        x /= abs(x).max()
+        x = 1 / (x + PAR.PRECOND_THRESH)
+        x /= abs(x).max()
+        x = x.reshape(p.nz * p.nx)
+
+        return x
 
     # configuration file handling
 

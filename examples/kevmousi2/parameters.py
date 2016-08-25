@@ -1,13 +1,13 @@
 
-WORKFLOW='test_gradient'    # inversion
-SOLVER='ewf2d'      # specfem2d, specfem3d
-SYSTEM='mpi_queue'         # serial, pbs, slurm
+WORKFLOW='pinversion'    # inversion
+SOLVER='pewf2d'      # specfem2d, specfem3d
+SYSTEM='serial'         # serial, pbs, slurm
 OPTIMIZE='base'         # base, newton
 PREPROCESS='ewf2d'       # base
 POSTPROCESS='ewf2d'      # base
 
 MISFIT='Waveform'
-MATERIALS='Elastic'
+MATERIALS='Acoustic'
 DENSITY='Constant'
 CHANNELS = ['x', 'z']
 
@@ -24,6 +24,7 @@ SAVETRACES = 1
 SAVERESIDUALS = 1
 
 # PREPROCESSING
+FORMAT = 'su'
 READER = 'su_ewf2d_obspy'
 WRITE = 'su_ewf2d_obspy'
 USE_STF_FILE = True
@@ -32,23 +33,23 @@ STF_FILE = 'stf.txt'
 NORMALIZE=False         # normalize traces
 #GAIN=False              # apply offset dependent gain
 #DAMPING = 2.0           # exponential time damping (per second)
-MUTE_WINDOW = False   # mute outside of a time window
+MUTE_WINDOW = True   # mute outside of a time window
 WINDOW = 'tukey'        # taper functions - tukey (default), cosine, gaussian
 TMIN = 0.5              # start of time window
-TMAX = 6.0              # end of time window
+TMAX = 5.5              # end of time window
 MUTE_OFFSET = False
 MAX_OFFSET = 2.0        # max offset (km) for offset mute.
 INNER_MUTE = True
 #FREQHI=3.0             # corner frequency for filtering
 
 # POSTPROCESSING
-SMOOTH=4.0
+SMOOTH=5.0
 
 # OPTIMIZATION
 SCHEME='NLCG'
-#LBFGSMEM = 8
+LBFGSMEM = 8
 MASK=True  # Applies precondition
-STEPMAX=10
+STEPMAX=15
 STEPINIT=0.05
 PRECOND_TYPE='ONE_WAY'
 PRECOND_THRESH = 1e-3
@@ -64,7 +65,5 @@ FIXED_POS = 40.0           # Fixed source spacing
 
 # SYSTEM
 
-#NTASK = 96               # Number of shots
 NTASK = 48
-NPROC = 1               # Number of processes per simulation
-NPROCMAX= 8
+NPROC = 8               # Number of processes per simulation

@@ -151,7 +151,7 @@ class pewf2d(custom_import('solver', 'base')):
 
         # save forward wavefield here
         if PAR.WORKFLOW == 'frugal_inversion':
-            raise(NotImplementedError, 'Not implemented yet!')
+            mode = 1
         else:
             mode = 0
 

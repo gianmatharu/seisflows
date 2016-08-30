@@ -9,7 +9,7 @@ PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
 
 
-class generate_data(object):
+class pgenerate_data(object):
     """ Generates synthetic data.
     """
 

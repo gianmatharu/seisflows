@@ -149,12 +149,6 @@ class pewf2d(custom_import('solver', 'base')):
         model_dir = join(PATH.FUNC, 'model')
         unix.mkdir(output_dir)
 
-        # save forward wavefield here
-        if PAR.WORKFLOW == 'frugal_inversion':
-            mode = 1
-        else:
-            mode = 0
-
         self.set_par_cfg(external_model_dir=model_dir,
                          output_dir=output_dir,
                          mode=mode,

@@ -62,6 +62,7 @@ class pinversion(custom_import('workflow', 'inversion')):
             if not exists(join(PATH.SOLVER_INPUT, PAR.STF_FILE)):
                 raise IOError('Source time function file not found.')
 
+
     def main(self):
         """ Carries out seismic inversion
         """
@@ -110,7 +111,7 @@ class pinversion(custom_import('workflow', 'inversion')):
                         hosts='head')
 
 
-    def compute_gradient(self, frugal=False):
+    def compute_gradient(self):
         """ Compute gradients. Designed to avoid excessive storage
             of boundary files.
         """
@@ -118,12 +119,10 @@ class pinversion(custom_import('workflow', 'inversion')):
         # output for inversion history
         unix.mkdir(join(PATH.OUTPUT, iter_dirname(optimize.iter)))
 
-        # Frugal inversion copies data from line search
-        if not frugal:
-            print('Generating synthetics...')
-            system.run('solver', 'generate_synthetics',
-                        mode=1,
-                        hosts='head')
+        print('Generating synthetics...')
+        system.run('solver', 'generate_synthetics',
+                    mode=1,
+                    hosts='head')
 
         print('Prepare adjoint sources...')
         system.run('solver', 'prepare_eval_grad',

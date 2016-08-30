@@ -56,6 +56,7 @@ class frugal_pinversion(custom_import('workflow', 'pinversion')):
             # simulation is redundant, can be skipped
             return True
 
+
     def setup(self):
         """ Lays groundwork for inversion
         """
@@ -82,6 +83,7 @@ class frugal_pinversion(custom_import('workflow', 'pinversion')):
                 system.run('solver', 'generate_data',
                             hosts='head')
 
+
     def compute_gradient(self):
         """ Compute gradients. Designed to avoid excessive storage
             of boundary files.
@@ -95,9 +97,42 @@ class frugal_pinversion(custom_import('workflow', 'pinversion')):
             super(frugal_pinversion, self).compute_gradient()
         else:
             print('Computing gradient (frugal)...')
-            super(frugal_pinversion, self).compute_gradient(frugal=True)
+
+            print('Prepare adjoint sources...')
+            system.run('solver', 'prepare_eval_grad',
+                       hosts='all')
+
+            print('Computing gradient...')
+            system.run('solver', 'compute_gradient',
+                        hosts='head')
+
+            postprocess.write_gradient(PATH.GRAD)
+
+            # evaluate misfit function
+            self.sum_residuals(path=PATH.SOLVER, suffix='new')
+
+
+    def evaluate_function(self):
+        """ Performs forward simulation to evaluate objective function
+        """
+        print('Frugal eval...')
+        self.write_model(path=PATH.FUNC, suffix='try')
+
+        system.run('solver', 'evaluate_function',
+                   mode=1,
+                   hosts='head')
+        system.run('solver', 'process_trial_step',
+                   hosts='all')
+
+        self.sum_residuals(path=PATH.FUNC, suffix='try')
+
 
     def iterate_search(self):
+        """ First, calls self.evaluate_function, which carries out a forward
+          simulation given the current trial model. Then calls
+          optimize.update_status, which maintains search history and checks
+          stopping conditions.
+        """
         super(frugal_pinversion, self).iterate_search()
 
         isdone = optimize.isdone
@@ -109,3 +144,5 @@ class frugal_pinversion(custom_import('workflow', 'pinversion')):
             system.run('solver', 'export_trial_solution',
                        hosts='all',
                        path=PATH.FUNC)
+
+

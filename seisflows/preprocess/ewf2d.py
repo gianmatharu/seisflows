@@ -213,19 +213,22 @@ class ewf2d(object):
 
         return trace
 
-    def write_residuals(self, path, s, d):
+    def write_residuals(self, path, syn, dat):
         """ Computes residuals from observations and synthetics
         """
-        nt, dt, _ = self.get_time_scheme(s)
-        n, _ = self.get_network_size(s)
+        nt, dt, _ = self.get_time_scheme(syn)
+        nn, _ = self.get_network_size(syn)
 
         filename = path +'/'+ 'residuals'
-        r = np.zeros(n)
+        if exists(filename):
+            rsd = list(np.loadtxt(filename))
+        else:
+            rsd = []
 
-        for i in range(n):
-            r[i] = self.misfit(s[i].data, d[i].data, nt, dt)
+        for ii in range(nn):
+            rsd.append(self.misfit(syn[ii].data, dat[ii].data, nt, dt))
 
-        np.savetxt(filename, r)
+        np.savetxt(filename, rsd)
 
     def store_residuals(self, path, channel, s, d):
 

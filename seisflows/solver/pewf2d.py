@@ -122,9 +122,14 @@ class pewf2d(custom_import('solver', 'base')):
 
     def process_trial_step(self):
 
-        # prepare adjoint sources
         itask = system.getnode()
         trial_dir = join(PATH.FUNC, event_dirname(itask + 1))
+
+        # delete old file
+        rfile = join(trial_dir, 'residuals')
+        if exists(rfile):
+            unix.rm(rfile)
+
         preprocess.evaluate_trial_step(self.getpath, trial_dir)
 
     def compute_gradient(self):

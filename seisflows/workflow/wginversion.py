@@ -45,7 +45,7 @@ class wginversion(custom_import('workflow', 'pinversion')):
 
         super(wginversion, self).check()
 
-        if PAR.SYSTEM != 'westgrid':
+        if not (PAR.SYSTEM == 'westgrid' or PAR.SYSTEM == 'westgrid_pbs'):
             raise ValueError('wginversion can only be run with westgrid system class')
 
 

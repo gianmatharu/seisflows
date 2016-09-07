@@ -28,8 +28,8 @@ class pewf2d(custom_import('solver', 'base')):
 
         # check parameters
 
-        if not (PAR.SYSTEM == 'serial' or PAR.SYSTEM == 'westgrid'):
-            raise ValueError('PEWF2D must be implemented with serial/westgrid system class.')
+        if PAR.SYSTEM not in ['serial', 'parallel', 'westgrid']:
+            raise ValueError('PEWF2D must be implemented with serial/parallel/westgrid system class.')
 
         if 'FORMAT' not in PAR:
             raise ParameterError(PAR, 'FORMAT')

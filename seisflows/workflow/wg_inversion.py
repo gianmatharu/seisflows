@@ -21,7 +21,7 @@ import preprocess
 import postprocess
 
 
-class wginversion(custom_import('workflow', 'pinversion')):
+class wg_inversion(custom_import('workflow', 'p_inversion')):
     """ Specialized Seismic inversion class for westgrid systems.
 
       Compute iterative non-linear inversion. Designed to fit PEWF2D solver.
@@ -43,10 +43,10 @@ class wginversion(custom_import('workflow', 'pinversion')):
         """ Check parameters and paths
         """
 
-        super(wginversion, self).check()
+        super(wg_inversion, self).check()
 
-        if not (PAR.SYSTEM == 'westgrid' or PAR.SYSTEM == 'westgrid_pbs'):
-            raise ValueError('wginversion can only be run with westgrid system class')
+        if PAR.SYSTEM not in ['parallel' or 'westgrid']:
+            raise ValueError('wg_inversion can only be run with parallel or westgrid system class')
 
 
     def setup(self):

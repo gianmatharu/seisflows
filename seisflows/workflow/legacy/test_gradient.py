@@ -2,7 +2,6 @@ import system
 import optimize
 import preprocess
 import postprocess
-import solver
 
 from os.path import join
 from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, ParameterError
@@ -13,7 +12,7 @@ PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
 
 
-class ptest_gradient(object):
+class test_gradient(object):
     """ Generates synthetic data.
     """
 
@@ -58,26 +57,13 @@ class ptest_gradient(object):
         postprocess.setup()
         optimize.setup()
 
-        system.run('solver', 'setup',
-                   hosts='all')
-
         print('Generating data...')
-        system.run('solver', 'generate_data',
-                    hosts='head')
-
-        print('Generating synthetics...')
-        system.run('solver', 'generate_synthetics',
-                    mode=1,
-                    hosts='head')
-
-        print('Prepare adjoint sources...')
-        system.run('solver', 'prepare_eval_grad',
+        system.run('solver', 'setup',
                    hosts='all')
 
         print('Computing gradient...')
         system.run('solver', 'compute_gradient',
-                    hosts='head')
-
+                    hosts='all')
         postprocess.write_gradient(PATH.GRAD)
         print('Finished')
 

@@ -248,7 +248,6 @@ def source_time_function(t, t0, f0, stf_type='ricker', factor=1e10):
     pi_f0_square = np.pi * np.pi * f0 * f0
     tau_square = tau * tau
 
-
     src_tf = factor * (1 - 2 * pi_f0_square * tau_square) * np.exp(-pi_f0_square * tau_square)
 
     return src_tf

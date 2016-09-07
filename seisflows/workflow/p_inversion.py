@@ -21,7 +21,7 @@ import preprocess
 import postprocess
 
 
-class pinversion(custom_import('workflow', 'inversion')):
+class p_inversion(custom_import('workflow', 'inversion')):
     """ Seismic inversion base class.
 
       Compute iterative non-linear inversion. Designed to fit EWF2D solver.
@@ -43,7 +43,7 @@ class pinversion(custom_import('workflow', 'inversion')):
         """ Check parameters and paths
         """
 
-        super(pinversion, self).check()
+        super(p_inversion, self).check()
 
         # check paths
         if 'MODELS' not in PATH:
@@ -61,6 +61,9 @@ class pinversion(custom_import('workflow', 'inversion')):
         else:
             if not exists(join(PATH.SOLVER_INPUT, PAR.STF_FILE)):
                 raise IOError('Source time function file not found.')
+
+        if PAR.SYSTEM != 'serial':
+            raise ValueError('p_inversion can only be run with serial system class')
 
 
     def main(self):
@@ -275,7 +278,6 @@ class pinversion(custom_import('workflow', 'inversion')):
 
 
     def save_traces(self):
-
         for itask in range(PAR.NTASK):
             src = glob(join(PATH.SOLVER, event_dirname(itask + 1), 'traces/syn', '*.su'))
             dst = join(PATH.OUTPUT, iter_dirname(optimize.iter), event_dirname(itask + 1), 'syn')

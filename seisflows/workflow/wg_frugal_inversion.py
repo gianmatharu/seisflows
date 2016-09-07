@@ -19,7 +19,7 @@ import preprocess
 import postprocess
 
 
-class frugal_wginversion(custom_import('workflow', 'wginversion')):
+class wg_frugal_inversion(custom_import('workflow', 'wg_inversion')):
     """ Seismic inversion base class.
 
         Frugal inversion saves wavefield and data during line search
@@ -94,7 +94,7 @@ class frugal_wginversion(custom_import('workflow', 'wginversion')):
         # if not, then prepare for gradient evaluation
         if not isready:
             print('Computing gradient...')
-            super(frugal_wginversion, self).compute_gradient()
+            super(wg_frugal_inversion, self).compute_gradient()
         else:
             print('Computing gradient (frugal)...')
 
@@ -133,7 +133,7 @@ class frugal_wginversion(custom_import('workflow', 'wginversion')):
           optimize.update_status, which maintains search history and checks
           stopping conditions.
         """
-        super(frugal_wginversion, self).iterate_search()
+        super(wg_frugal_inversion, self).iterate_search()
 
         isdone = optimize.isdone
         isready = self.solver_status()

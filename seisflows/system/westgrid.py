@@ -1,31 +1,30 @@
-
+from os.path import abspath, basename, join, dirname
 import os
-import subprocess
-from os.path import abspath, basename, join
-
-import numpy as np
 
 from seisflows.tools import unix
-from seisflows.tools.code import findpath, saveobj
-
+from seisflows.tools.code import call, findpath, saveobj
 from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, \
     ParameterError, custom_import
-from seisflows.tools.msg import mpiError1, mpiError3
-
 
 PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
 
 
-class westgrid(custom_import('system', 'mpi_queue')):
-    """ An interface through which to submit workflows, run tasks in serial or 
+class westgrid(custom_import('system', 'base')):
+    """ An interface through which to submit workflows, run tasks in serial or
       parallel, and perform other system functions.
 
-      By hiding environment details behind a python interface layer, these 
+      By hiding environment details behind a python interface layer, these
       classes provide a consistent command set across different computing
       environments.
 
-      For important additional information, please see 
+      Intermediate files are written to a global scratch path PATH.SCRATCH,
+      which must be accessible to all compute nodes.
+
+      Optionally, users can provide a local scratch path PATH.LOCAL if each
+      compute node has its own local filesystem.
+
+      For important additional information, please see
       http://seisflows.readthedocs.org/en/latest/manual/manual.html#system-configuration
     """
 
@@ -33,30 +32,31 @@ class westgrid(custom_import('system', 'mpi_queue')):
         """ Checks parameters and paths
         """
 
+        # check parameters
         if 'TITLE' not in PAR:
             setattr(PAR, 'TITLE', basename(abspath('.')))
-
-        if 'NTASK' not in PAR:
-            setattr(PAR, 'NTASK', 1)
-
-        if 'NPROC' not in PAR:
-            setattr(PAR, 'NPROC', 1)
 
         if 'VERBOSE' not in PAR:
             setattr(PAR, 'VERBOSE', 1)
 
-        if 'MPIEXEC' not in PAR:
-            setattr(PAR, 'MPIEXEC', 'mpiexec')
+        if 'NTASK' not in PAR:
+            raise ParameterError(PAR, 'NTASK')
 
-        if 'MPIARGS' not in PAR:
-            setattr(PAR, 'MPIARGS', '--mca mpi_warn_on_fork 0')
+        if 'NPROC' not in PAR:
+            raise ParameterError(PAR, 'NPROC')
+
+        if 'PBSARGS' not in PAR:
+            setattr(PAR, 'PBSARGS', '')
 
         # check paths
         if 'SCRATCH' not in PATH:
             setattr(PATH, 'SCRATCH', join(abspath('.'), 'scratch'))
 
         if 'LOCAL' not in PATH:
-            setattr(PATH, 'LOCAL', '')
+            setattr(PATH, 'LOCAL', None)
+
+        if 'SYSTEM' not in PATH:
+            setattr(PATH, 'SYSTEM', join(PATH.SCRATCH, 'system'))
 
         if 'SUBMIT' not in PATH:
             setattr(PATH, 'SUBMIT', abspath('.'))
@@ -64,40 +64,46 @@ class westgrid(custom_import('system', 'mpi_queue')):
         if 'OUTPUT' not in PATH:
             setattr(PATH, 'OUTPUT', join(PATH.SUBMIT, 'output'))
 
-        self.check_mpi()
 
+    def submit(self, workflow):
+        """Submits job
+        """
+        unix.mkdir(PATH.OUTPUT)
+        unix.cd(PATH.OUTPUT)
+
+        # save current state
+        self.checkpoint()
+        workflow.main()
 
     def run(self, classname, funcname, hosts='all', **kwargs):
-        """ Runs tasks in serial or parallel on specified hosts
+        """  Runs tasks in serial or parallel on specified hosts
         """
-        # to avoid cryptic MPI messages, use "--mca_warn_on_fork 0" as the
-        # default value for MPIARGS, and use subprocess.call rather than
-        # call_catch to invoke mpiexec
         self.checkpoint()
         self.save_kwargs(classname, funcname, kwargs)
 
         if hosts == 'all':
-            unix.cd(join(findpath('seisflows.system'), 'wrappers'))
-            subprocess.call(PAR.MPIEXEC + ' '
-                    + '-n {} '.format(PAR.NPROCMAX)
-                    + PAR.MPIARGS + ' '
-                    + 'run_mpi_loop' + ' '
+            # run on all available nodes
+            call('pbsdsh '
+                    + join(findpath('seisflows.system'), 'wrappers/export_paths.sh ')
+                    + os.getenv('PATH') + ' '
+                    + os.getenv('LD_LIBRARY_PATH') + ' '
+                    + join(findpath('seisflows.system'), 'wrappers/run_pbsdsh ')
                     + PATH.OUTPUT + ' '
                     + classname + ' '
                     + funcname + ' '
-                    + '{}'.format(int(PAR.NTASK / PAR.NPROCMAX)),
-                    shell=True)
+                    + dirname(findpath('seisflows').rstrip('/')))
 
         elif hosts == 'head':
-            unix.cd(join(findpath('seisflows.system'), 'wrappers'))
-            subprocess.call(PAR.MPIEXEC + ' '
-                    + '-n 1 '
-                    + PAR.MPIARGS + ' '
-                    + 'run_mpi_head' + ' '
+            # run on head node
+            call('pbsdsh '
+                    + join(findpath('seisflows.system'), 'wrappers/export_paths.sh ')
+                    + os.getenv('PATH') + ' '
+                    + os.getenv('LD_LIBRARY_PATH') + ' '
+                    + join(findpath('seisflows.system'), 'wrappers/run_pbsdsh_head ')
                     + PATH.OUTPUT + ' '
                     + classname + ' '
-                    + funcname,
-                    shell=True)
+                    + funcname + ' '
+                    + dirname(findpath('seisflows').rstrip('/')))
 
         elif hosts == 'mpi_c':
             func = getattr(__import__(classname), funcname)
@@ -106,6 +112,17 @@ class westgrid(custom_import('system', 'mpi_queue')):
         else:
             raise(KeyError('Hosts parameter not set/recognized.'))
 
+    def getnode(self):
+        """ Gets number of running task
+        """
+        return int(os.getenv('PBS_VNODENUM'))
+
+    def save_kwargs(self, classname, funcname, kwargs):
+        kwargspath = join(PATH.OUTPUT, 'SeisflowsObjects', classname+'_kwargs')
+        kwargsfile = join(kwargspath, funcname+'.p')
+        unix.mkdir(kwargspath)
+        saveobj(kwargsfile, kwargs)
+
     def mpiexec(self):
         """ Specifies MPI exectuable; used to invoke solver
         """
@@ -113,14 +130,3 @@ class westgrid(custom_import('system', 'mpi_queue')):
             return 'mpiexec -np %d ' % PAR.NPROC
         else:
             return ''
-
-    def check_mpi(self):
-        """ Checks MPI dependencies
-        """
-        try:
-            import mpi4py
-        except ImportError:
-            raise Exception(mpiError1 % PAR.SYSTEM)
-
-        if PAR.NTASK % PAR.NPROCMAX != 0:
-            raise Exception(mpiError3.format(PAR.SYSTEM))

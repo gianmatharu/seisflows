@@ -9,7 +9,7 @@ PAR = SeisflowsParameters()
 PATH = SeisflowsPaths()
 
 
-class pgenerate_data(object):
+class generate_data(object):
     """ Generates synthetic data.
     """
 
@@ -32,11 +32,9 @@ class pgenerate_data(object):
         self.clean_directory(PATH.OUTPUT)
         self.clean_directory(PATH.SCRATCH)
 
-        system.run('solver', 'setup',
-                    hosts='all')
         print('Generating data...')
-        system.run('solver', 'generate_data',
-                    hosts='head')
+        system.run('solver', 'setup',
+                   hosts='all')
         print('Finished')
 
     def clean_directory(self, path):

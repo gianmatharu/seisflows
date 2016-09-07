@@ -2,6 +2,7 @@ import system
 import optimize
 import preprocess
 import postprocess
+import solver
 
 from os.path import join
 from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, ParameterError
@@ -45,6 +46,9 @@ class test_gradient(object):
             if not exists(join(PATH.SOLVER_INPUT, PAR.STF_FILE)):
                 raise IOError('Source time function file not found.')
 
+        if PAR.SYSTEM != 'serial':
+            raise ValueError('Use system class "serial" here.')
+
     def main(self):
         """ Generates data
         """
@@ -57,13 +61,26 @@ class test_gradient(object):
         postprocess.setup()
         optimize.setup()
 
-        print('Generating data...')
         system.run('solver', 'setup',
+                   hosts='all')
+
+        print('Generating data...')
+        system.run('solver', 'generate_data',
+                    hosts='head')
+
+        print('Generating synthetics...')
+        system.run('solver', 'generate_synthetics',
+                    mode=1,
+                    hosts='head')
+
+        print('Prepare adjoint sources...')
+        system.run('solver', 'prepare_eval_grad',
                    hosts='all')
 
         print('Computing gradient...')
         system.run('solver', 'compute_gradient',
-                    hosts='all')
+                    hosts='head')
+
         postprocess.write_gradient(PATH.GRAD)
         print('Finished')
 

@@ -45,16 +45,6 @@ class p_inversion(custom_import('workflow', 'inversion')):
 
         super(p_inversion, self).check()
 
-        # check paths
-        if 'MODELS' not in PATH:
-            setattr(PATH, 'MODELS', join(PATH.SUBMIT, 'models'))
-
-        if 'MODEL_TRUE' not in PATH:
-            raise ParameterError(PATH, 'MODEL_TRUE')
-
-        if 'MODEL_EST' not in PATH:
-            setattr(PATH, 'MODEL_EST', join(PATH.MODELS, 'model_est'))
-
         # check parameters
         if not PAR.USE_STF_FILE:
             raise ValueError('Must use stf for gradient calculations.')
@@ -64,6 +54,16 @@ class p_inversion(custom_import('workflow', 'inversion')):
 
         if PAR.SYSTEM != 'serial':
             raise ValueError('p_inversion can only be run with serial system class')
+
+        # check paths
+        if 'MODELS' not in PATH:
+            setattr(PATH, 'MODELS', join(PATH.SUBMIT, 'models'))
+
+        if 'MODEL_TRUE' not in PATH:
+            raise ParameterError(PATH, 'MODEL_TRUE')
+
+        if 'MODEL_EST' not in PATH:
+            setattr(PATH, 'MODEL_EST', join(PATH.MODELS, 'model_est'))
 
 
     def main(self):

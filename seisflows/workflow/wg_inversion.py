@@ -43,10 +43,25 @@ class wg_inversion(custom_import('workflow', 'p_inversion')):
         """ Check parameters and paths
         """
 
-        super(wg_inversion, self).check()
+        # check parameters
+        if not PAR.USE_STF_FILE:
+            raise ValueError('Must use stf for gradient calculations.')
+        else:
+            if not exists(join(PATH.SOLVER_INPUT, PAR.STF_FILE)):
+                raise IOError('Source time function file not found.')
 
         if PAR.SYSTEM not in ['parallel' or 'westgrid']:
             raise ValueError('wg_inversion can only be run with parallel or westgrid system class')
+
+        # check paths
+        if 'MODELS' not in PATH:
+            setattr(PATH, 'MODELS', join(PATH.SUBMIT, 'models'))
+
+        if 'MODEL_TRUE' not in PATH:
+            raise ParameterError(PATH, 'MODEL_TRUE')
+
+        if 'MODEL_EST' not in PATH:
+            setattr(PATH, 'MODEL_EST', join(PATH.MODELS, 'model_est'))
 
 
     def setup(self):
@@ -104,6 +119,9 @@ class wg_inversion(custom_import('workflow', 'p_inversion')):
     def evaluate_function(self):
         """ Performs forward simulation to evaluate objective function
         """
+        unix.rm(PATH.FUNC)
+        unix.mkdir(PATH.FUNC)
+
         self.write_model(path=PATH.FUNC, suffix='try')
 
         system.run('solver', 'evaluate_function',

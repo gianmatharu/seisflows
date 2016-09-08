@@ -45,6 +45,9 @@ class westgrid(custom_import('system', 'base')):
         if 'NPROC' not in PAR:
             raise ParameterError(PAR, 'NPROC')
 
+        if PAR.NTASK % PAR.NPROC != 0:
+            raise NotImplementedError('NTASK must be a multiple of NPROC')
+
         if 'PBSARGS' not in PAR:
             setattr(PAR, 'PBSARGS', '')
 
@@ -75,6 +78,7 @@ class westgrid(custom_import('system', 'base')):
         self.checkpoint()
         workflow.main()
 
+
     def run(self, classname, funcname, hosts='all', **kwargs):
         """  Runs tasks in serial or parallel on specified hosts
         """
@@ -83,15 +87,26 @@ class westgrid(custom_import('system', 'base')):
 
         if hosts == 'all':
             # run on all available nodes
-            call('pbsdsh '
-                    + join(findpath('seisflows.system'), 'wrappers/export_paths.sh ')
-                    + os.getenv('PATH') + ' '
-                    + os.getenv('LD_LIBRARY_PATH') + ' '
-                    + join(findpath('seisflows.system'), 'wrappers/run_pbsdsh ')
-                    + PATH.OUTPUT + ' '
-                    + classname + ' '
-                    + funcname + ' '
-                    + dirname(findpath('seisflows').rstrip('/')))
+
+            iter = 0
+            queue = list(range(PAR.NTASK))
+
+            while queue:
+
+                self.setnode(iter)
+
+                call('pbsdsh '
+                        + join(findpath('seisflows.system'), 'wrappers/export_paths.sh ')
+                        + os.getenv('PATH') + ' '
+                        + os.getenv('LD_LIBRARY_PATH') + ' '
+                        + join(findpath('seisflows.system'), 'wrappers/run_pbsdsh ')
+                        + PATH.OUTPUT + ' '
+                        + classname + ' '
+                        + funcname + ' '
+                        + dirname(findpath('seisflows').rstrip('/')))
+
+                iter += 1
+                queue = queue[:-PAR.NPROC]
 
         elif hosts == 'head':
             # run on head node
@@ -112,16 +127,27 @@ class westgrid(custom_import('system', 'base')):
         else:
             raise(KeyError('Hosts parameter not set/recognized.'))
 
+
+    def setnode(self, iter):
+        """ Sets number of running task
+        """
+        itask = int(os.getenv('PBS_VNODENUM')) + int(iter * PAR.NPROC)
+        os.environ['SEISFLOWS_TASKID'] = str(itask)
+
+
     def getnode(self):
         """ Gets number of running task
         """
-        return int(os.getenv('PBS_VNODENUM'))
+        #return int(os.getenv('PBS_VNODENUM'))
+        return int(os.getenv['SEISFLOWS_TASKID'])
+
 
     def save_kwargs(self, classname, funcname, kwargs):
         kwargspath = join(PATH.OUTPUT, 'SeisflowsObjects', classname+'_kwargs')
         kwargsfile = join(kwargspath, funcname+'.p')
         unix.mkdir(kwargspath)
         saveobj(kwargsfile, kwargs)
+
 
     def mpiexec(self):
         """ Specifies MPI exectuable; used to invoke solver

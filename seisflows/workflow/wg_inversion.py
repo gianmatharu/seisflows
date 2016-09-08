@@ -43,6 +43,8 @@ class wg_inversion(custom_import('workflow', 'p_inversion')):
         """ Check parameters and paths
         """
 
+        super(wg_inversion, self).check()
+
         # check parameters
         if not PAR.USE_STF_FILE:
             raise ValueError('Must use stf for gradient calculations.')
@@ -50,7 +52,7 @@ class wg_inversion(custom_import('workflow', 'p_inversion')):
             if not exists(join(PATH.SOLVER_INPUT, PAR.STF_FILE)):
                 raise IOError('Source time function file not found.')
 
-        if PAR.SYSTEM not in ['parallel' or 'westgrid']:
+        if PAR.SYSTEM not in ['parallel', 'westgrid']:
             raise ValueError('wg_inversion can only be run with parallel or westgrid system class')
 
         # check paths

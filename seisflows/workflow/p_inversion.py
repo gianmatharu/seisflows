@@ -52,9 +52,6 @@ class p_inversion(custom_import('workflow', 'inversion')):
             if not exists(join(PATH.SOLVER_INPUT, PAR.STF_FILE)):
                 raise IOError('Source time function file not found.')
 
-        if PAR.SYSTEM != 'serial':
-            raise ValueError('p_inversion can only be run with serial system class')
-
         # check paths
         if 'MODELS' not in PATH:
             setattr(PATH, 'MODELS', join(PATH.SUBMIT, 'models'))

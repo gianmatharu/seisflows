@@ -139,7 +139,7 @@ class westgrid(custom_import('system', 'base')):
         """ Gets number of running task
         """
         #return int(os.getenv('PBS_VNODENUM'))
-        return int(os.getenv['SEISFLOWS_TASKID'])
+        return int(os.getenv('SEISFLOWS_TASKID'))
 
 
     def save_kwargs(self, classname, funcname, kwargs):

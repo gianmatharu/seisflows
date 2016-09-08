@@ -7,13 +7,13 @@
 
 PATH=$1:PATH
 export LD_LIBRARY_PATH=$2
-#export TASK_ID=$3
+export TASKID=$3
 
 # set python arguments
-exe=$3
-output=$4
-classname=$5
-funcname=$6
-pythonpath=$7
+exe=$4
+output=$5
+classname=$6
+funcname=$7
+pythonpath=$8
 
 $exe $output $classname $funcname $pythonpath

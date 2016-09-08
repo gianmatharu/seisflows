@@ -88,12 +88,12 @@ class westgrid(custom_import('system', 'base')):
         if hosts == 'all':
             # run on all available nodes
 
-            iter = 0
+            iloop = 0
             queue = list(range(PAR.NTASK))
 
             while queue:
 
-                self.setnode(iter)
+                self.set_loop_ind(iloop)
 
                 call('pbsdsh '
                         + join(findpath('seisflows.system'), 'wrappers/export_paths.sh ')
@@ -105,7 +105,7 @@ class westgrid(custom_import('system', 'base')):
                         + funcname + ' '
                         + dirname(findpath('seisflows').rstrip('/')))
 
-                iter += 1
+                iloop += 1
                 queue = queue[:-PAR.NPROC]
 
         elif hosts == 'head':
@@ -128,18 +128,17 @@ class westgrid(custom_import('system', 'base')):
             raise(KeyError('Hosts parameter not set/recognized.'))
 
 
-    def setnode(self, iter):
+    def set_loop_ind(self, iloop):
         """ Sets number of running task
         """
-        itask = int(os.getenv('PBS_VNODENUM')) + int(iter * PAR.NPROC)
-        os.environ['SEISFLOWS_TASKID'] = str(itask)
+        os.environ['SEISFLOWS_LOOPID'] = str(iloop)
 
 
     def getnode(self):
         """ Gets number of running task
         """
+        return int(os.getenv('PBS_VNODENUM')) + int(os.getenv('SEISFLOWS_LOOPID')) * PAR.NPROC
         #return int(os.getenv('PBS_VNODENUM'))
-        return int(os.getenv('SEISFLOWS_TASKID'))
 
 
     def save_kwargs(self, classname, funcname, kwargs):

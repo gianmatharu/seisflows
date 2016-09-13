@@ -64,9 +64,12 @@ class test_gradient(object):
         system.run('solver', 'setup',
                    hosts='all')
 
-        print('Generating data...')
-        system.run('solver', 'generate_data',
-                    hosts='head')
+        if PATH.DATA:
+            print('Copying data')
+        else:
+            print('Generating data...')
+            system.run('solver', 'generate_data',
+                        hosts='head')
 
         print('Generating synthetics...')
         system.run('solver', 'generate_synthetics',

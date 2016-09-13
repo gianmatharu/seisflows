@@ -102,7 +102,7 @@ class pewf2d(custom_import('solver', 'base')):
 
     def generate_synthetics(self, mode=0):
 
-        if mode != 0 and mode != 1:
+        if not (mode == 0 or mode == 1):
             raise ValueError('Mode must be set to forward (0) or save wavefield mode (1)')
 
         # generate synthetic data
@@ -111,7 +111,7 @@ class pewf2d(custom_import('solver', 'base')):
                          output_dir=output_dir,
                          mode=mode,
                          use_stf_file=PAR.USE_STF_FILE,
-                         stf_file=PAR.STF_FILE)
+                         stf_file='stf_f.txt')
 
         self.forward()
 
@@ -141,7 +141,7 @@ class pewf2d(custom_import('solver', 'base')):
                          adjoint_dir='traces/adj',
                          mode=2,
                          use_stf_file=PAR.USE_STF_FILE,
-                         stf_file=PAR.STF_FILE)
+                         stf_file='stf_f.txt')
 
         self.adjoint()
         self.clean_boundary_storage()
@@ -149,6 +149,8 @@ class pewf2d(custom_import('solver', 'base')):
     def evaluate_function(self, mode=0):
         """ Evaluate test function for a trial model
         """
+        if not (mode == 0 or mode == 1):
+            raise ValueError('Mode must be set to forward (0) or save wavefield mode (1)')
 
         output_dir = join(PATH.FUNC)
         model_dir = join(PATH.FUNC, 'model')
@@ -158,7 +160,7 @@ class pewf2d(custom_import('solver', 'base')):
                          output_dir=output_dir,
                          mode=mode,
                          use_stf_file=PAR.USE_STF_FILE,
-                         stf_file=PAR.STF_FILE)
+                         stf_file='stf_f.txt')
         self.forward()
 
     def export_trial_solution(self, path=''):

@@ -3,7 +3,7 @@ from os.path import join
 import numpy as np
 from obspy.core.trace import Trace
 
-from seisflows.tools import msg
+from seisflows.tools import msg, unix
 from seisflows.seistools import adjoint, misfit, readers, writers
 from seisflows.seistools.ewf2d import Par
 from seisflows.tools.code import exists
@@ -131,6 +131,9 @@ class ewf2d(object):
         """ Prepares solver for gradient evaluation by writing residuals and
           adjoint traces
         """
+        if exists(path + '/residuals'):
+            unix.rm(path + '/residuals')
+
         for channel in self.channels:
             obs = self.reader(path+'/'+'traces/obs', channel)
             syn = self.reader(path+'/'+'traces/syn', channel)
@@ -147,6 +150,9 @@ class ewf2d(object):
         """ Prepares solver for gradient evaluation by writing residuals and
             adjoint traces
         """
+        if exists(path + '/residuals'):
+            unix.rm(path + '/residuals')
+
         for channel in self.channels:
             obs = self.reader(path+'/'+'traces/obs', channel)
             syn = self.reader(path_try+'/'+'traces/syn', channel)

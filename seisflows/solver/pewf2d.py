@@ -6,7 +6,7 @@ import subprocess
 
 from seisflows.seistools.ewf2d import Par, read_cfg_file, write_cfg_file, get_cfg_value, event_dirname
 from seisflows.tools import unix
-from seisflows.tools.code import exists, mpicall
+from seisflows.tools.code import exists, call_solver
 from seisflows.tools.array import gridsmooth, loadnpy, savenpy
 from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, ParameterError, custom_import
 
@@ -47,7 +47,7 @@ class pewf2d(custom_import('solver', 'base')):
         """
         unix.cd(PATH.SOLVER_BIN)
         script = './xewf2d'
-        mpicall(system.mpiexec(), script, PATH.SUBMIT + '/dump')
+        call_solver(system.mpiexec(), script, PATH.SUBMIT + '/dump')
 
         unix.cd(PATH.SUBMIT)
 
@@ -56,7 +56,7 @@ class pewf2d(custom_import('solver', 'base')):
         """
         unix.cd(PATH.SOLVER_BIN)
         script = './xewf2d'
-        mpicall(system.mpiexec(), script, PATH.SUBMIT + '/dump')
+        call_solver(system.mpiexec(), script, PATH.SUBMIT + '/dump')
 
         unix.cd(PATH.SUBMIT)
 

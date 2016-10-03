@@ -192,8 +192,9 @@ def model_diagnosis(p, vp, vs, f, dx, dr):
     print('S Far-field resolution (m):      {:.0f}'.format(ws/2))
     print('P wavelengths propagated:    {:.2f}'.format(Lz / wp))
     print('S wavelengths propagated:    {:.2f}'.format(Lz / ws))
+    print('Span for smoothing:       {:.2f}'.format(wp / (2 * np.sqrt(8) * p.dx)))
+    print('CPML thickness:       {:.2f}'.format(0.5 * (wp / p.dx)))
     print('\n')
-
 
     print('SAMPLING CRITERIA ------------------------')
     print('Source spacing (m):        {}'.format(dx))

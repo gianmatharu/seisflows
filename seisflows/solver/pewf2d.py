@@ -7,7 +7,7 @@ import subprocess
 from seisflows.seistools.ewf2d import Par, read_cfg_file, write_cfg_file, get_cfg_value, event_dirname
 from seisflows.tools import unix
 from seisflows.tools.code import exists, call_solver
-from seisflows.tools.array import gridsmooth, loadnpy, savenpy
+from seisflows.tools.array import gridsmooth, loadnpy, savenpy, normalize, readgrid
 from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, ParameterError, custom_import
 
 PAR = SeisflowsParameters()
@@ -39,6 +39,14 @@ class pewf2d(custom_import('solver', 'base')):
 
         if PAR.NTASK != p.ntask:
             raise ValueError('PAR.NTASK != nsrc in cfg')
+
+        if 'CLIP' not in PAR:
+            setattr(PAR, 'CLIP', 0)
+
+        # check paths
+
+        if 'PRECOND' not in PATH:
+            setattr(PATH, 'PRECOND', None)
 
     ### low level interface
 
@@ -176,7 +184,6 @@ class pewf2d(custom_import('solver', 'base')):
     def combine(self, precond=True):
         """ sum event gradients to compute misfit gradient
         """
-
         # sum gradient
         for par in self.parameters:
             filename = par + '_kernel.bin'
@@ -184,14 +191,16 @@ class pewf2d(custom_import('solver', 'base')):
 
             for itask in range(PAR.NTASK):
                 syn_dir = join(PATH.SOLVER, event_dirname(itask + 1), 'traces', 'syn')
-
                 ev_grad = self.load(join(syn_dir, filename))
-
-                if precond:
-                    ev_grad = self.apply_preconditioner(syn_dir, ev_grad)
-
                 gradient += ev_grad
-                self.save(join(PATH.GRAD, filename), gradient)
+
+            if precond:
+                    gradient = self.apply_preconditioner(gradient, PAR.PRECOND_TYPE)
+
+            if int(PAR.CLIP) > 0:
+                gradient[:(int(PAR.CLIP) * p.nx)] = 0
+
+            self.save(join(PATH.GRAD, filename), gradient)
 
     def smooth(self, span=0.):
         """ Process gradient
@@ -202,7 +211,12 @@ class pewf2d(custom_import('solver', 'base')):
             g = self.load(join(PATH.GRAD, filename))
             g = g.reshape((p.nz, p.nx))
             g = gridsmooth(g, span)
+
+            if int(PAR.CLIP) > 0:
+                g[:int(PAR.CLIP), :] = 0
+
             self.save(join(PATH.GRAD, par + '_smooth_kernel.bin'), g)
+
 
         g_new = self.merge(PATH.GRAD, '_smooth_kernel.bin')
         savenpy(join(PATH.OPTIMIZE, 'g_new'), g_new)
@@ -284,45 +298,54 @@ class pewf2d(custom_import('solver', 'base')):
         indhigh = v > maxval
         v[indhigh] = maxval
 
-    def apply_preconditioner(self, dir, grad):
+    def apply_preconditioner(self, grad, type):
         """ Prepare preconditioner
         """
 
-        if PAR.PRECOND_TYPE == 'LINEAR':
-            grad = grad.reshape((p.nz, p.nx))
+        grad = grad.reshape((p.nz, p.nx))
+
+        if type == 'LINEAR':
             precond = np.linspace(0, 1, p.nz)
             grad = (grad.T * precond).T
-            grad = grad.reshape(p.nz * p.nx)
-            return grad
-        if PAR.PRECOND_TYPE == 'LOCAL':
-            precond = self.load(join(dir, 'precondf.bin'))
-            return precond * grad
-        elif PAR.PRECOND_TYPE == 'ONE_WAY':
-            precond = self.load(join(dir, 'precond.bin'))
-            precond = self._invert_grid_interior(precond)
-            return precond * grad
-        elif PAR.PRECOND_TYPE == 'TWO_WAY':
-            precond = abs(self.load(join(dir, 'precond2w.bin')))
-            precond = self._invert_grid_interior(precond, smooth=True)
-            return precond * grad
+
+        elif type == 'ONE_WAY':
+
+            precond = np.zeros((p.nz,  p.nx), dtype='float32')
+            for itask in range(PAR.NTASK):
+                dir = join(PATH.SOLVER, event_dirname(itask + 1), 'traces', 'syn')
+                precond += readgrid(join(dir, 'precond.bin'), p.nx, p.nz, dtype='float32')
+
+            precond = normalize(gridsmooth(precond, PAR.PRECOND_SMOOTH))
+            self.save(join(PATH.GRAD, 'precond.bin'), precond)
+            grad /= precond
+
+        elif type == 'TWO_WAY':
+
+            p1 = np.zeros((p.nz, p.nx), dtype='float32')
+            p2 = np.zeros((p.nz, p.nx), dtype='float32')
+            precond = np.zeros((p.nz, p.nx), dtype='float32')
+
+            for itask in range(PAR.NTASK):
+                dir = join(PATH.SOLVER, event_dirname(itask + 1), 'traces', 'syn')
+                p1 += readgrid(join(dir, 'precond.bin'), p.nx, p.nz,  dtype='float32')
+                p2 += abs(readgrid(join(dir, 'precond2w.bin'), p.nx, p.nz,  dtype='float32'))
+
+            precond = normalize(p1) + normalize(p2)
+            precond = normalize(gridsmooth(precond, PAR.PRECOND_SMOOTH))
+            self.save(join(PATH.GRAD, 'precond.bin'), precond)
+            grad /= precond
+
+        elif type == 'READ':
+
+            precond = readgrid(join(PATH.PRECOND, 'precond.bin', p.nx, p.nz, dtype='flaot32'))
+            precond = normalize(gridsmooth(precond, PAR.PRECOND_SMOOTH))
+            grad /= precond
+
         else:
             raise ValueError('Preconditioner type not found.')
 
-    def _invert_grid_interior(self, x, smooth=False):
-        """ Invert grid interior
-        """
-        x = x.reshape((p.nz, p.nx))
-
-        if smooth:
-            x = gridsmooth(x, PAR.PRECOND_SMOOTH)
-
-        # normalize initial input
-        x /= abs(x).max()
-        x = 1 / (x + PAR.PRECOND_THRESH)
-        x /= abs(x).max()
-        x = x.reshape(p.nz * p.nx)
-
-        return x
+        grad = grad.reshape(p.nz * p.nx)
+        return grad
 
     # configuration file handling
 

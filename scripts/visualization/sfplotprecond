@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 # Specialized script used to visualize gradients.
 
@@ -9,7 +9,7 @@ import argparse
 import numpy as np
 from os.path import join
 from seisflows.tools.graphics import plot_grad, create_im_subplot
-from seisflows.tools.array import readgrid, gridsmooth
+from seisflows.tools.array import readgrid, gridsmooth, normalize
 import matplotlib.pyplot as plt
 
 def event_dirname(n):
@@ -26,29 +26,35 @@ parser.add_argument('-nx', type=int, help='pixels in x direction.')
 parser.add_argument('-nz', type=int, help='pixels in z direction.')
 
 
-parser.add_argument('-li', action='store_true', help='Linear depth')
-parser.add_argument('-lo', action='store_true', help='Local preconditioner')
-parser.add_argument('-ow', action='store_true', help='Display one way preconditioner')
-parser.add_argument('-tw', action='store_true', help='Display two way preconditioner')
-parser.add_argument('-s', action='store_true', help='Apply smoothing')
+parser.add_argument('-li', action='store_true', default='true', help='Linear depth')
+parser.add_argument('-ow', action='store_true', default='true', help='Display one way preconditioner')
+parser.add_argument('-tw', action='store_true', default='true', help='Display two way preconditioner')
+
+parser.add_argument('-gs', '--gsmooth', type=float, help='Apply gradient smoothing')
+parser.add_argument('-ps1', '--psmooth1', type=float, help='Apply preconditioner smoothing')
+parser.add_argument('-ps2', '--psmooth2', type=float, help='Apply preconditioner smoothing')
+
 
 parser.add_argument('-p', '--path', default='./scratch/solver', help='Standard path to misfit kernel')
-
 parser.add_argument('-cm', '--cmap', default='seismic_r', help='Matplotlib colormap scheme. \
                     See matplotlib documentation.')
 parser.add_argument('-c', '--clip', type=int, default='100', help='Clip amplitudes')
 
 args = parser.parse_args()
 
-s = args.s
+# Assign parsed arguments
 n = args.n
 nx = args.nx
 nz = args.nz
+gsmooth = args.gsmooth
+psmooth1 = args.psmooth1
+psmooth2 = args.psmooth2
+
 path = args.path
 linear = args.li
-local = args.lo
 one_way = args.ow
 two_way = args.tw
+
 
 if n is None:
     raise ValueError('Number of events not specified')
@@ -57,29 +63,11 @@ if n is None:
 if nx is None or nz is None:
     raise ValueError('Need image dimensions.')
 
+# Assign storage arrays
 ga = np.zeros((nz, nx))
 gb = np.zeros((nz, nx))
-
-if linear:
-    gali = np.zeros((nz, nx))
-    gbli = np.zeros((nz, nx))
-    sc = np.linspace(0.1, 1, nz)
-
-if local:
-    galo = np.zeros((nz, nx))
-    gblo = np.zeros((nz, nx))
-
-if one_way:
-    gaow = np.zeros((nz, nx))
-    gbow = np.zeros((nz, nx))
-
-if two_way:
-    gatw = np.zeros((nz, nx))
-    gbtw = np.zeros((nz, nx))
-
-vprow =[]
-vsrow = []
-title =[]
+precond = np.zeros((nz, nx))
+precond2w = np.zeros((nz, nx))
 
 for itask in range(n):
 
@@ -87,78 +75,71 @@ for itask in range(n):
 
     vpk = readgrid(join(dir, 'vp_kernel.bin'), nx, nz, dtype='float32')
     vsk = readgrid(join(dir, 'vs_kernel.bin'), nx, nz, dtype='float32')
+    p = readgrid(join(dir, 'precond.bin'), nx, nz, dtype='float32')
+    p2 = readgrid(join(dir, 'precond2w.bin'), nx, nz, dtype='float32')
 
     ga += vpk
     gb += vsk
+    precond += p
+    precond2w += abs(p2)
 
-    if itask == n-1:
-        if s:
-            print('here')
-            ga = gridsmooth(ga, 6)
-            gb = gridsmooth(gb, 6)
-        vprow.append(ga)
-        vsrow.append(gb)
-        title.append('Raw kernel')
+precond2w = normalize(precond) + normalize(precond2w)
 
-    if local:
-        p = readgrid(join(dir, 'precondf.bin'), nx, nz, dtype='float32')
-        galo += vpk * p
-        gblo += vsk * p
+plt.figure(1)
+plt.subplot(2, 2, 1)
+plt.imshow(normalize(precond))
+plt.title('One way')
 
-        if itask == n-1:
-            galo = gridsmooth(galo, 6)
-            gblo = gridsmooth(gblo, 6)
-            vprow.append(galo)
-            vsrow.append(gblo)
-            title.append('Local precond')
-
-    if linear:
-        gali += (vpk.T * sc).T
-        gbli += (vsk.T * sc).T
-
-        if itask == n-1:
-            print('here')
-            gali = gridsmooth(gali, 8)
-            gbli = gridsmooth(gbli, 8)
-            vprow.append(gali)
-            vsrow.append(gbli)
-            title.append('Linear depth scaling')
-
-    if one_way:
-        p = readgrid(join(dir, 'precond.bin'), nx, nz, dtype='float32')
-        p = p / abs(p).max()
-        p = 1 / (p + 1e-3)
-        p = p / abs(p).max()
-        gaow += vpk * p
-        gbow += vsk * p
-
-        if itask == n-1:
-            gaow = gridsmooth(gaow, 6)
-            gbow = gridsmooth(gbow, 6)
-            vprow.append(gaow)
-            vsrow.append(gbow)
-            title.append('One way')
-
-    if two_way:
-        p = abs(readgrid(join(dir, 'precond2w.bin'), nx, nz, dtype='float32'))
-        p = gridsmooth(p, 10)
-        p /= abs(p).max()
-        p = 1 / (p + 1e-2)
-        p /= abs(p).max()
-        gatw += vpk * p
-        gbtw += vsk * p
-
-        if itask == n-1:
-            gatw = gridsmooth(gatw, 6)
-            gbtw = gridsmooth(gbtw, 6)
-            vprow.append(gatw)
-            vsrow.append(gbtw)
-            title.append('Two way')
+plt.subplot(2, 2, 2)
+plt.imshow(normalize(precond2w))
+plt.title('Two way')
 
 
-nsp = 1 + linear + local + one_way + two_way
+precond = normalize(gridsmooth(precond, psmooth1))
+precond2w = normalize(gridsmooth(precond2w, psmooth2))
+
+plt.subplot(2, 2, 3)
+plt.imshow(precond)
+plt.title('One way - smooth')
+plt.subplot(2, 2, 4)
+plt.imshow(precond2w)
+plt.title('Two way - smooth')
+
+vprow =[]
+vsrow = []
+title =[]
+
+vprow.append(ga)
+vsrow.append(gb)
+title.append('Raw kernel')
+
+
+if linear:
+    sc = np.linspace(0.1, 1, nz)
+    gali = (ga.T * sc).T
+    gbli = (gb.T * sc).T
+    vprow.append(gali)
+    vsrow.append(gbli)
+    title.append('Linear depth scaling')
+
+if one_way:
+    gaow = ga / precond
+    gbow = gb / precond
+    vprow.append(gaow)
+    vsrow.append(gbow)
+    title.append('One way')
+
+if two_way:
+    gatw = ga / (precond2w)
+    gbtw = gb / (precond2w)
+    vprow.append(gatw)
+    vsrow.append(gbtw)
+    title.append('Two way')
+
+
+nsp = 1 + linear + one_way + two_way
+
 f, axes = plt.subplots(2, nsp)
-
 plt.set_cmap(args.cmap)
 for i in range(nsp):
     spa = axes[0][i].imshow(vprow[i], aspect='auto')
@@ -169,13 +150,19 @@ for i in range(nsp):
 
     axes[0][i].set_title(title[i])
 
+f, axes = plt.subplots(2, nsp)
+plt.set_cmap(args.cmap)
+for i in range(nsp):
+    ima = normalize(gridsmooth(vprow[i], gsmooth))
+    imb = normalize(gridsmooth(vsrow[i], gsmooth))
+    spa = axes[0][i].imshow(ima, aspect='auto')
+    spb = axes[1][i].imshow(imb, aspect='auto')
 
+    spa.set_clim(-np.abs(ima).max(), np.abs(ima).max())
+    spb.set_clim(-np.abs(imb).max(), np.abs(imb).max())
 
+    axes[0][i].set_title(title[i])
 
 plt.show()
-
-
-
-
 
 

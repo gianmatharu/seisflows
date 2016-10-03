@@ -29,6 +29,11 @@ class ewf2d(custom_import('postprocess', 'base')):
         if 'MASK' not in PAR:
             setattr(PAR, 'MASK', False)
 
+        if PAR.MASK:
+            if 'PRECOND_SMOOTH' not in PAR:
+                setattr(PAR, 'MASK', 0.0)
+
+
     def setup(self):
         """ Performs any required initialization or setup tasks
         """

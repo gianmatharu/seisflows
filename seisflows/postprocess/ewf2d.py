@@ -21,17 +21,29 @@ class ewf2d(custom_import('postprocess', 'base')):
     def check(self):
         """ Checks parameters and paths
         """
+
         # check parameters
 
         if 'SMOOTH' not in PAR:
             setattr(PAR, 'SMOOTH', 0.)
 
-        if 'MASK' not in PAR:
-            setattr(PAR, 'MASK', False)
+        if 'USE_PRECOND' not in PAR:
+            setattr(PAR, 'USE_PRECOND', False)
 
-        if PAR.MASK:
+        if PAR.USE_PRECOND:
             if 'PRECOND_SMOOTH' not in PAR:
-                setattr(PAR, 'MASK', 0.0)
+                setattr(PAR, 'USE_PRECOND', 0.0)
+
+            if 'PRECOND_TYPE' not in PAR:
+                raise ParameterError(PAR, 'PRECOND_TYPE')
+
+            if PAR.PRECOND_TYPE == 'READ':
+                # check path
+                if 'PRECOND' not in PATH:
+                    raise ParameterError(PATH, 'PRECOND')
+
+                if 'PRECOND_FILE' not in PAR:
+                    raise ParameterError(PAR, 'PRECOND_FILE')
 
 
     def setup(self):
@@ -57,7 +69,7 @@ class ewf2d(custom_import('postprocess', 'base')):
     def combine_kernels(self, path, parameters):
         system.run('solver', 'combine',
                    hosts='head',
-                   precond=PAR.MASK)
+                   precond=PAR.USE_PRECOND)
 
     def process_kernels(self, path, parameters):
         if PAR.SMOOTH > 0.:

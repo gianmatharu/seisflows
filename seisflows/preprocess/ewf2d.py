@@ -178,7 +178,7 @@ class ewf2d(object):
         if PAR.MUTE_WINDOW:
             stream = swindow(stream, tmin=PAR.TMIN, tmax=PAR.TMAX, wtype=PAR.WINDOW, units='time')
 
-        if PAR.DAMPING:
+        if PAR.DAMPING > 0:
             stream = sdamping(stream, twin=PAR.DAMPING)
 
         # offset gain

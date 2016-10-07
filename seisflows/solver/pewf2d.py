@@ -43,10 +43,6 @@ class pewf2d(custom_import('solver', 'base')):
         if 'CLIP' not in PAR:
             setattr(PAR, 'CLIP', 0)
 
-        # check paths
-
-        if 'PRECOND' not in PATH:
-            setattr(PATH, 'PRECOND', None)
 
     ### low level interface
 
@@ -337,7 +333,7 @@ class pewf2d(custom_import('solver', 'base')):
 
         elif type == 'READ':
 
-            precond = readgrid(join(PATH.PRECOND, 'precond.bin', p.nx, p.nz, dtype='flaot32'))
+            precond = readgrid(join(PATH.PRECOND, PAR.PRECOND_FILE), p.nx, p.nz, dtype='flaot32')
             precond = normalize(gridsmooth(precond, PAR.PRECOND_SMOOTH))
             grad /= precond
 

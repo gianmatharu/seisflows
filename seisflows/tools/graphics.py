@@ -308,7 +308,7 @@ def create_im_subplot(data, ax=None, title='', clip=100, clim='mirror'):
     if ax is None:
         ax = plt.gca()
 
-    perc = clip / 100
+    perc = clip / 100.0
     vmin, vmax = -np.abs(data).max(), np.abs(data).max()
     vmin *= perc
     vmax *= perc

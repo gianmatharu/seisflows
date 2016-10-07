@@ -27,5 +27,3 @@ if __name__ == '__main__':
     func = getattr(sys.modules[myobj], myfunc)
     func(**kwargs)
 
-    comm.Barrier()
-

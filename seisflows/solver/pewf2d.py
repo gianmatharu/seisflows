@@ -51,7 +51,7 @@ class pewf2d(custom_import('solver', 'base')):
         """
         unix.cd(PATH.SOLVER_BIN)
         script = './xewf2d'
-        call_solver(system.mpiexec(), script, PATH.SUBMIT + '/dump')
+        call_solver(system.mpiexec(), script, PATH.SUBMIT + '/dump_fwd')
 
         unix.cd(PATH.SUBMIT)
 
@@ -60,7 +60,7 @@ class pewf2d(custom_import('solver', 'base')):
         """
         unix.cd(PATH.SOLVER_BIN)
         script = './xewf2d'
-        call_solver(system.mpiexec(), script, PATH.SUBMIT + '/dump')
+        call_solver(system.mpiexec(), script, PATH.SUBMIT + '/dump_adj')
 
         unix.cd(PATH.SUBMIT)
 

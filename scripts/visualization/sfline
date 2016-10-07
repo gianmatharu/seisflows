@@ -1,0 +1,126 @@
+#!/usr/bin/env python
+
+# script to plot velocity models.
+
+import argparse
+from os.path import join
+from seisflows.tools.array import readgrid
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Parse input arguments
+parser = argparse.ArgumentParser(description='Plot velocity model.')
+
+# file and format flags
+parser.add_argument('-dx', type=float, help='grid spacing.')
+parser.add_argument('-l', '--line', type=float, help='position of depth line.')
+parser.add_argument('-nx', type=int, help='pixels in x direction.')
+parser.add_argument('-nz', type=int, help='pixels in z direction.')
+parser.add_argument('-pt', '--patht', default='.', help='path to velocity model.')
+parser.add_argument('-pi', '--pathi', default='.', help='path to velocity model.')
+parser.add_argument('-pe', '--pathe', default='.', help='path to velocity model.')
+parser.add_argument('-d', '--dtype', default='float32', help='numpy data type.')
+
+# plot options
+parser.add_argument('-cm', '--cmap', default='seismic_r', help='Matplotlib colormap scheme. \
+                    See matplotlib documentation')
+
+args = parser.parse_args()
+l = args.line
+nx = args.nx
+nz = args.nz
+dx = args.dx
+patht = args.patht
+pathi = args.pathi
+pathe = args.pathe
+dtype = args.dtype
+cmap = args.cmap
+
+# check parameters
+if nx is None or nz is None:
+    raise ValueError('Need image dimensions.')
+l *= 1000
+iline = l / dx
+
+if iline > nx: 
+    raise ValueError('Line out of bounds')
+
+z = np.arange(0, nz * dx, dx)
+
+# read model
+vpt = readgrid(join(patht, 'vp.bin'), nx, nz, dtype=dtype)
+vpi = readgrid(join(pathi, 'vp.bin'), nx, nz, dtype=dtype)
+vpe = readgrid(join(pathe, 'vp.bin'), nx, nz, dtype=dtype)
+
+vst = readgrid(join(patht, 'vs.bin'), nx, nz, dtype=dtype)
+vsi = readgrid(join(pathi, 'vs.bin'), nx, nz, dtype=dtype)
+vse = readgrid(join(pathe, 'vs.bin'), nx, nz, dtype=dtype)
+
+print ('Velocity log at depth {} km, index {}'.format(l, iline))
+# prepare plot
+plt.set_cmap(cmap)
+
+l /= 1000
+z /= 1000
+vpt /= 1000
+vpi /= 1000
+vpe /= 1000
+vst /= 1000
+vsi /= 1000
+vse /= 1000
+
+plt.subplot(2, 3, 1)
+plt.imshow(vpt, aspect ='auto')
+plt.clim(vpt.min(), vpt.max())
+plt.title('Vp true')
+
+plt.subplot(2, 3, 2)
+plt.imshow(vpi, aspect ='auto')
+plt.clim(vpt.min(), vpt.max())
+plt.title('Vp initial')
+
+plt.subplot(2, 3, 3)
+plt.imshow(vpe, aspect ='auto')
+plt.clim(vpt.min(), vpt.max())
+plt.title('Vp estimate')
+
+plt.subplot(2, 3, 4)
+plt.imshow(vst, aspect ='auto')
+plt.title('Vs true')
+plt.clim(vst.min(), vst.max())
+
+plt.subplot(2, 3, 5)
+plt.imshow(vsi, aspect ='auto')
+plt.clim(vst.min(), vst.max())
+plt.title('Vs initial')
+
+plt.subplot(2, 3, 6)
+plt.imshow(vse, aspect ='auto')
+plt.clim(vst.min(), vst.max())
+plt.title('Vs estimate')
+
+fig = plt.figure(2)
+ax1 = fig.add_subplot(1, 2, 1, aspect='auto')
+plt.title('Vp section at x = {} km'.format(l))
+plt.plot(vpt[:, iline], z, label='True')
+plt.plot(vpi[:, iline], z, label='Initial')
+plt.plot(vpe[:, iline], z, label='Final')
+plt.xlabel('Velocity (km/s)')
+plt.ylabel('Depth (km)')
+plt.gca().invert_yaxis()
+plt.legend(loc="lower left")
+
+#plt.subplot(1, 2, 2)
+ax2 = fig.add_subplot(1, 2, 2, aspect='auto')
+plt.title('Vs section at x = {} km'.format(l))
+plt.plot(vst[:, iline], z, label='True')
+plt.plot(vsi[:, iline], z, label='Initial')
+plt.plot(vse[:, iline], z, label='Final')
+plt.xlabel('Velocity (km/s)')
+plt.ylabel('Depth (km)')
+plt.gca().invert_yaxis()
+plt.legend(loc="lower left")
+
+plt.tight_layout()
+plt.savefig('line_{}_km'.format(l), bbox_inches='tight', format='eps')
+plt.show()

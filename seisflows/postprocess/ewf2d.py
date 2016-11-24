@@ -27,24 +27,12 @@ class ewf2d(custom_import('postprocess', 'base')):
         if 'SMOOTH' not in PAR:
             setattr(PAR, 'SMOOTH', 0.)
 
-        if 'USE_PRECOND' not in PAR:
-            setattr(PAR, 'USE_PRECOND', False)
+        if 'PRECOND' not in PAR:
+            setattr(PAR, 'PRECOND', False)
 
-        if PAR.USE_PRECOND:
-            if 'PRECOND_SMOOTH' not in PAR:
-                setattr(PAR, 'USE_PRECOND', 0.0)
-
-            if 'PRECOND_TYPE' not in PAR:
-                raise ParameterError(PAR, 'PRECOND_TYPE')
-
-            if PAR.PRECOND_TYPE == 'READ':
-                # check path
-                if 'PRECOND' not in PATH:
-                    raise ParameterError(PATH, 'PRECOND')
-
-                if 'PRECOND_FILE' not in PAR:
-                    raise ParameterError(PAR, 'PRECOND_FILE')
-
+        # check paths
+        if 'PRECOND' not in PATH:
+            setattr(PATH, 'PRECOND', None)
 
     def setup(self):
         """ Performs any required initialization or setup tasks
@@ -68,8 +56,7 @@ class ewf2d(custom_import('postprocess', 'base')):
 
     def combine_kernels(self, path, parameters):
         system.run('solver', 'combine',
-                   hosts='head',
-                   precond=PAR.USE_PRECOND)
+                   hosts='head')
 
     def process_kernels(self, path, parameters):
         if PAR.SMOOTH > 0.:

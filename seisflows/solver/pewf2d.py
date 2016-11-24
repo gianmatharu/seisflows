@@ -190,9 +190,6 @@ class pewf2d(custom_import('solver', 'base')):
                 ev_grad = self.load(join(syn_dir, filename))
                 gradient += ev_grad
 
-            if precond:
-                    gradient = self.apply_preconditioner(gradient, PAR.PRECOND_TYPE)
-
             if int(PAR.CLIP) > 0:
                 gradient[:(int(PAR.CLIP) * p.nx)] = 0
 
@@ -212,7 +209,6 @@ class pewf2d(custom_import('solver', 'base')):
                 g[:int(PAR.CLIP), :] = 0
 
             self.save(join(PATH.GRAD, par + '_smooth_kernel.bin'), g)
-
 
         g_new = self.merge(PATH.GRAD, '_smooth_kernel.bin')
         savenpy(join(PATH.OPTIMIZE, 'g_new'), g_new)
@@ -280,6 +276,15 @@ class pewf2d(custom_import('solver', 'base')):
             self.save(filename, v)
             ipar += 1
 
+
+    def append_vector(self, model):
+
+        v = np.array([])
+        for par in self.parameters:
+            v = np.append(v, model)
+
+        return v
+
     # solver specific routines
     def check_velocity_model(self, v, par):
 
@@ -294,54 +299,6 @@ class pewf2d(custom_import('solver', 'base')):
         indhigh = v > maxval
         v[indhigh] = maxval
 
-    def apply_preconditioner(self, grad, type):
-        """ Prepare preconditioner
-        """
-
-        grad = grad.reshape((p.nz, p.nx))
-
-        if type == 'LINEAR':
-            precond = np.linspace(0, 1, p.nz)
-            grad = (grad.T * precond).T
-
-        elif type == 'ONE_WAY':
-
-            precond = np.zeros((p.nz,  p.nx), dtype='float32')
-            for itask in range(PAR.NTASK):
-                dir = join(PATH.SOLVER, event_dirname(itask + 1), 'traces', 'syn')
-                precond += readgrid(join(dir, 'precond.bin'), p.nx, p.nz, dtype='float32')
-
-            precond = normalize(gridsmooth(precond, PAR.PRECOND_SMOOTH))
-            self.save(join(PATH.GRAD, 'precond.bin'), precond)
-            grad /= precond
-
-        elif type == 'TWO_WAY':
-
-            p1 = np.zeros((p.nz, p.nx), dtype='float32')
-            p2 = np.zeros((p.nz, p.nx), dtype='float32')
-            precond = np.zeros((p.nz, p.nx), dtype='float32')
-
-            for itask in range(PAR.NTASK):
-                dir = join(PATH.SOLVER, event_dirname(itask + 1), 'traces', 'syn')
-                p1 += readgrid(join(dir, 'precond.bin'), p.nx, p.nz,  dtype='float32')
-                p2 += abs(readgrid(join(dir, 'precond2w.bin'), p.nx, p.nz,  dtype='float32'))
-
-            precond = normalize(p1) + normalize(p2)
-            precond = normalize(gridsmooth(precond, PAR.PRECOND_SMOOTH))
-            self.save(join(PATH.GRAD, 'precond.bin'), precond)
-            grad /= precond
-
-        elif type == 'READ':
-
-            precond = readgrid(join(PATH.PRECOND, PAR.PRECOND_FILE), p.nx, p.nz, dtype='flaot32')
-            precond = normalize(gridsmooth(precond, PAR.PRECOND_SMOOTH))
-            grad /= precond
-
-        else:
-            raise ValueError('Preconditioner type not found.')
-
-        grad = grad.reshape(p.nz * p.nx)
-        return grad
 
     # configuration file handling
 

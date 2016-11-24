@@ -30,6 +30,34 @@ class diagonal(object):
         return p*q
 
 
+class pewf2d_diagonal(object):
+    """ User supplied diagonal preconditioner
+        Rescales model parameters based on user supplied weights
+    """
+    def __init__(self):
+        """ Loads any required dependencies
+        """
+        from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths
+        import solver
+
+        PAR = SeisflowsParameters()
+        PATH = SeisflowsPaths()
+
+        if PAR.SOLVER != 'pewf2d':
+            raise ValueError('Custom diagonal class only used for pewf2d solver class.')
+
+        self.path = PATH.PRECOND
+        self.load = solver.load
+        self.merge = solver.append_vector
+
+
+    def __call__(self, q):
+        """ Applies preconditioner to given vector
+        """
+
+        p = self.merge(self.load(self.path))
+        return p*q
+
 ### experimental
 
 def fix(A):

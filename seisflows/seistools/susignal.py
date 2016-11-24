@@ -286,4 +286,67 @@ def compute_amplitude_spectrum(t, y, Fs, pad=False, onesided=True, verbose=False
 
     return freq, Y
 
+def get_wiener_filter(d, s, mu):
+    """ Obtain a Wiener filter that fits synthetics data in the damped least
+    squares sense. || Pw - d || + mu || w ||.
+    P is a convolution matrix that performs a temporal convolution between w and s.
 
+    Parameters
+    ----------
+
+    d: array_like, ndim=1
+        data trace
+    s: array_like, ndim=1
+        synthetic trace
+    mu: float
+        damping term to stabilize deconvolution
+
+    Returns
+    -------
+
+    w: ndarray, ndim=1
+        wiener filter coefficients
+    """
+
+    # convert to numpy arrays
+    d = np.asarray(d)
+    s = np.asarray(s)
+
+    # check size
+    if d.ndim > 1 or s.ndim > 1:
+        raise ValueError('Only 1-dimensional arrays are supported.')
+
+    # perform convolution/correlation in the frequency domain
+    D = np.fft.rfft(d)
+    S = np.fft.rfft(s)
+
+    # get correlation/autocorrelation fourier coefficients
+    C = D * np.conj(S)
+    AC = S * np.conj(S) + mu
+    W = C / AC
+
+    # check if real!
+    w = np.real(np.fft.irfft(W))
+
+    return w
+
+def get_adjoint_source(T, f, s, w, mu):
+    n = len(w)
+
+    #constrct diagonal rescaling matrix
+    wnorm = np.linalg.norm(w)
+    R = (2 * f * np.eye(n) - T**2) / wnorm
+    rw = np.matmul(R, w)
+
+    # deconvolve autocorrelation of predicted from reweighted filter
+    W = np.fft.rfft(w)
+    P = np.fft.rfft(s)
+    RW = np.fft.rfft(rw)
+    AC = P * np.conj(P) + mu
+
+    A = RW / AC
+    A = A * P
+    A = A * np.conj(W)
+
+    adj = np.fft.irfft(A)
+    return adj

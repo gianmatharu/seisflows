@@ -1,0 +1,106 @@
+#!/usr/bin/env python
+
+import sys
+import argparse
+import numpy as np
+from os.path import join
+import matplotlib.pyplot as plt
+from matplotlib import cm
+
+from seisflows.seistools.ewf2d import Par
+from seisflows.tools.graphics import get_tick_vectors
+from seisflows.tools.array import readgrid
+
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import matplotlib.ticker as ticker
+
+# Parse input arguments
+parser = argparse.ArgumentParser(description='Plot velocity model.')
+
+# file and format flags
+parser.add_argument('-nx', type=int, help='pixels in x direction.')
+parser.add_argument('-nz', type=int, help='pixels in z direction.')
+parser.add_argument('-dx', type=float, help='grid spacing')
+parser.add_argument('-intx', type=float, help='x tick interval')
+parser.add_argument('-intz', type=float, help='x tick interval')
+parser.add_argument('-p', '--path', default='.', help='path to model.')
+parser.add_argument('-o', '--output', help='output file')
+
+parser.add_argument('-m', '--mode',  type=int, choices=[0, 1, 2], default=1, help='Plot Vp, Vp/Vs or Vp/Vs/rho.')
+parser.add_argument('-d', '--dtype', default='float32', help='numpy data type.')
+parser.add_argument('-r', action='store_true', help='include density')
+
+
+# plot options
+parser.add_argument('-cm', '--cmap', default='seismic_r', help='Matplotlib colormap scheme. \
+                    See matplotlib documentation')
+
+args = parser.parse_args()
+nx = args.nx
+nz = args.nz
+dx = args.dx
+intx = float(args.intx)
+intz = float(args.intz)
+mode = args.mode
+dtype = args.dtype
+cmap = args.cmap
+path = args.path
+
+pars = []
+titles = []
+labels = []
+clim1 =[]
+clim2 = []
+
+if mode >= 0:
+    pars += ['vp']
+    titles += [r'$v_{p}$']
+    labels += ['Velocity $[m/s]$']
+    clim1 += [1500]
+    clim2 += [4700]
+if mode >= 1:
+    pars += ['vs']
+    titles += [r'$v_{s}$']
+    labels += ['Velocity $[m/s]$']
+    clim1 += [750]
+    clim2 += [2750]
+if mode >= 2:
+    pars += ['rho']
+    titles += [r'$\rho$']
+    labels += ['Density $[kg/m^3]$']
+    clim1 += [1700]
+    clim2 += [2700]
+
+print pars
+
+fig, ax = plt.subplots()
+npar = len(pars)
+
+for ipar, par in enumerate(pars):
+
+    vfile = join(path, par+'.bin')
+    v = readgrid(vfile, nx, nz, dtype='float32')
+
+    plt.subplot(npar, 1, ipar+1)
+    im = plt.imshow(v, cmap=cmap)
+    ix, x = get_tick_vectors(nx, dx, intx)
+    iz, z = get_tick_vectors(nz, dx, intz)
+    plt.xticks(ix, x[ix] / 1000.0)
+    plt.yticks(iz, z[iz] / 1000.0)
+    plt.xlabel('Distance (km)')
+    plt.ylabel('Depth (km)')
+    plt.clim(clim1[ipar], clim2[ipar])
+    plt.title(titles[ipar])
+
+    # colorbar
+    divider = make_axes_locatable(plt.gca())
+    cax = divider.append_axes("right", "5%", pad="3%")
+    cbar = plt.colorbar(im, cax=cax, format='%.f')
+    tick_locator = ticker.MaxNLocator(nbins=6)
+    cbar.locator = tick_locator
+    cbar.update_ticks()
+    cbar.set_label(labels[ipar],size=12)
+    fig.tight_layout()
+
+fig.savefig(args.output, bbox_inches='tight', format='eps')
+plt.show()

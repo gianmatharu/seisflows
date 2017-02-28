@@ -1,13 +1,14 @@
 
+import sys
+
 from getpass import getuser
-from os.path import abspath, exists, join
+from os.path import abspath, exists
 from uuid import uuid4
-
 from seisflows.tools import unix
-from seisflows.tools.config import ParameterError, SeisflowsParameters, SeisflowsPaths, custom_import
+from seisflows.config import ParameterError, custom_import
 
-PAR = SeisflowsParameters()
-PATH = SeisflowsPaths()
+PAR = sys.modules['seisflows_parameters']
+PATH = sys.modules['seisflows_paths']
 
 
 class tiger_lg(custom_import('system', 'slurm_lg')):
@@ -19,16 +20,15 @@ class tiger_lg(custom_import('system', 'slurm_lg')):
     def check(self):
         """ Checks parameters and paths
         """
+        # where job was submitted
+        if 'WORKDIR' not in PATH:
+            setattr(PATH, 'WORKDIR', abspath('.'))
 
-        if 'UUID' not in PAR:
-            setattr(PAR, 'UUID', str(uuid4()))
-
+        # where temporary files are written
         if 'SCRATCH' not in PATH:
-            setattr(PATH, 'SCRATCH', join('/scratch/gpfs', getuser(), 'seisflows', PAR.UUID))
+            setattr(PATH, 'SCRATCH', PATH.WORKDIR+'/'+'scratch')
 
-        if 'LOCAL' not in PATH:
-            setattr(PATH, 'LOCAL', '')
-
+        # number of cores per node
         if 'NODESIZE' not in PAR:
             setattr(PAR, 'NODESIZE', 16)
 
@@ -38,7 +38,10 @@ class tiger_lg(custom_import('system', 'slurm_lg')):
     def submit(self, *args, **kwargs):
         """ Submits job
         """
-        if not exists(PATH.SUBMIT + '/' + 'scratch'):
-            unix.ln(PATH.SCRATCH, PATH.SUBMIT + '/' + 'scratch')
+        if not exists(PATH.SCRATCH):
+            path = '/scratch/gpfs'+'/'+getuser()+'/'+'seisflows'+'/'+str(uuid4())
+            unix.mkdir(path)
+            unix.ln(path, PATH.SCRATCH)
+
         super(tiger_lg, self).submit(*args, **kwargs)
 

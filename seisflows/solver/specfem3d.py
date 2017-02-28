@@ -3,20 +3,21 @@ import subprocess
 from glob import glob
 from os.path import join
 
+import sys
 import numpy as np
 
-import seisflows.seistools.specfem3d as solvertools
-from seisflows.seistools.shared import getpar, setpar
+import seisflows.plugins.solver.specfem3d as solvertools
+from seisflows.tools.shared import getpar, setpar
 
 from seisflows.tools import unix
-from seisflows.tools.code import exists, mpicall
-from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, \
-    ParameterError, custom_import
+from seisflows.tools.tools import exists, call_solver
+from seisflows.config import ParameterError, custom_import
 
-PAR = SeisflowsParameters()
-PATH = SeisflowsPaths()
+PAR = sys.modules['seisflows_parameters']
+PATH = sys.modules['seisflows_paths']
 
-import system
+system = sys.modules['seisflows_system']
+preprocess = sys.modules['seisflows_preprocess']
 
 
 class specfem3d(custom_import('solver', 'base')):
@@ -56,7 +57,7 @@ class specfem3d(custom_import('solver', 'base')):
         unix.cd(self.getpath)
         setpar('SIMULATION_TYPE', '1')
         setpar('SAVE_FORWARD', '.true.')
-        mpicall(system.mpiexec(), 'bin/xspecfem3D')
+        call_solver(system.mpiexec(), 'bin/xspecfem3D')
 
         if PAR.FORMAT in ['SU', 'su']:
             src = glob('OUTPUT_FILES/*_d?_SU')
@@ -87,12 +88,19 @@ class specfem3d(custom_import('solver', 'base')):
             dst = self.model_databases
             unix.cp(src, dst)
 
-            mpicall(system.mpiexec(), 'bin/xmeshfem3D')
-            mpicall(system.mpiexec(), 'bin/xgenerate_databases')
+            call_solver(system.mpiexec(), 'bin/xmeshfem3D')
+            call_solver(system.mpiexec(), 'bin/xgenerate_databases')
             self.export_model(PATH.OUTPUT +'/'+ model_name)
 
         else:
             raise NotImplementedError
+
+
+    def eval_func(self, *args, **kwargs):
+        super(specfem3d, self).eval_func(*args, **kwargs)
+
+        # work around SPECFEM3D conflicting name conventions
+        self.rename_data()
 
 
     ### low-level solver interface
@@ -102,8 +110,8 @@ class specfem3d(custom_import('solver', 'base')):
         """
         setpar('SIMULATION_TYPE', '1')
         setpar('SAVE_FORWARD', '.true.')
-        mpicall(system.mpiexec(), 'bin/xgenerate_databases')
-        mpicall(system.mpiexec(), 'bin/xspecfem3D')
+        call_solver(system.mpiexec(), 'bin/xgenerate_databases')
+        call_solver(system.mpiexec(), 'bin/xspecfem3D')
 
         if PAR.FORMAT in ['SU', 'su']:
             src = glob('OUTPUT_FILES/*_d?_SU')
@@ -118,10 +126,7 @@ class specfem3d(custom_import('solver', 'base')):
         setpar('SAVE_FORWARD', '.false.')
         unix.rm('SEM')
         unix.ln('traces/adj', 'SEM')
-        mpicall(system.mpiexec(), 'bin/xspecfem3D')
-
-        # work around SPECFEM3D conflicting name conventions
-        self.rename_data()
+        call_solver(system.mpiexec(), 'bin/xspecfem3D')
 
 
     ### input file writers
@@ -147,10 +152,6 @@ class specfem3d(custom_import('solver', 'base')):
         if 'MULTIPLES' in PAR:
             raise NotImplementedError
 
-
-    def initialize_adjoint_traces(self):
-        """ Works around SPECFEM3D file format issue by overriding base method
-        """
 
     def initialize_adjoint_traces(self):
         super(specfem3d, self).initialize_adjoint_traces()
@@ -206,20 +207,18 @@ class specfem3d(custom_import('solver', 'base')):
 
     @property
     def data_filenames(self):
-        if PAR.CHANNELS:
-            if PAR.FORMAT in ['SU', 'su']:
-               filenames = []
-               for channel in PAR.CHANNELS:
-                   for iproc in range(PAR.NPROC):
-                       filenames += ['%d_d%s_SU' % (iproc, channel)]
-               return filenames
+        unix.cd(self.getpath+'/'+'traces/obs')
+
+        if PAR.FORMAT in ['SU', 'su']:
+            if not PAR.CHANNELS:
+                return sorted(glob('*_d?_SU'))
+            filenames = []
+            for channel in PAR.CHANNELS:
+                filenames += sorted(glob('*_d'+channel+'_SU'))
+            return filenames
 
         else:
-            unix.cd(self.getpath)
-            unix.cd('traces/obs')
-
-            if PAR.FORMAT in ['SU', 'su']:
-                return glob('*_d[%s]_SU')
+            raise NotImplementedError
 
     @property
     def kernel_databases(self):

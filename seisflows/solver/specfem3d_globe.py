@@ -5,18 +5,18 @@ from os.path import join
 
 import numpy as np
 
-import seisflows.seistools.specfem3d_globe as solvertools
-from seisflows.seistools.shared import getpar, setpar, Model, Minmax
-from seisflows.seistools.io import loadbypar, copybin, loadbin, savebin
+import seisflows.plugins.solver.specfem3d_globe as solvertools
+from seisflows.tools.shared import getpar, setpar, Model, Minmax
+from seisflows.plugins.io import loadbypar, copybin, loadbin, savebin
 
 from seisflows.tools import unix
 from seisflows.tools.array import loadnpy, savenpy
-from seisflows.tools.code import Struct, exists, mpicall
-from seisflows.tools.config import SeisflowsParameters, SeisflowsPaths, \
+from seisflows.tools.tools import Struct, exists, call_solver
+from seisflows.config import   \
     ParameterError, custom_import
 
-PAR = SeisflowsParameters()
-PATH = SeisflowsPaths()
+PAR = sys.modules['seisflows_parameters']
+PATH = sys.modules['seisflows_paths']
 
 import system
 
@@ -61,7 +61,7 @@ class specfem3d_globe(custom_import('solver', 'base')):
         unix.cd(self.getpath)
         setpar('SIMULATION_TYPE', '1')
         setpar('SAVE_FORWARD', '.true.')
-        mpicall(system.mpiexec(), 'bin/xspecfem3D')
+        call_solver(system.mpiexec(), 'bin/xspecfem3D')
 
         if PAR.FORMAT in ['ASCII', 'ascii']:
             src = glob('OUTPUT_FILES/*.sem.ascii')
@@ -84,7 +84,7 @@ class specfem3d_globe(custom_import('solver', 'base')):
 
             unix.cp(glob(model_path +'/'+ '*'), self.model_databases)
 
-            mpicall(system.mpiexec(), 'bin/xmeshfem3D')
+            call_solver(system.mpiexec(), 'bin/xmeshfem3D')
             self.export_model(PATH.OUTPUT +'/'+ model_name)
 
         else:
@@ -150,7 +150,7 @@ class specfem3d_globe(custom_import('solver', 'base')):
         """
         solvertools.setpar('SIMULATION_TYPE', '1')
         solvertools.setpar('SAVE_FORWARD', '.true.')
-        mpicall(system.mpiexec(), 'bin/xspecfem3D')
+        call_solver(system.mpiexec(), 'bin/xspecfem3D')
 
         if PAR.FORMAT in ['ASCII', 'ascii']:
             src = glob('OUTPUT_FILES/*.sem.ascii')
@@ -165,7 +165,7 @@ class specfem3d_globe(custom_import('solver', 'base')):
         solvertools.setpar('SAVE_FORWARD', '.false.')
         unix.rm('SEM')
         unix.ln('traces/adj', 'SEM')
-        mpicall(system.mpiexec(), 'bin/xspecfem3D')
+        call_solver(system.mpiexec(), 'bin/xspecfem3D')
 
 
     def check_mesh_properties(self, path=None, parameters=None):

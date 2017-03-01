@@ -1,7 +1,9 @@
 
 import sys
+from os.path import join
 
 from seisflows.tools import unix
+from seisflows.tools.array import savenpy
 from seisflows.config import ParameterError, custom_import
 
 PAR = sys.modules['seisflows_parameters']
@@ -100,6 +102,9 @@ class wg_frugal_inversion(custom_import('workflow', 'wg_inversion')):
                         hosts='mpi_c')
 
             postprocess.write_gradient(PATH.GRAD)
+            dst = join(PATH.OPTIMIZE, 'g_new')
+            savenpy(dst, solver.merge(solver.load(PATH.GRAD,
+                                              suffix='_kernel_smooth')))
 
             # evaluate misfit function
             self.sum_residuals(path=PATH.SOLVER, suffix='new')

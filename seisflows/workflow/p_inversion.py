@@ -6,6 +6,7 @@ from os.path import join
 import numpy as np
 
 from seisflows.tools import unix
+from seisflows.tools.array import loadnpy, savenpy
 from seisflows.tools.tools import divides, exists
 from seisflows.config import ParameterError, custom_import
 from seisflows.plugins.solver.pewf2d import iter_dirname, event_dirname
@@ -56,7 +57,7 @@ class p_inversion(custom_import('workflow', 'inversion')):
 
         # check paths
         if 'MODELS' not in PATH:
-            setattr(PATH, 'MODELS', join(PATH.SUBMIT, 'models'))
+            setattr(PATH, 'MODELS', join(PATH.WORKDIR, 'models'))
 
         if 'MODEL_TRUE' not in PATH:
             raise ParameterError(PATH, 'MODEL_TRUE')
@@ -136,6 +137,10 @@ class p_inversion(custom_import('workflow', 'inversion')):
 
         postprocess.write_gradient(PATH.GRAD)
 
+        dst = join(PATH.OPTIMIZE, 'g_new')
+        savenpy(dst, solver.merge(solver.load(PATH.GRAD,
+                                              suffix='_kernel_smooth')))
+
         # evaluate misfit function
         self.sum_residuals(path=PATH.SOLVER, suffix='new')
 
@@ -206,7 +211,7 @@ class p_inversion(custom_import('workflow', 'inversion')):
         # save new model to working dir
         src = join(PATH.OPTIMIZE, 'm_new')
         dst = PATH.MODEL_EST
-        solver.split(src, dst, '.bin')
+        self.save_vector(src, dst)
 
         if divides(optimize.iter, PAR.SAVEMODEL):
             self.save_model()
@@ -241,9 +246,7 @@ class p_inversion(custom_import('workflow', 'inversion')):
         src = PATH.OPTIMIZE +'/'+ 'm_' + suffix
         dst = path +'/'+ 'model'
         unix.mkdir(dst)
-        unix.cp(glob(join(PATH.MODEL_EST, 'rho.bin')), dst)
-        unix.cp(glob(join(PATH.MODEL_EST, 'vs.bin')), dst)
-        solver.split(src, dst, '.bin')
+        self.save_vector(src, dst)
 
 
     def sum_residuals(self, path='', suffix=''):
@@ -270,7 +273,7 @@ class p_inversion(custom_import('workflow', 'inversion')):
         src = join(PATH.OPTIMIZE, 'm_new')
         dst = join(PATH.MODELS, 'm{:02d}'.format(optimize.iter))
         unix.mkdir(dst)
-        solver.split(src, dst, '.bin')
+        self.save_vector(src, dst)
 
 
     def save_kernels(self):
@@ -295,3 +298,9 @@ class p_inversion(custom_import('workflow', 'inversion')):
             src = glob(join(PATH.SOLVER, event_dirname(itask + 1), 'residuals'))
             unix.mv(src, dst)
 
+
+    def save_vector(self, input_file, output_path):
+        """ Save numpy model vectors as solver model binaries
+        """
+        model = solver.split(loadnpy(input_file))
+        solver.save(model, output_path)

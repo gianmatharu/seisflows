@@ -24,7 +24,7 @@ class diagonal(object):
         if 'PRECOND' not in PATH:
             raise Exception
 
-        if not exist(PATH.PRECOND):
+        if not exists(PATH.PRECOND):
             raise Exception
 
         self.load = solver.load

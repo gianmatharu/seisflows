@@ -13,7 +13,6 @@ class generate_data(object):
     """ Generates synthetic data.
     """
 
-
     def check(self):
         """ Checks parameters and paths
         """
@@ -27,7 +26,6 @@ class generate_data(object):
         # check parameters
         if PAR.SYSTEM != 'serial':
             raise ValueError('Use system class "serial" here.')
-
 
     def main(self):
         """ Generates data

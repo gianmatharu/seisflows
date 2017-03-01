@@ -3,37 +3,52 @@ from os.path import join
 import numpy as np
 
 
-def mread(path, parameters, suffix=''):
+def mread(path, parameters, prefix='', suffix=''):
     """ Multiparameter read, callable by a single mpi process
     """
     keys = []
     vals = []
     for key in sorted(parameters):
-        val = read(path, key, suffix=suffix)
+        val = read(path, key, prefix, suffix)
         keys += [key]
         vals += [val]
     return keys, vals
 
 
-def mwrite(path, model):
+def mwrite(model, path, prefix='', suffix=''):
     """ Multiparameter write. Writes a dictionary.
     """
-    if (model):
+    if model:
         for key in model.keys():
-            write(path, key, model[key])
+            write(model[key], path, key, prefix, suffix)
 
 
-def read(path, parameter, suffix=''):
+def read(path, parameter, prefix='', suffix=''):
+    filename = prefix + parameter + suffix + '.bin'
+    return _read(join(path, filename))
+
+
+def write(v, path, parameter, prefix='', suffix=''):
+    filename = prefix + parameter + suffix + '.bin'
+    return _write(v, join(path, filename))
+
+
+def _read(filename):
     """ Reads a single binary file
     """
-    filename = join(path, '{}{}.bin'.format(parameter, suffix))
-    return np.fromfile(filename, dtype='float32')
+    try:
+        v = np.fromfile(filename, dtype='float32')
+    except:
+        raise IOError('Could not read file: {}'.format(filename))
+
+    return v
 
 
-def write(path, parameter, v):
+def _write(v, filename):
     """ Writes a single binary file
     """
     v = np.asarray(v)
-
-    filename = join(path, '{}.bin'.format(parameter))
-    v.astype('float32').tofile(filename)
+    try:
+        v.astype('float32').tofile(filename)
+    except:
+        raise IOError('Could not write file: {}'.format(filename))

@@ -3,12 +3,15 @@ import sys
 from os.path import join
 from seisflows.tools import unix
 from seisflows.tools.tools import exists
+from seisflows.tools.array import savenpy
 from seisflows.config import ParameterError
+
 
 PAR = sys.modules['seisflows_parameters']
 PATH = sys.modules['seisflows_paths']
 
 system = sys.modules['seisflows_system']
+solver = sys.modules['seisflows_solver']
 optimize = sys.modules['seisflows_optimize']
 preprocess = sys.modules['seisflows_preprocess']
 postprocess = sys.modules['seisflows_postprocess']
@@ -64,6 +67,11 @@ class test_gradient(object):
         postprocess.setup()
         optimize.setup()
 
+        self.generate_data()
+        self.evaluate_gradient()
+        print('Finished')
+
+    def generate_data(self):
         system.run('solver', 'setup',
                    hosts='all')
 
@@ -74,6 +82,7 @@ class test_gradient(object):
             system.run('solver', 'generate_data',
                         hosts='head')
 
+    def evaluate_gradient(self):
         print('Generating synthetics...')
         system.run('solver', 'generate_synthetics',
                     mode=1,
@@ -88,7 +97,10 @@ class test_gradient(object):
                     hosts='head')
 
         postprocess.write_gradient(PATH.GRAD)
-        print('Finished')
+
+        src = PATH.GRAD
+        dst = join(PATH.OPTIMIZE, 'g_new')
+        savenpy(dst, solver.merge(solver.load(src, suffix='_kernel_smooth')))
 
     def clean_directory(self, path):
         """ If dir exists clean otherwise make

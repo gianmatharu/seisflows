@@ -5,13 +5,12 @@ from glob import glob
 
 import numpy as np
 
+from seisflows.plugins.io.pewf2d import read, write
 from seisflows.tools import unix
-from seisflows.seistools import parameters
 from seisflows.tools.tools import exists, call_solver
-from seisflows.tools.array import gridsmooth, loadnpy, savenpy, normalize, readgrid
+from seisflows.tools.array import gridsmooth, loadnpy
 from seisflows.config import ParameterError, custom_import
 from seisflows.plugins.solver.pewf2d import  Par, read_cfg_file, write_cfg_file, event_dirname
-
 
 PAR = sys.modules['seisflows_parameters']
 PATH = sys.modules['seisflows_paths']
@@ -24,7 +23,7 @@ p = Par()
 p.read_par_file(join(PATH.SOLVER_INPUT, 'par_template.cfg'))
 
 
-class pewf2d(custom_import('solver', 'base')):
+class pewf2d(object):
     """ Python interface for PEWF2D
 
       See base class for method descriptions.
@@ -32,12 +31,29 @@ class pewf2d(custom_import('solver', 'base')):
       parallelism into the source code.
     """
 
-    def check(self):
-        super(pewf2d, self).check()
+    assert 'MATERIALS' in PAR
+    assert 'DENSITY' in PAR
 
+    parameters = []
+    if PAR.MATERIALS == 'Elastic':
+        parameters += ['vp']
+        parameters += ['vs']
+    elif PAR.MATERIALS == 'Acoustic':
+        parameters += ['vp']
+
+    if PAR.DENSITY == 'Variable':
+        density_scaling = None
+        parameters += ['rho']
+    elif PAR.DENSITY == 'Constant':
+        density_scaling = None
+
+
+    def check(self):
+        """ Checks parameters and paths
+        """
         # check parameters
-        if PAR.SYSTEM not in ['serial', 'parallel', 'westgrid']:
-            raise ValueError('PEWF2D must be implemented with serial/parallel/westgrid system class.')
+        if PAR.SYSTEM not in ['serial', 'westgrid']:
+            raise ValueError('PEWF2D must be implemented with serial/westgrid system class.')
 
         if 'FORMAT' not in PAR:
             raise ParameterError(PAR, 'FORMAT')
@@ -48,11 +64,38 @@ class pewf2d(custom_import('solver', 'base')):
         if 'CLIP' not in PAR:
             setattr(PAR, 'CLIP', 0)
 
-        if PAR.MATERIALS not in ['Acoustic', 'Elastic']:
-            self.reparam = True
-            self.write_velocity_files = getattr(parameters, PAR.MATERIALS.lower() + '_to_vel')
-        else:
-            self.reparam = False
+        if 'NPROC' not in PAR:
+            raise ParameterError(PAR, 'NPROC')
+
+        # check scratch paths
+        if 'SCRATCH' not in PATH:
+            raise ParameterError(PATH, 'SCRATCH')
+
+        if 'LOCAL' not in PATH:
+            setattr(PATH, 'LOCAL', None)
+
+        if 'SOLVER' not in PATH:
+            if PATH.LOCAL:
+                setattr(PATH, 'SOLVER', join(PATH.LOCAL, 'solver'))
+            else:
+                setattr(PATH, 'SOLVER', join(PATH.SCRATCH, 'solver'))
+
+        # check solver input paths
+        if 'SOLVER_BIN' not in PATH:
+            raise ParameterError(PATH, 'SOLVER_BIN')
+
+        if 'SOLVER_INPUT' not in PATH:
+            raise ParameterError(PATH, 'SOLVER_INPUT')
+
+        # assertions
+        assert self.parameters != []
+
+        # reparametrization
+        # if PAR.MATERIALS not in ['Acoustic', 'Elastic']:
+        #     self.reparam = True
+        #     #self.write_velocity_files = getattr(parameters, PAR.MATERIALS.lower() + '_to_vel')
+        # else:
+        #     self.reparam = False
 
 
     def check_solver_parameters(self):
@@ -68,18 +111,18 @@ class pewf2d(custom_import('solver', 'base')):
         """
         unix.cd(PATH.SOLVER_BIN)
         script = './xewf2d'
-        call_solver(system.mpiexec(), script, PATH.SUBMIT + '/dump_fwd')
+        call_solver(system.mpiexec(), script, PATH.WORKDIR + '/dump_fwd')
 
-        unix.cd(PATH.SUBMIT)
+        unix.cd(PATH.WORKDIR)
 
     def adjoint(self):
         """ Perform adjoint simulation. Must launch from /bin
         """
         unix.cd(PATH.SOLVER_BIN)
         script = './xewf2d'
-        call_solver(system.mpiexec(), script, PATH.SUBMIT + '/dump_adj')
+        call_solver(system.mpiexec(), script, PATH.WORKDIR + '/dump_adj')
 
-        unix.cd(PATH.SUBMIT)
+        unix.cd(PATH.WORKDIR)
 
     ### setup
 
@@ -110,7 +153,8 @@ class pewf2d(custom_import('solver', 'base')):
             unix.cp(src, dst)
 
     def generate_data(self):
-
+        """ Generate 'real' data in true model.
+        """
         # generate data on the fly
         output_dir = join(PATH.SOLVER)
         self.set_par_cfg(external_model_dir=PATH.MODEL_TRUE,
@@ -120,10 +164,11 @@ class pewf2d(custom_import('solver', 'base')):
                          stf_file=PAR.STF_FILE)
 
         self.forward()
-        self.organize_output()
+        self.export_data()
 
     def generate_synthetics(self, mode=0):
-
+        """ Generate synthetic data in estimated model.
+        """
         if not (mode == 0 or mode == 1):
             raise ValueError('Mode must be set to forward (0) or save wavefield mode (1)')
 
@@ -138,24 +183,13 @@ class pewf2d(custom_import('solver', 'base')):
         self.forward()
 
     def prepare_eval_grad(self):
-
-        # prepare adjoint sources
+        """ Prepare adjoint sources
+        """
         preprocess.prepare_eval_grad(self.getpath)
 
-    def process_trial_step(self):
-
-        itask = system.getnode()
-        trial_dir = join(PATH.FUNC, event_dirname(itask + 1))
-
-        # delete old file
-        rfile = join(trial_dir, 'residuals')
-        if exists(rfile):
-            unix.rm(rfile)
-
-        preprocess.evaluate_trial_step(self.getpath, trial_dir)
-
     def compute_gradient(self):
-
+        """ Compute gradient
+        """
         # generate synthetic data
         output_dir = join(PATH.SOLVER)
         self.set_par_cfg(external_model_dir=PATH.MODEL_EST,
@@ -185,6 +219,19 @@ class pewf2d(custom_import('solver', 'base')):
                          stf_file='stf_f.txt')
         self.forward()
 
+    def process_trial_step(self):
+        """ Process line search data
+        """
+        itask = system.getnode()
+        trial_dir = join(PATH.FUNC, event_dirname(itask + 1))
+
+        # delete old file
+        rfile = join(trial_dir, 'residuals')
+        if exists(rfile):
+            unix.rm(rfile)
+
+        preprocess.evaluate_trial_step(self.getpath, trial_dir)
+
     def export_trial_solution(self, path=''):
         """ Save trial solution for frugal inversion.
         """
@@ -195,45 +242,44 @@ class pewf2d(custom_import('solver', 'base')):
 
    # serial/reduction function
 
-    def combine(self, precond=True):
+    def combine(self):
         """ sum event gradients to compute misfit gradient
         """
+        grad = {}
+
         # sum gradient
-        for par in self.parameters:
-            filename = par + '_kernel.bin'
-            gradient = np.zeros((p.nz * p.nx), dtype='float32')
-
+        for key in self.parameters:
+            gradp = np.zeros(p.nx * p.nz, dtype='float32')
             for itask in range(PAR.NTASK):
-                syn_dir = join(PATH.SOLVER, event_dirname(itask + 1), 'traces', 'syn')
-                ev_grad = self.load(join(syn_dir, filename))
-                gradient += ev_grad
+                path = join(PATH.SOLVER, event_dirname(itask + 1), 'traces', 'syn')
+                gradp += read(path, key, suffix='_kernel')
 
-            if int(PAR.CLIP) > 0:
-                gradient[:(int(PAR.CLIP) * p.nx)] = 0
+            grad[key] = gradp
 
-            self.save(join(PATH.GRAD, filename), gradient)
+        self.save(grad, PATH.GRAD, suffix='_kernel')
 
     def smooth(self, span=0.):
         """ Process gradient
         """
+        grad = self.load(PATH.GRAD, suffix='_kernel')
+        grads = {}
 
-        for par in self.parameters:
-            filename = par + '_kernel.bin'
-            g = self.load(join(PATH.GRAD, filename))
-            g = g.reshape((p.nz, p.nx))
-            g = gridsmooth(g, span)
+        for key in self.parameters:
+            gradp = grad[key].reshape((p.nz, p.nx))
+            gradp = gridsmooth(gradp, span)
 
             if int(PAR.CLIP) > 0:
-                g[:int(PAR.CLIP), :] = 0
+                gradp[:int(PAR.CLIP), :] = 0
 
-            self.save(join(PATH.GRAD, par + '_smooth_kernel.bin'), g)
+            grads[key] = gradp
 
-        g_new = self.merge(PATH.GRAD, '_smooth_kernel.bin')
-        savenpy(join(PATH.OPTIMIZE, 'g_new'), g_new)
+        self.save(grads, PATH.GRAD, suffix='_kernel_smooth')
 
     # solver specific utilities
 
-    def organize_output(self):
+    def export_data(self):
+        """ Move data
+        """
 
         for itask in range(PAR.NTASK):
             path = join(PATH.SOLVER, event_dirname(itask + 1))
@@ -242,81 +288,74 @@ class pewf2d(custom_import('solver', 'base')):
             unix.mv(src, dst)
 
     def clean_boundary_storage(self):
+        """ Delete boundary files required for wavefield reconstruction
+        """
         for itask in range(PAR.NTASK):
             path = join(PATH.SOLVER, event_dirname(itask + 1), 'traces/syn')
             unix.rm(glob(join(path, 'proc*')))
 
-    def load(self, filename):
+    def load(self, path, prefix='', suffix=''):
         """ Loads a float32 numpy 2D array
         """
+        model = {}
+        for key in self.parameters:
+            model[key] = read(path, key, prefix, suffix)
 
-        try:
-            arr = np.fromfile(filename, dtype='float32')
-        except:
-            raise IOError('Could not read file: {}'.format(filename))
+        return model
 
-        return arr
-
-    def save(self, filename, arr):
+    def save(self, model, path, prefix='', suffix=''):
         """ Saves a numpy float32 array as a binary
         """
-        arr.astype('float32').tofile(filename)
+        unix.mkdir(path)
 
-    def merge(self, path, suffix):
+        # save inversion parameters
+        for key in self.parameters:
+            write(model[key], path, key, prefix, suffix)
+
+        # save parameters required for solver (vp, vs, rho)
+        for key in ['vp', 'vs']:
+            if key not in self.parameters:
+                src = join(PATH.MODEL_INIT, key + '.bin')
+                dst = path
+                unix.cp(src, dst)
+
+        if 'rho' not in self.parameters:
+            if self.density_scaling:
+                # apply empirical scaling update
+                pass
+            else:
+                # copy density from initial model
+                src = join(PATH.MODEL_INIT, 'rho.bin')
+                dst = join(path, 'rho.bin')
+                unix.cp(src, dst)
+
+    def merge(self, model):
         """ Merge vectors, used to merge model/gradient binary files into a single vector
         """
-
         v = np.array([])
-        for par in self.parameters:
-            filename = join(path, par + suffix)
-            vpar = self.load(filename)
-            v = np.append(v, vpar)
+        for key in self.parameters:
+            v = np.append(v, model[key])
 
         return v
 
-    def split(self, file, path, suffix):
+    def split(self, v):
         """ Split numpy arrays into separate vectors and save to binary files for solver.
         """
-
         npar = len(self.parameters)
-        ipar = 0
+        n = int(len(v) / npar)
+        model = {}
 
-        # load numpy file
-        nv = loadnpy(file)
-        n = int(len(nv) / npar)
+        for ipar, key in enumerate(self.parameters):
+            vpar = v[(ipar*n):(ipar*n) + n]
+            model[key] = vpar
 
-        if self.reparam:
-            model = {}
-
-        for par in self.parameters:
-            v = nv[(ipar*n):(ipar*n) + n]
-            filename = join(path, par + suffix)
-            if PAR.SAFEUPDATE:
-                self.check_model(v, par)
-
-            if self.reparam:
-                model[par] = v
-
-            self.save(filename, v)
-            ipar += 1
-
-        if self.reparam:
-            self.write_velocity_files(path, PATH.MODEL_EST, model)
-
-    def append_vector(self, model):
-
-        v = np.array([])
-        for par in self.parameters:
-            v = np.append(v, model)
-
-        return v
+        return model
 
     # solver specific routines
     def check_model(self, v, par):
-
         # check min values
-        minval = PAR.__getattr__(str(par + 'min').upper())
-        maxval = PAR.__getattr__(str(par + 'max').upper())
+        minval = getattr(PAR, str(par + 'min').upper())
+        maxval = getattr(PAR, str(par + 'max').upper())
 
         indlow = v < minval
         v[indlow] = minval
@@ -331,7 +370,6 @@ class pewf2d(custom_import('solver', 'base')):
     def set_par_cfg(self, **kwargs):
         """ Sets parameter cfg file for solver. Keys must match solver par.cfg file parameters.
         """
-
         # read par dict
         cfg = read_cfg_file(join(PATH.SOLVER_INPUT, 'par_template.cfg'))
 

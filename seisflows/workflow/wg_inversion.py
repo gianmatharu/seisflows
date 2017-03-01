@@ -3,7 +3,8 @@ import sys
 from os.path import join
 
 from seisflows.tools import unix
-from seisflows.tools.tools import divides, exists
+from seisflows.tools.tools import exists
+from seisflows.tools.array import savenpy
 from seisflows.config import ParameterError, custom_import
 from seisflows.plugins.solver.pewf2d import iter_dirname
 
@@ -53,7 +54,7 @@ class wg_inversion(custom_import('workflow', 'p_inversion')):
 
         # check paths
         if 'MODELS' not in PATH:
-            setattr(PATH, 'MODELS', join(PATH.SUBMIT, 'models'))
+            setattr(PATH, 'MODELS', join(PATH.WORKDIR, 'models'))
 
         if 'MODEL_TRUE' not in PATH:
             raise ParameterError(PATH, 'MODEL_TRUE')
@@ -109,6 +110,9 @@ class wg_inversion(custom_import('workflow', 'p_inversion')):
                     hosts='mpi_c')
 
         postprocess.write_gradient(PATH.GRAD)
+        dst = join(PATH.OPTIMIZE, 'g_new')
+        savenpy(dst, solver.merge(solver.load(PATH.GRAD,
+                                              suffix='_kernel_smooth')))
 
         # evaluate misfit function
         self.sum_residuals(path=PATH.SOLVER, suffix='new')

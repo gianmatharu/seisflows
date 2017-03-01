@@ -86,6 +86,11 @@ def hilbert(w):
     return np.imag(analytic(w))
 
 
+def nextpow2(n):
+    k = np.ceil(np.log2(n))
+    return 2**k
+
+
 infinity = np.inf
 
 

@@ -1,0 +1,76 @@
+#!/usr/bin/env python
+
+# Specialized script used to visualize gradients.
+
+# For convenience this routine assumes a particular directory structure that allows
+# simple access to inversion workflows.
+
+import argparse
+from os.path import join
+
+import numpy as np
+
+from seisflows.tools.math import normalize
+from seisflows.plugins.io.pewf2d import read, write
+from seisflows.plugins.solver.pewf2d import Par, event_dirname
+from seisflows.tools.array import gridsmooth
+
+
+def parse_args():
+    # Parse input arguments
+    parser = argparse.ArgumentParser(description='Plot misfit gradients.')
+
+    # file and format flags
+    parser.add_argument('-f', '--fpath',
+                        default='./solver/INPUT/',
+                        help='solver parameter file')
+
+    parser.add_argument('-p', '--path',
+                        default='./data',
+                        help='gradient path')
+
+    parser.add_argument('-o', '--opath',
+                        default='./PRECOND',
+                        help='gradient path')
+
+    parser.add_argument('-s', '--smooth', type=float,
+                        default=0.0,
+                        help='display smooth')
+
+    parser.add_argument('-cm', '--cmap',
+                        default='seismic_r',
+                        help='Matplotlib colormap scheme.')
+
+    parser.add_argument('-n', '--nsrc', type=int,
+                        help='No. shots')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+
+    args = parse_args()
+    p = Par()
+    p.read_par_file(join(args.fpath, 'par_template.cfg'))
+
+    if args.nsrc is None:
+        raise ValueError('No. events not specified')
+
+    precond = np.zeros(p.nz * p.nx)
+
+    # sum over sources
+    for itask in range(args.nsrc):
+        path = join(args.path, event_dirname(itask + 1))
+        precond += read(path, 'precond')
+
+    # smooth and write
+    precond = precond.reshape((p.nz, p.nx))
+    if args.smooth > 0.0:
+        precond = gridsmooth(precond, args.smooth)
+
+    precond = normalize(1 / precond)
+    write(precond, args.opath, 'precond')
+
+    import matplotlib.pyplot as plt
+    plt.imshow(precond)
+    plt.show()

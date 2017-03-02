@@ -12,7 +12,8 @@ def mread(path, parameters, prefix='', suffix=''):
         val = read(path, key, prefix, suffix)
         keys += [key]
         vals += [val]
-    return keys, vals
+
+    return dict(zip(keys, vals))
 
 
 def mwrite(model, path, prefix='', suffix=''):

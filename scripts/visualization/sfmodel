@@ -1,0 +1,69 @@
+#!/usr/bin/env python
+
+# Specialized script used to visualize gradients.
+
+# For convenience this routine assumes a particular directory structure that allows
+# simple access to inversion workflows.
+
+import argparse
+from os.path import join
+
+from seisflows.plugins.io.pewf2d import mread
+from seisflows.plugins.solver.pewf2d import Par
+from seisflows.tools.graphics import plot_model
+
+
+def parse_args():
+    # Parse input arguments
+    parser = argparse.ArgumentParser(description='Plot misfit gradients.')
+
+    # file and format flags
+    parser.add_argument('-f', '--fpath',
+                        default='./solver/INPUT/',
+                        help='solver parameter file')
+
+    parser.add_argument('-p', '--path',
+                        default='scratch/evalgrad',
+                        help='gradient path')
+
+    parser.add_argument('--pars', type=str, nargs='*',
+                        default=['vp', 'vs', 'rho'],
+                        help='gradient path')
+
+    parser.add_argument('-g', '--grad', action='store_true',
+                        default=False,
+                        help='display gradient')
+
+    parser.add_argument('-s', '--smooth', action='store_true',
+                        default=False,
+                        help='display smooth')
+
+    parser.add_argument('-cm', '--cmap',
+                        default='seismic_r',
+                        help='Matplotlib colormap scheme.')
+
+    parser.add_argument('-c', '--clip', type=int,
+                        default='100',
+                        help='Clip amplitudes')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+
+    args = parse_args()
+    p = Par()
+    p.read_par_file(join(args.fpath, 'par_template.cfg'))
+
+    smodel = None
+    if args.grad:
+        model = mread(args.path, args.pars, suffix='_kernel')
+        if args.smooth:
+            smodel = mread(args.path, args.pars, suffix='_kernel_smooth')
+    else:
+        model = mread(args.path, args.pars)
+        args.clip = None
+
+    plot_model(model, p, smodel=smodel, cmap=args.cmap, clip=args.clip)
+
+

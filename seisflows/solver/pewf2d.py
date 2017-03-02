@@ -275,7 +275,7 @@ class pewf2d(object):
 
         self.save(grads, PATH.GRAD, suffix='_kernel_smooth')
 
-    # solver specific utilities
+    # solver specific utils
 
     def export_data(self):
         """ Move data
@@ -310,6 +310,9 @@ class pewf2d(object):
 
         # save inversion parameters
         for key in self.parameters:
+            if PAR.SAFEUPDATE:
+                model[key] = self.check_model(model[key], key)
+
             write(model[key], path, key, prefix, suffix)
 
         # save parameters required for solver (vp, vs, rho)
@@ -353,10 +356,22 @@ class pewf2d(object):
 
     # solver specific routines
     def check_model(self, v, par):
-        # check min values
+        """ Perform bounds check on model update
+        """
+        # get user prescribed limits
         minval = getattr(PAR, str(par + 'min').upper())
         maxval = getattr(PAR, str(par + 'max').upper())
 
+        if minval >= maxval:
+            raise ValueError('{} min val greater than max val!'.format(par))
+
+        if minval < 0:
+            minval = 0
+
+        if maxval <= 0:
+            raise ValueError('{} max val greater must be > 0!'.format(par))
+
+        # check min values
         indlow = v < minval
         v[indlow] = minval
 
@@ -364,6 +379,7 @@ class pewf2d(object):
         indhigh = v > maxval
         v[indhigh] = maxval
 
+        return v
 
     # configuration file handling
 

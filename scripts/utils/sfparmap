@@ -1,0 +1,36 @@
+#!/usr/bin/env python
+
+# Specialized script used to visualize gradients.
+
+# For convenience this routine assumes a particular directory structure that allows
+# simple access to inversion workflows.
+
+import argparse
+from seisflows.tools.graphics import plot_grad
+
+# Parse input arguments
+parser = argparse.ArgumentParser(description='Plot misfit gradients.')
+
+# file and format flags
+parser.add_argument('-nx', type=int, help='pixels in x direction.')
+parser.add_argument('-nz', type=int, help='pixels in z direction.')
+
+parser.add_argument('-a', action='store_true', help='Show alpha kernel')
+parser.add_argument('-b', action='store_true', help='Show beta kernel')
+parser.add_argument('-r', action='store_true', help='Show rho kernel')
+parser.add_argument('-s', action='store_true', help='Show smoothed kernel')
+
+parser.add_argument('-p', '--path', default='./scratch/evalgrad', help='Standard path to misfit kernel')
+
+parser.add_argument('-cm', '--cmap', default='seismic_r', help='Matplotlib colormap scheme. \
+                    See matplotlib documentation.')
+parser.add_argument('-c', '--clip', type=int, default='100', help='Clip amplitudes')
+
+args = parser.parse_args()
+
+
+if __name__ == "__main__":
+
+    plot_grad(args.path, nx=args.nx, nz=args.nz, alpha=args.a, beta=args.b, rho=args.r,
+            smooth=args.s, cmap=args.cmap, clip=100)
+

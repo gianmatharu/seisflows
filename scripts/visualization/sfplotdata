@@ -1,0 +1,78 @@
+#!/usr/bin/env python
+
+# Specialized script used to visualize data.
+
+# For convenience this routine assumes a particular directory structure that allows
+# simple access to inversion workflows.
+
+import argparse
+from seisflows.tools.graphics import plot_data
+
+def parse_args():
+    # Parse input arguments
+    parser = argparse.ArgumentParser(description='Plot data section.')
+
+    # file and format flags
+    parser.add_argument('-d', action='store_true',
+                        help='Show data')
+
+    parser.add_argument('-s', action='store_true',
+                        help='Show synthetics')
+
+    parser.add_argument('-r', action='store_true',
+                        help='Show residuals')
+
+    parser.add_argument('-a', action='store_true',
+                        help='Show adjoint source')
+
+    parser.add_argument('-p', '--path', default='./scratch/solver',
+                        help='Path to solver dir')
+
+    parser.add_argument('-id', '--eventid', type=int,
+                        default=1,
+                        help='Event number')
+
+    parser.add_argument('-i', '--interactive', action='store_true',
+                        help='Enable interactive plotting')
+
+    parser.add_argument('-cm', '--cmap', default='seismic_r',
+                        help='Matplotlib colormap scheme.')
+    parser.add_argument('-c', '--clip', type=int,
+                        default='100',
+                        help='Clip amplitudes')
+
+    parser.add_argument('-l', '--all',
+                        type=int,
+                        default=0,
+                        help='Enable interactive plotting')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+
+    args = parse_args()
+
+    if args.interactive:
+        # Plot until escape or EOF
+        while True:
+            eid = input("Event id: ")
+            if (eid):
+                try:
+                    eid = int(eid)
+                except:
+                    raise ValueError('Input is not an int!')
+                else:
+                    print('Section for event #{}'.format(eid))
+                    plot_data(args.path, eid, data=args.d, syn=args.s, res=args.r, adj=args.a,
+                              cmap=args.cmap, clip=args.clip)
+            else:
+                break
+    elif args.all > 0:
+        for itask in range(args.all):
+            plot_data(args.path, itask + 1, data=args.d, syn=args.s, res=args.r, adj=args.a,
+                    cmap=args.cmap, clip=args.clip)
+    else:
+        plot_data(args.path, args.eventid, data=args.d, syn=args.s, res=args.r, adj=args.a,
+                  cmap=args.cmap, clip=args.clip)
+

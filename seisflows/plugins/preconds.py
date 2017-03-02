@@ -27,6 +27,7 @@ class diagonal(object):
         if not exists(PATH.PRECOND):
             raise Exception
 
+        self.path = PATH.PRECOND
         self.load = solver.load
         self.merge = solver.merge
 
@@ -34,7 +35,7 @@ class diagonal(object):
     def __call__(self, q):
         """ Applies preconditioner to given vector
         """
-        p = self.merge(self.load(PATH.PRECOND))
+        p = self.merge(self.load(self.path))
         return p*q
 
 

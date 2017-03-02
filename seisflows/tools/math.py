@@ -91,8 +91,11 @@ def nextpow2(n):
     return 2**k
 
 
-infinity = np.inf
+def normalize(v):
+    return v / abs(v).max()
 
+
+infinity = np.inf
 
 
 ### finite difference

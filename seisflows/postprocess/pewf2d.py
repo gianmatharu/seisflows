@@ -5,6 +5,7 @@ from os.path import join
 
 from seisflows.tools import unix
 from seisflows.tools.tools import exists
+from seisflows.plugins.io.pewf2d import mread, mwrite
 from seisflows.config import ParameterError, custom_import
 
 PAR = sys.modules['seisflows_parameters']
@@ -36,6 +37,11 @@ class pewf2d(custom_import('postprocess', 'base')):
     def setup(self):
         """ Performs any required initialization or setup tasks
         """
+        if solver.reparam:
+            model = mread(PATH.MODEL_INIT, ['vp','vs','rho'])
+            model = solver.par_map_forward(model)
+            mwrite(model, PATH.MODEL_INIT)
+
         src = glob(join(PATH.MODEL_INIT, '*.bin'))
         dst = join(PATH.MODELS, 'model_est')
 

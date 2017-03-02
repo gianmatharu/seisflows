@@ -19,7 +19,7 @@ def mread(path, parameters, prefix='', suffix=''):
 def mwrite(model, path, prefix='', suffix=''):
     """ Multiparameter write. Writes a dictionary.
     """
-    if model:
+    if isinstance(model, dict):
         for key in model.keys():
             write(model[key], path, key, prefix, suffix)
 

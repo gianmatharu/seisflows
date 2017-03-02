@@ -5,8 +5,9 @@ from glob import glob
 
 import numpy as np
 
-from seisflows.plugins.io.pewf2d import read, write
 from seisflows.tools import unix
+from seisflows.plugins import material
+from seisflows.plugins.io.pewf2d import read, write
 from seisflows.tools.tools import exists, call_solver
 from seisflows.tools.array import gridsmooth, loadnpy
 from seisflows.config import ParameterError, custom_import
@@ -35,18 +36,21 @@ class pewf2d(object):
     assert 'DENSITY' in PAR
 
     parameters = []
-    if PAR.MATERIALS == 'Elastic':
-        parameters += ['vp']
-        parameters += ['vs']
-    elif PAR.MATERIALS == 'Acoustic':
-        parameters += ['vp']
+
+    # parametrization definition & maps
+    parClass = getattr(material, PAR.MATERIALS.lower())
+    parameters = parClass.parameters
+    par_map_forward = parClass.par_map_forward
+    par_map_inverse = parClass.par_map_inverse
 
     if PAR.DENSITY == 'Variable':
         density_scaling = None
         parameters += ['rho']
+    elif PAR.DENSITY == 'Scaling':
+        # scale using gardener's relation
+        density_scaling = True
     elif PAR.DENSITY == 'Constant':
         density_scaling = None
-
 
     def check(self):
         """ Checks parameters and paths
@@ -90,12 +94,11 @@ class pewf2d(object):
         # assertions
         assert self.parameters != []
 
-        # reparametrization
-        # if PAR.MATERIALS not in ['Acoustic', 'Elastic']:
-        #     self.reparam = True
-        #     #self.write_velocity_files = getattr(parameters, PAR.MATERIALS.lower() + '_to_vel')
-        # else:
-        #     self.reparam = False
+        # reparametrization (allows inverse mapping if needed)
+        if PAR.MATERIALS not in ['Acoustic', 'Shear', 'Elastic']:
+            self.reparam = True
+        else:
+            self.reparam = False
 
 
     def check_solver_parameters(self):
@@ -280,7 +283,6 @@ class pewf2d(object):
     def export_data(self):
         """ Move data
         """
-
         for itask in range(PAR.NTASK):
             path = join(PATH.SOLVER, event_dirname(itask + 1))
             src = self.data_filenames(join(path, 'traces/syn'))
@@ -295,7 +297,7 @@ class pewf2d(object):
             unix.rm(glob(join(path, 'proc*')))
 
     def load(self, path, prefix='', suffix=''):
-        """ Loads a float32 numpy 2D array
+        """ Loads a model dictionary
         """
         model = {}
         for key in self.parameters:
@@ -304,28 +306,48 @@ class pewf2d(object):
         return model
 
     def save(self, model, path, prefix='', suffix=''):
-        """ Saves a numpy float32 array as a binary
+        """ Saves model dictionary as solver binaries
         """
         unix.mkdir(path)
+        if suffix == '_kernel' or suffix == '_kernel_smooth':
+            grad_call = True
+        else:
+            grad_call = False
 
         # save inversion parameters
         for key in self.parameters:
-            if PAR.SAFEUPDATE:
+            if PAR.SAFEUPDATE and not grad_call:
                 model[key] = self.check_model(model[key], key)
 
             write(model[key], path, key, prefix, suffix)
 
-        # save parameters required for solver (vp, vs, rho)
+        # skip reparametrization for kernels
+        if grad_call:
+            return
+
+        # if using a non-velocity parametrization
+        if self.reparam:
+            # handle density
+            if 'rho' not in self.parameters:
+                # load current density model
+                model['rho'] = read(PATH.MODEL_EST, 'rho')
+
+            # overwrite model
+            model = self.par_map_inverse(model)
+
+        # Assigning solver parameters
         for key in ['vp', 'vs']:
-            if key not in self.parameters:
+            if key not in model.keys():
                 src = join(PATH.MODEL_INIT, key + '.bin')
                 dst = path
                 unix.cp(src, dst)
+            else:
+                write(model[key], path, key, prefix, suffix)
 
         if 'rho' not in self.parameters:
             if self.density_scaling:
-                # apply empirical scaling update
-                pass
+                rho = getattr(material, 'gardeners')(model)
+                write(rho, path, 'rho', prefix, suffix)
             else:
                 # copy density from initial model
                 src = join(PATH.MODEL_INIT, 'rho.bin')

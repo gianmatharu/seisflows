@@ -12,7 +12,7 @@ def plot_vector(v, xlabel='', ylabel='', title=''):
         raise ValueError('v must be a vector or a time series')
 
     if v.ndim == 1:
-        x = np.range(len(v))
+        x = range(len(v))
         y = v
     else:
         x = v[:, 0]

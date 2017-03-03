@@ -38,7 +38,11 @@ class pewf2d(object):
     parameters = []
 
     # parametrization definition & maps
-    parClass = getattr(material, PAR.MATERIALS.lower())
+    try:
+        parClass = getattr(material, PAR.MATERIALS.lower())
+    except:
+        raise AttributeError('{} not found in module material'.format(PAR.MATERIALS))
+
     parameters = parClass.parameters
     par_map_forward = parClass.par_map_forward
     par_map_inverse = parClass.par_map_inverse

@@ -4,6 +4,11 @@ from obspy import read
 from obspy.core.stream import Stream
 import matplotlib.pyplot as plt
 from seisflows.plugins.solver.pewf2d import Par, event_dirname
+from seisflows.tools.math import normalize
+
+
+def cscale(v):
+    return -abs(v).max(), abs(v).max()
 
 
 def plot_vector(v, xlabel='', ylabel='', title=''):
@@ -78,6 +83,51 @@ def plot_model(model, p, smodel=None, cmap='seismic_r', clip=None):
 
         for i, item in enumerate(seis):
             create_im_subplot(seis[i][0], axes[1, i], title=seis[i][1], clip=clip)
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_model_comp(model1, model2, p, cmap='seismic_r'):
+
+    # check input
+    if not isinstance(p, Par):
+        raise TypeError('p should be of type Par')
+
+    parameters = model1.keys()
+
+    # get dimensions of subplot
+    rows = 3
+    cols = len(model1)
+
+    # prepare plot
+    f, axes = plt.subplots(rows, cols, squeeze=False)
+    plt.set_cmap(cmap)
+    seis = []
+
+    # reshape model
+    model1 = _reshape_model_dict(model1, p.nx, p.nz)
+    model2 = _reshape_model_dict(model2, p.nx, p.nz)
+
+    for key in parameters:
+        seis.append([model1[key], '{}'.format(key)])
+
+    for i, item in enumerate(seis):
+        create_im_subplot(seis[i][0], axes[0, i], title=seis[i][1], clip=None)
+
+    seis=[]
+    for key in parameters:
+        seis.append([model2[key], '{}'.format(key)])
+
+    for i, item in enumerate(seis):
+        create_im_subplot(seis[i][0], axes[1, i], title=seis[i][1], clip=None)
+
+    seis=[]
+    for key in parameters:
+        seis.append([model2[key]-model1[key], 'Diff - {}'.format(key)])
+
+    for i, item in enumerate(seis):
+        create_im_subplot(seis[i][0], axes[2, i], title=seis[i][1])
 
     plt.tight_layout()
     plt.show()

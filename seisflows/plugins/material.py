@@ -1,6 +1,7 @@
 
 import numpy as np
 
+
 class isotropic(object):
     """ Model parameter base class
     """

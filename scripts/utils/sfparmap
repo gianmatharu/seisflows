@@ -1,36 +1,58 @@
 #!/usr/bin/env python
 
-# Specialized script used to visualize gradients.
+# Specialized script used to map parametrizations
 
 # For convenience this routine assumes a particular directory structure that allows
 # simple access to inversion workflows.
 
 import argparse
-from seisflows.tools.graphics import plot_grad
+from os.path import join
 
-# Parse input arguments
-parser = argparse.ArgumentParser(description='Plot misfit gradients.')
+import seisflows.plugins.material as material
+from seisflows.plugins.io.pewf2d import mread, mwrite
 
-# file and format flags
-parser.add_argument('-nx', type=int, help='pixels in x direction.')
-parser.add_argument('-nz', type=int, help='pixels in z direction.')
 
-parser.add_argument('-a', action='store_true', help='Show alpha kernel')
-parser.add_argument('-b', action='store_true', help='Show beta kernel')
-parser.add_argument('-r', action='store_true', help='Show rho kernel')
-parser.add_argument('-s', action='store_true', help='Show smoothed kernel')
+def parse_args():
+    # Parse input arguments
+    parser = argparse.ArgumentParser(description='Plot misfit gradients.')
 
-parser.add_argument('-p', '--path', default='./scratch/evalgrad', help='Standard path to misfit kernel')
+    # file and format flags
+    parser.add_argument('-p', '--path',
+                        help='path to model')
 
-parser.add_argument('-cm', '--cmap', default='seismic_r', help='Matplotlib colormap scheme. \
-                    See matplotlib documentation.')
-parser.add_argument('-c', '--clip', type=int, default='100', help='Clip amplitudes')
+    parser.add_argument('-o', '--opath',
+                        default = '',
+                        help='path to model')
 
-args = parser.parse_args()
+    parser.add_argument('--pars', type=str,
+                        help='parameters')
+
+    parser.add_argument('-i', '--inverse', action='store_true',
+                        default=False,
+                        help='perform inverse mapping')
+
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
 
-    plot_grad(args.path, nx=args.nx, nz=args.nz, alpha=args.a, beta=args.b, rho=args.r,
-            smooth=args.s, cmap=args.cmap, clip=100)
+    args = parse_args()
+
+    if not args.opath:
+        args.opath = args.path
+
+    # get parameter class
+    par = getattr(material, args.pars.lower())
+    if 'rho' not in par.parameters:
+        par.parameters += ['rho']
+
+    if args.inverse:
+        # load model to map
+        model = mread(args.path, par.parameters)
+        model = par.par_map_inverse(model)
+    else:
+        model = mread(args.path, ['rho', 'vp', 'vs'])
+        model = par.par_map_forward(model)
+
+    mwrite(model, args.opath)
 

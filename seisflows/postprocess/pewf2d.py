@@ -61,13 +61,17 @@ class pewf2d(custom_import('postprocess', 'base')):
 
     def combine_kernels(self, path, parameters):
         system.run('solver', 'combine',
-                   hosts='head')
+                   hosts='head',
+                   path=path,
+                   parameters=parameters)
 
     def process_kernels(self, path, parameters):
         if PAR.SMOOTH > 0.:
             system.run('solver', 'smooth',
                        hosts='head',
-                       span=PAR.SMOOTH)
+                       span=PAR.SMOOTH,
+                       path=path,
+                       parameters=parameters)
 
 
 

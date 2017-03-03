@@ -245,29 +245,29 @@ class pewf2d(object):
 
    # serial/reduction function
 
-    def combine(self):
+    def combine(self, path='', parameters=[]):
         """ sum event gradients to compute misfit gradient
         """
         grad = {}
 
         # sum gradient
-        for key in self.parameters:
+        for key in parameters or self.parameters:
             gradp = np.zeros(p.nx * p.nz, dtype='float32')
             for itask in range(PAR.NTASK):
-                path = join(PATH.SOLVER, event_dirname(itask + 1), 'traces', 'syn')
-                gradp += read(path, key, suffix='_kernel')
+                fpath = join(PATH.SOLVER, event_dirname(itask + 1), 'traces', 'syn')
+                gradp += read(fpath, key, suffix='_kernel')
 
             grad[key] = gradp
 
-        self.save(grad, PATH.GRAD, suffix='_kernel')
+        self.save(grad, path, suffix='_kernel')
 
-    def smooth(self, span=0.):
+    def smooth(self, span=0., path='', parameters=[]):
         """ Process gradient
         """
-        grad = self.load(PATH.GRAD, suffix='_kernel')
+        grad = self.load(path, suffix='_kernel')
         grads = {}
 
-        for key in self.parameters:
+        for key in parameters or self.parameters:
             gradp = grad[key].reshape((p.nz, p.nx))
             gradp = gridsmooth(gradp, span)
 
@@ -276,7 +276,7 @@ class pewf2d(object):
 
             grads[key] = gradp
 
-        self.save(grads, PATH.GRAD, suffix='_kernel_smooth')
+        self.save(grads, path, suffix='_kernel_smooth')
 
     # solver specific utils
 

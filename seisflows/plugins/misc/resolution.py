@@ -68,4 +68,6 @@ def spike(v, dims, xpos, zpos, perc):
         for j in xpos:
             v[i][j] += val
 
+    v = v.reshape((nx * nz))
+
     return v

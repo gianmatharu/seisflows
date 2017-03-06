@@ -43,7 +43,7 @@ class resolution_test(object):
             setattr(PATH, 'GRAD', join(PATH.SCRATCH, 'evalgrad'))
 
         if 'GRAD_FINAL' not in PATH:
-            raise ParameterError(PAR, 'GRAD_FINAL')
+            setattr(PATH, 'GRAD_FINAL', None)
 
         if 'HESSPROD' not in PATH:
             setattr(PATH, 'HESSPROD', join(PATH.SCRATCH, 'hessprod'))

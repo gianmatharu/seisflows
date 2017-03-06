@@ -101,33 +101,25 @@ def plot_model_comp(model1, model2, p, cmap='seismic_r'):
     cols = len(model1)
 
     # prepare plot
-    f, axes = plt.subplots(rows, cols, squeeze=False)
+    f, axes = plt.subplots(rows, cols, squeeze=False, sharex=True, sharey=True)
     plt.set_cmap(cmap)
-    seis = []
 
     # reshape model
     model1 = _reshape_model_dict(model1, p.nx, p.nz)
     model2 = _reshape_model_dict(model2, p.nx, p.nz)
 
-    for key in parameters:
-        seis.append([model1[key], '{}'.format(key)])
+    for ikey, key in enumerate(parameters):
 
-    for i, item in enumerate(seis):
-        create_im_subplot(seis[i][0], axes[0, i], title=seis[i][1], clip=None)
+        axes[0, ikey].set_title(key)
+        vmin = model1[key].min()
+        vmax = model1[key].max()
+        res = model2[key] - model1[key]
+        rmin, rmax = cscale(res)
 
-    seis=[]
-    for key in parameters:
-        seis.append([model2[key], '{}'.format(key)])
-
-    for i, item in enumerate(seis):
-        create_im_subplot(seis[i][0], axes[1, i], title=seis[i][1], clip=None)
-
-    seis=[]
-    for key in parameters:
-        seis.append([model2[key]-model1[key], 'Diff - {}'.format(key)])
-
-    for i, item in enumerate(seis):
-        create_im_subplot(seis[i][0], axes[2, i], title=seis[i][1])
+        # plt models
+        axes[0, ikey].imshow(model1[key], vmin=vmin, vmax=vmax, aspect='auto')
+        axes[1, ikey].imshow(model2[key], vmin=vmin, vmax=vmax, aspect='auto')
+        axes[2, ikey].imshow(res, vmin=rmin, vmax=rmax, aspect='auto')
 
     plt.tight_layout()
     plt.show()

@@ -12,7 +12,7 @@ if __name__ == '__main__':
     sys.path.append(pythonpath)
 
     from os.path import join
-    from seisflows.tools.code import loadjson, loadobj
+    from seisflows.tools.tools import loadjson, loadobj
     from seisflows.config import load
 
     load(mypath)

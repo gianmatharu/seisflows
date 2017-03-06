@@ -54,6 +54,9 @@ class westgrid(custom_import('system', 'base')):
             setattr(PAR, 'PBSARGS', '')
 
         # check paths
+        if 'WORKDIR' not in PATH:
+            setattr(PATH, 'WORKDIR', abspath('.'))
+
         if 'SCRATCH' not in PATH:
             setattr(PATH, 'SCRATCH', join(abspath('.'), 'scratch'))
 
@@ -63,11 +66,8 @@ class westgrid(custom_import('system', 'base')):
         if 'SYSTEM' not in PATH:
             setattr(PATH, 'SYSTEM', join(PATH.SCRATCH, 'system'))
 
-        if 'SUBMIT' not in PATH:
-            setattr(PATH, 'SUBMIT', abspath('.'))
-
         if 'OUTPUT' not in PATH:
-            setattr(PATH, 'OUTPUT', join(PATH.SUBMIT, 'output'))
+            setattr(PATH, 'OUTPUT', join(PATH.WORKDIR, 'output'))
 
 
     def submit(self, workflow):
@@ -123,7 +123,7 @@ class westgrid(custom_import('system', 'base')):
                     + dirname(findpath('seisflows').rstrip('/')))
 
         elif hosts == 'mpi_c':
-            func = getattr(__import__(classname), funcname)
+            func = getattr(__import__('seisflows_'+classname), funcname)
             func(**kwargs)
 
         else:

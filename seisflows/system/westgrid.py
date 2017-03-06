@@ -7,6 +7,7 @@ from seisflows.tools import unix
 from seisflows.tools.tools import call, findpath, saveobj
 from seisflows.config import ParameterError, custom_import
 
+
 PAR = sys.modules['seisflows_parameters']
 PATH = sys.modules['seisflows_paths']
 
@@ -128,16 +129,19 @@ class westgrid(custom_import('system', 'base')):
         else:
             raise(KeyError('Hosts parameter not set/recognized.'))
 
+
     def getnode(self):
         """ Gets number of running task
         """
         return int(os.getenv('PBS_VNODENUM')) + int(os.getenv('TASKID')) * PAR.NPROC
 
+
     def save_kwargs(self, classname, funcname, kwargs):
-        kwargspath = join(PATH.OUTPUT, 'SeisflowsObjects', classname+'_kwargs')
-        kwargsfile = join(kwargspath, funcname+'.p')
+        kwargspath = join(PATH.OUTPUT, 'kwargs')
+        kwargsfile = join(kwargspath, classname+'_'+funcname+'.p')
         unix.mkdir(kwargspath)
         saveobj(kwargsfile, kwargs)
+
 
     def mpiexec(self):
         """ Specifies MPI exectuable; used to invoke solver

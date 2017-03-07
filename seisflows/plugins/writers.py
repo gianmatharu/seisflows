@@ -47,6 +47,10 @@ def su_pewf2d(d, prefix='', channel=None, tag='data'):
     else:
         raise ValueError('CHANNEL must be one of the following: x z or p')
 
+    # enforce float data convention
+    for tr in d:
+        tr.data = tr.data.astype(np.float32)
+
     # write data to file
     d.write(file, format='SU', byteorder='<')
 

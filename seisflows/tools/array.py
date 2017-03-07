@@ -56,6 +56,31 @@ def stack(*args):
     return np.column_stack(args)
 
 
+def as_ndarrays(*args):
+    """ Convert a list of array_like objects to numpy arrays.
+
+    Parameters
+    ----------
+    args: list of array_like objects
+
+    Returns
+    -------
+    list of ndarrays
+    """
+    if len(args) == 1:
+        return list(map(np.asarray, args))[0]
+    else:
+        return list(map(np.asarray, args))
+
+
+def check_2d(*args):
+    """ Check that ndarrays are 2-dimensional.
+    args: list of ndarrays.
+    """
+    for item in args:
+        if item.ndim != 2:
+            raise ValueError('Array must be 2-dimensional.')
+
 ### array input/output
 
 def loadnpy(filename):

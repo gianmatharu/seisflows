@@ -95,6 +95,19 @@ def normalize(v):
     return v / abs(v).max()
 
 
+def eigsorted(A):
+    """
+    Return sorted eigenvalues and eigenvectors.
+
+    :param A: A must be a symmetric/hermitian matrix
+    :return: vals - sorted eigenvalues
+             vecs - corresponding eigenvectors
+    """
+    vals, vecs = np.linalg.eigh(A)
+    order = vals.argsort()[::-1]
+    return vals[order], vecs[:, order]
+
+
 infinity = np.inf
 
 

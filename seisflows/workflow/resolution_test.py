@@ -37,7 +37,7 @@ class resolution_test(object):
         """
         # check paths
         if 'DATA' not in PATH:
-            raise ParameterError(PAR, 'DATA')
+            raise ParameterError(PATH, 'DATA')
 
         if 'GRAD' not in PATH:
             setattr(PATH, 'GRAD', join(PATH.SCRATCH, 'evalgrad'))

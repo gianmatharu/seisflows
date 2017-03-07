@@ -12,7 +12,6 @@ import matplotlib.pyplot as plt
 
 from seisflows.plugins.io.pewf2d import read
 from seisflows.plugins.solver.pewf2d import Par
-from seisflows.tools.graphics import cscale
 
 def parse_args():
     # Parse input arguments

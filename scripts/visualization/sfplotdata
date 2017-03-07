@@ -6,6 +6,7 @@
 # simple access to inversion workflows.
 
 import argparse
+from functools import partial
 from seisflows.tools.graphics import plot_data
 
 def parse_args():
@@ -37,9 +38,18 @@ def parse_args():
 
     parser.add_argument('-cm', '--cmap', default='seismic_r',
                         help='Matplotlib colormap scheme.')
+
     parser.add_argument('-c', '--clip', type=int,
                         default='100',
                         help='Clip amplitudes')
+
+    parser.add_argument('-xint', '--x_interval', type=float,
+                        default='1.0',
+                        help='Offset axis tick spacing [km].')
+
+    parser.add_argument('-yint', '--y_interval', type=float,
+                        default='1.0',
+                        help='Time axis tick spacing [s].')
 
     parser.add_argument('-l', '--all',
                         type=int,
@@ -52,6 +62,9 @@ def parse_args():
 if __name__ == "__main__":
 
     args = parse_args()
+    plot = partial(plot_data, args.path,
+                   data=args.d, syn=args.s, res=args.r, adj=args.a,
+                   cmap=args.cmap, clip=args.clip, x_interval=args.x_interval, y_interval=args.y_interval)
 
     if args.interactive:
         # Plot until escape or EOF
@@ -64,15 +77,12 @@ if __name__ == "__main__":
                     raise ValueError('Input is not an int!')
                 else:
                     print('Section for event #{}'.format(eid))
-                    plot_data(args.path, eid, data=args.d, syn=args.s, res=args.r, adj=args.a,
-                              cmap=args.cmap, clip=args.clip)
+                    plot(eid)
             else:
                 break
     elif args.all > 0:
         for itask in range(args.all):
-            plot_data(args.path, itask + 1, data=args.d, syn=args.s, res=args.r, adj=args.a,
-                    cmap=args.cmap, clip=args.clip)
+            plot(itask + 1)
     else:
-        plot_data(args.path, args.eventid, data=args.d, syn=args.s, res=args.r, adj=args.a,
-                  cmap=args.cmap, clip=args.clip)
+        plot(args.eventid)
 

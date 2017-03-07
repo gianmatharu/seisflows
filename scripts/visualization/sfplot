@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 
-# Specialized script used to plot vectors/time series.
-
-# For convenience this routine assumes a particular directory structure that allows
-# simple access to inversion workflows.
+# Specialized script used to plot vectors/time series from ascii text files.
 
 import argparse
 import numpy as np
@@ -19,17 +16,20 @@ def parse_args():
     parser.add_argument('file')
     parser.add_argument('-xl', '--xlabel',
                         default='',
-                        help='xlabel')
+                        help='x axis label')
     parser.add_argument('-yl', '--ylabel',
                         default='',
-                        help='ylabel')
+                        help='y axis label')
     parser.add_argument('-t', '--title',
                         default='',
-                        help='Title')
+                        help='title')
 
     return parser.parse_args()
 
 if __name__ == "__main__":
 
     args = parse_args()
-    plot_vector(np.loadtxt(args.file), xlabel=args.xlabel, ylabel=args.ylabel, title=args.title)
+
+    # load into numpy array
+    v = np.loadtxt(args.file)
+    plot_vector(v, xlabel=args.xlabel, ylabel=args.ylabel, title=args.title)

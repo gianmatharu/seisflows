@@ -1,14 +1,14 @@
-import numpy as np
 from os.path import join
+from functools import partial
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
+
 from obspy import read
 from obspy.core.stream import Stream
-import matplotlib.pyplot as plt
+
 from seisflows.plugins.solver.pewf2d import Par, event_dirname
-from seisflows.tools.math import normalize
-
-
-def cscale(v):
-    return -abs(v).max(), abs(v).max()
 
 
 def plot_vector(v, xlabel='', ylabel='', title=''):
@@ -27,8 +27,47 @@ def plot_vector(v, xlabel='', ylabel='', title=''):
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.title(title)
-
     plt.show()
+
+
+def plot_section(stream, ax=None, cmap='seismic', clip=100, title='', x_interval=1.0, y_interval=1.0):
+    """ Plot a seismic section from an obspy stream.
+    """
+    # get dimensions
+    nr = len(stream)
+    nt = len(stream[0].data)
+    dt = stream[0].stats.delta
+    d_aspect = nr / float(nt)
+
+    # convert stream to image array
+    data = _convert_to_array(stream)
+
+    fsize = 6
+    scale_factor = 1.5
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(fsize, scale_factor*fsize))
+
+    im = ax.imshow(data, aspect=scale_factor*d_aspect, clim=_cscale(data, clip=clip))
+    im.set_cmap(cmap)
+
+    # labels
+    ax.set_title(title)
+    ax.set_xlabel('Offset [km]')
+    ax.set_ylabel('Time [s]')
+
+    #set ticks
+    t = _get_time(stream)
+    yticks, ytick_labels = get_regular_ticks(t, y_interval)
+    ax.set_yticks(yticks)
+    ax.set_yticklabels(ytick_labels)
+
+    offsets =_get_offsets(stream)
+    xticks, xtick_labels = get_regular_ticks(offsets, x_interval)
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(xtick_labels)
+
+    return ax
 
 
 def create_im_subplot(data, ax=None, title='', clip=100):
@@ -114,7 +153,7 @@ def plot_model_comp(model1, model2, p, cmap='seismic_r'):
         vmin = model1[key].min()
         vmax = model1[key].max()
         res = model2[key] - model1[key]
-        rmin, rmax = cscale(res)
+        rmin, rmax = _cscale(res)
 
         # plt models
         axes[0, ikey].imshow(model1[key], vmin=vmin, vmax=vmax, aspect='auto')
@@ -125,32 +164,35 @@ def plot_model_comp(model1, model2, p, cmap='seismic_r'):
     plt.show()
 
 
-def plot_data(path, eventid, data=True, syn=False, res=False, adj=False, cmap='seismic_r', clip=100):
+def plot_data(path, eventid, data=True, syn=False, res=False, adj=False, cmap='seismic_r', clip=100, \
+              title='', x_interval=1.0, y_interval=1.0):
 
     # set subplot dimensions.
     rows = 2
     cols = data + syn + res + adj
+
+    # set path
     eventid = event_dirname(eventid)
     path = join(path, eventid, 'traces')
 
     # prepare plot
-    f, axes = plt.subplots(rows, cols)
-    axes = axes.transpose()
-    axes = axes.reshape(rows*cols)
+    section = partial(plot_section, clip=clip, x_interval=x_interval, y_interval=y_interval)
+    f, axes = plt.subplots(rows, cols, squeeze=False, figsize=(15, 10))
     plt.set_cmap(cmap)
 
-    seis = []
+    icol = 0
+
     # read seismogramgs
     if data:
         xdata, zdata = _read_components(join(path, 'obs'))
-        seis.append((xdata, '{} - Ux - data'.format(eventid)))
-        seis.append((zdata, '{} - Uz - data '.format(eventid)))
-
+        section(xdata, ax=axes[0, icol], title='Ux - data')
+        section(zdata, ax=axes[1, icol], title='Uz - data')
+        icol += 1
     if syn:
         xsyn, zsyn = _read_components(join(path, 'syn'))
-        seis.append((xsyn, '{} - Ux - synthetic'.format(eventid)))
-        seis.append((zsyn,  '{} - Uz - synthetic'.format(eventid)))
-
+        section(xsyn, ax=axes[0, icol], title='Ux - Synth')
+        section(zsyn, ax=axes[1, icol], title='Ux - Synth')
+        icol += 1
     if res:
         if not data:
             xdata, zdata = _read_components(join(path, 'obs'))
@@ -158,21 +200,18 @@ def plot_data(path, eventid, data=True, syn=False, res=False, adj=False, cmap='s
         if not syn:
             xsyn, zsyn = _read_components(join(path, 'syn'))
 
-        xres = xsyn - xdata
-        zres = zsyn - zdata
-
-        seis.append((xres, '{} - Ux - residuals'.format(eventid)))
-        seis.append((zres, '{} - Uz - residuals'.format(eventid)))
+        xres = _compute_residuals(xsyn, xdata)
+        zres = _compute_residuals(zsyn, zdata)
+        section(xres, ax=axes[0, icol], title='Ux - Residuals')
+        section(zres, ax=axes[1, icol], title='Uz - Residuals')
+        icol += 1
 
     if adj:
         xadj, zadj = _read_components(join(path, 'adj'), adj=True)
-        seis.append((xadj, '{} - Ux - adjoint'.format(eventid)))
-        seis.append((zadj,  '{} - Uz - adjoint'.format(eventid)))
+        section(xadj, ax=axes[0, icol], title='Ux - Adj. source')
+        section(zadj, ax=axes[1, icol], title='Uz - Adj. source')
 
-    for i, item in enumerate(seis):
-        create_im_subplot(seis[i][0], axes[i], title=seis[i][1], clip=clip)
-
-    #plt.tight_layout()
+    plt.tight_layout()
     plt.show()
 
 
@@ -185,7 +224,7 @@ def _reshape_model_dict(model, nx, nz):
 
 def _read_component(file):
     stream = read(file, dtype='float32', format='SU')
-    return _convert_to_array(stream)
+    return stream
 
 
 def _read_components(path, adj=False):
@@ -201,6 +240,16 @@ def _read_components(path, adj=False):
     uz = _read_component(zfile)
 
     return ux, uz
+
+
+def _compute_residuals(stream1, stream2):
+    """ Compute residuals between two seismic sections.
+    """
+    res = stream1.copy()
+    for tr1, tr2 in zip(res, stream2):
+        tr1.data -= tr2.data
+
+    return res
 
 
 def _convert_to_array(stream):
@@ -232,3 +281,48 @@ def _convert_to_array(stream):
             output[:, i] = trace.data[:]
 
         return output
+
+
+def _cscale(v, clip=100):
+    perc = clip / 100.
+    return -perc * abs(v).max(), perc * abs(v).max()
+
+
+def _get_time(stream):
+    """ Get fixed time vector for stream object.
+    """
+    dt = stream[0].stats.delta
+    nt = len(stream[0].data)
+    return np.arange(0, nt*dt, dt)
+
+
+def _get_offsets(stream):
+    """ Return offsets.
+    """
+    nr = len(stream)
+    offsets = np.zeros(nr)
+    scalco = stream[0].stats.su.trace_header.scalar_to_be_applied_to_all_coordinates
+
+    # set scale to km
+    if scalco == 0:
+        scalco = 1e-3 # assume coords are in m
+    else:
+        scalco = 1.0e-3 / scalco
+
+    for i, tr in enumerate(stream):
+        offsets[i] = (tr.stats.su.trace_header.group_coordinate_x - \
+                      tr.stats.su.trace_header.source_coordinate_x) * scalco
+    return offsets
+
+
+def get_regular_ticks(v, interval):
+    """ Return regular ticks.
+        v must be regularly sampled.
+    """
+    f = interp1d(v, range(len(v)))
+    begin = int(v[0] / interval) * interval
+    end = v[-1]
+    tick_labels = np.arange(begin, end, interval)
+    ticks = f(tick_labels)
+
+    return ticks, tick_labels

@@ -1,12 +1,12 @@
-import sys
 
+import sys
 from glob import glob
 from os.path import join
 
-from seisflows.tools import unix
 from seisflows.config import ParameterError
 from seisflows.tools.tools import exists
 from seisflows.plugins.solver.pewf2d import Par
+from seisflows.tools.tools import savetxt, loadtxt
 from seisflows.plugins.io.pewf2d import mread, mwrite, read, write
 from seisflows.plugins.misc import resolution
 from seisflows.tools import unix
@@ -80,13 +80,13 @@ class resolution_test(object):
         if 'TEST' not in PAR:
             raise ParameterError(PAR, 'TEST_TYPE')
 
-        if PAR.TEST not in ['VOLUME', 'SPIKE']:
+        if PAR.TEST not in ['Volume', 'Spike', 'Random']:
             raise ValueError('Requested test "{}" not implemented'.format(PAR.TEST))
 
         if 'PERC_PERT' not in PAR:
             setattr(PAR, 'PERC_PERT', None)
 
-        if PAR.TEST == 'SPIKE':
+        if PAR.TEST == 'Spike':
             if 'SPIKE_X' not in PAR:
                 raise ParameterError(PAR, 'SPIKE_X')
             else:
@@ -128,7 +128,7 @@ class resolution_test(object):
             print('Computing gradient for perturbation in {}'.format(par))
 
             # refresh model
-            self.setup_model()
+            self.setup_model(par)
 
             # apply perturbation
             self.perturb_model(par)
@@ -141,7 +141,7 @@ class resolution_test(object):
 
         print('Finished')
 
-    def compute_gradient(self, path):
+    def compute_gradient(self, par):
         # generate synthetics in perturbed model
         print('Generating synthetics...')
         system.run('solver', 'generate_synthetics',
@@ -156,20 +156,20 @@ class resolution_test(object):
         system.run('solver', 'compute_gradient',
                     hosts='head')
 
-        # create unique path
-        output_path = join(PATH.GRAD, path)
-        if not exists(output_path):
-            unix.mkdir(output_path)
-
         # write gradient
-        postprocess.combine_kernels(output_path, solver.parameters)
+        postprocess.combine_kernels(join(PATH.GRAD, par), solver.parameters)
 
-    def setup_model(self):
+    def setup_model(self, par):
         """ copy model
         """
         src = glob(join(PATH.MODEL_INIT, '*.bin'))
         dst = join(PATH.MODELS, 'model_est')
         unix.cp(src, dst)
+
+        # create unique path
+        output_path = join(PATH.GRAD, par)
+        if not exists(output_path):
+            unix.mkdir(output_path)
 
     def copy_gradient(self):
 
@@ -190,15 +190,22 @@ class resolution_test(object):
         model = solver.par_map_forward(model)
 
         # apply unit perturbation
-        if PAR.TEST == 'VOLUME':
-            model[par] = resolution.volume(model[par], PAR.PERC_PERT)
-        elif PAR.TEST == 'SPIKE':
+        if PAR.TEST == 'Volume':
+            model[par], pert_val = resolution.volume(model[par], PAR.PERC_PERT)
+        elif PAR.TEST == 'Spike':
             xpos = resolution.get_spike_array(PAR.SPIKE_X)
             zpos = resolution.get_spike_array(PAR.SPIKE_Z)
-            model[par] = resolution.spike(model[par], (p.nx, p.nz), xpos, zpos, PAR.PERC_PERT)
+            model[par], pert_val = resolution.spike(model[par], (p.nx, p.nz), xpos, zpos, PAR.PERC_PERT)
+        elif PAR.TEST == 'Random':
+            model[par], pert = resolution.random(model[par], PAR.PERC_PERT)
+            write(pert, join(PATH.GRAD, par), par, suffix='_pert')
 
         # write perturbed model
         mwrite(model, PATH.MODEL_EST)
+
+        # save perturbation value to scale Hdm
+        if PAR.TEST in ['Volume', 'Spike']:
+            savetxt(join(PATH.GRAD, '{}_pert_val'.format(par)), pert_val)
 
         # revert to solver parameters
         model = solver.par_map_inverse(model)
@@ -215,8 +222,16 @@ class resolution_test(object):
         grad = mread(gpath, solver.parameters, suffix='_kernel')
         pert_grad = mread(ppath, solver.parameters, suffix='_kernel')
 
+        # read perturbation value to scale Hdm
+        if PAR.TEST in ['Volume', 'Spike']:
+            pert_val = loadtxt(join(PATH.GRAD, '{}_pert_val'.format(par)))
+            print('Scaling Hdm by perturbation value: {}'.format(pert_val))
+
         for key in solver.parameters:
-            pert_grad[key] -= grad[key]
+            pert_grad[key] = (pert_grad[key] - grad[key])
+            if PAR.TEST in ['Volume', 'Spike']:
+                pert_grad[key] /= pert_val
+
             write(pert_grad[key], PATH.HESSPROD, par, prefix='H_{}_'.format(key))
 
     def clean_directory(self, path):

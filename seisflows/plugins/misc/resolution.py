@@ -7,11 +7,12 @@ def volume(v, perc=None):
     v = np.asarray(v)
 
     if perc:
-        v += (perc/100.) * abs(v).max()
+        val = (perc/100.) * abs(v).max()
     else:
-        v += 1
+        val = 1
+    v += val
 
-    return v
+    return v, val
 
 
 def check_spike_pars(parameters, size):
@@ -70,4 +71,17 @@ def spike(v, dims, xpos, zpos, perc):
 
     v = v.reshape((nx * nz))
 
-    return v
+    return v, val
+
+def random(v, perc):
+    """ Add zero-mean perturbation
+    """
+    if perc:
+        val = (perc/100.) * abs(v).max()
+    else:
+        val = 1
+
+    pert = val * np.random.randn(len(v))
+    v += pert
+
+    return v, pert

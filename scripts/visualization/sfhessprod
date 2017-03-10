@@ -8,6 +8,7 @@
 import argparse
 from os.path import join
 
+import numpy as np
 import matplotlib.pyplot as plt
 
 from seisflows.plugins.io.pewf2d import read
@@ -68,6 +69,9 @@ if __name__ == "__main__":
             imlist += [axes[ipar, jpar].imshow(model[par2])]
             if abs(model[par2]).max() > scale:
                 scale = abs(model[par2]).max()
+
+            print 'Norm of H_{}_{}: {}'.format(par2, par1, np.linalg.norm(model[par2]))
+        print '\n'
 
     for image in imlist:
         image.set_clim(-scale, scale)

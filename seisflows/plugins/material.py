@@ -148,6 +148,31 @@ class impedance(isotropic):
 
         return output
 
+# class for parameter rescaling
+
+
+class ParRescaler(object):
+    """ Class to perform parameter rescaling.
+    """
+
+    def __init__(self, scale):
+        self.scale = {}
+        for key in scale.keys():
+            self.scale[key] = scale[key]
+
+    @classmethod
+    def unit_scaling(cls, parameters):
+        scale = dict(zip(parameters, len(parameters) * [1.0]))
+        return cls(scale)
+
+    @classmethod
+    def mean_scaling(cls, model):
+        scale = {}
+        for key in model.keys():
+            scale[key] = np.asarray(model[key]).mean()
+        return cls(scale)
+
+
 # empirical density scaling relations
 
 def gardeners(model):

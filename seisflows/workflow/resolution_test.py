@@ -70,7 +70,7 @@ class resolution_test(object):
             if not exists(join(PATH.SOLVER_INPUT, PAR.STF_FILE)):
                 raise IOError('Source time function file not found.')
 
-        if PAR.SYSTEM != 'serial':
+        if PAR.SYSTEM not in ['serial', 'westgrid']:
             raise ValueError('Use system class "serial" here.')
 
         if PAR.SOLVER != 'pewf2d':
@@ -205,6 +205,13 @@ class resolution_test(object):
 
         # save perturbation value to scale Hdm
         if PAR.TEST in ['Volume', 'Spike']:
+            # apply parameter rescaling
+            if PAR.RESCALE:
+                print '{} pert_val: {}'.format(par, pert_val)
+                print '{} scale_val: {}'.format(par, solver.scale[par])
+
+                pert_val /= solver.scale[par]
+
             savetxt(join(PATH.GRAD, '{}_pert_val'.format(par)), pert_val)
 
         # revert to solver parameters
@@ -229,6 +236,10 @@ class resolution_test(object):
 
         for key in solver.parameters:
             pert_grad[key] = (pert_grad[key] - grad[key])
+
+            if PAR.RESCALE:
+                pert_grad[key] *= solver.scale[key]
+
             if PAR.TEST in ['Volume', 'Spike']:
                 pert_grad[key] /= pert_val
 
@@ -237,7 +248,6 @@ class resolution_test(object):
     def clean_directory(self, path):
         """ If dir exists clean otherwise make
         """
-
         if not exists(path):
             unix.mkdir(path)
         else:

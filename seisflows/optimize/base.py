@@ -98,7 +98,7 @@ class base(object):
         # write initial model
         if 'MODEL_INIT' in PATH:
             solver = sys.modules['seisflows_solver']
-            self.save('m_new', solver.merge(solver.load(PATH.MODEL_INIT)))
+            self.save('m_new', solver.merge(solver.load(PATH.MODEL_INIT, rescale=PAR.RESCALE)))
 
 
     def precond(self):

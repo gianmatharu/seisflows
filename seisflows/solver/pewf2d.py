@@ -75,6 +75,9 @@ class pewf2d(object):
         if 'NPROC' not in PAR:
             raise ParameterError(PAR, 'NPROC')
 
+        if 'RESCALE' not in PAR:
+            setattr(PAR, 'RESCALE', False)
+
         # check scratch paths
         if 'SCRATCH' not in PATH:
             raise ParameterError(PATH, 'SCRATCH')
@@ -104,6 +107,11 @@ class pewf2d(object):
         else:
             self.reparam = False
 
+        if PAR.RESCALE:
+            # self.scale holds a dict of rescaling values
+            self.scale = material.ParRescaler.mean_scaling(self.load(PATH.MODEL_INIT)).scale
+        else:
+            self.scale = None
 
     def check_solver_parameters(self):
         """ Check solver specific parameters
@@ -268,7 +276,7 @@ class pewf2d(object):
     def smooth(self, span=0., path='', parameters=[]):
         """ Process gradient
         """
-        grad = self.load(path, suffix='_kernel')
+        grad = self.load(path, suffix='_kernel', rescale=PAR.RESCALE)
         grads = {}
 
         for key in parameters or self.parameters:
@@ -300,20 +308,35 @@ class pewf2d(object):
             path = join(PATH.SOLVER, event_dirname(itask + 1), 'traces/syn')
             unix.rm(glob(join(path, 'proc*')))
 
-    def load(self, path, prefix='', suffix=''):
+    def load(self, path, prefix='', suffix='', rescale=False):
         """ Loads a model dictionary
         """
         model = {}
         for key in self.parameters:
             model[key] = read(path, key, prefix, suffix)
 
+            if rescale:
+                # rescale model files (warning, precond + masks use no prefix/suffix, ensure rescale=False)
+                if not prefix and not suffix:
+                    model[key] /= self.scale[key]
+                elif suffix in ['_kernel', '_kernel_smooth']:
+                    model[key] *= self.scale[key]
+
         return model
 
-    def save(self, model, path, prefix='', suffix=''):
+    def save(self, model, path, prefix='', suffix='', rescale=False):
         """ Saves model dictionary as solver binaries
         """
+        # undo parameter scaling
+        if rescale:
+            if not prefix and not suffix:
+                print('Fixing parameter scaling...')
+                for key in self.parameters:
+                    model[key] *= self.scale[key]
+
+        # determine gradient call
         unix.mkdir(path)
-        if suffix == '_kernel' or suffix == '_kernel_smooth':
+        if suffix in ['_kernel', '_kernel_smooth']:
             grad_call = True
         else:
             grad_call = False

@@ -303,4 +303,4 @@ class p_inversion(custom_import('workflow', 'inversion')):
         """ Save numpy model vectors as solver model binaries
         """
         model = solver.split(loadnpy(input_file))
-        solver.save(model, output_path)
+        solver.save(model, output_path, rescale=PAR.RESCALE)

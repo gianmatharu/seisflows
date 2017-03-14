@@ -100,7 +100,7 @@ def plot_model(model, p, smodel=None, cmap='seismic_r', clip=None):
     cols = len(model)
 
     # prepare plot
-    f, axes = plt.subplots(rows, cols, squeeze=False)
+    f, axes = plt.subplots(rows, cols, squeeze=False, figsize=(15,5))
     plt.set_cmap(cmap)
     seis = []
 
@@ -150,8 +150,8 @@ def plot_model_comp(model1, model2, p, cmap='seismic_r'):
     for ikey, key in enumerate(parameters):
 
         axes[0, ikey].set_title(key)
-        vmin = model1[key].min()
-        vmax = model1[key].max()
+        vmin = model1[key].min() - 0.01 * model1[key].max()
+        vmax = model1[key].max() + 0.01 * model1[key].max()
         res = model2[key] - model1[key]
         rmin, rmax = _cscale(res)
 
@@ -176,7 +176,7 @@ def plot_data(path, eventid, data=True, syn=False, res=False, adj=False, cmap='s
     path = join(path, eventid, 'traces')
 
     # prepare plot
-    section = partial(plot_section, clip=clip, x_interval=x_interval, y_interval=y_interval)
+    section = partial(plot_section, clip=clip, x_interval=x_interval, y_interval=y_interval, cmap=cmap)
     f, axes = plt.subplots(rows, cols, squeeze=False, figsize=(15, 10))
     plt.set_cmap(cmap)
 

@@ -70,7 +70,7 @@ if __name__ == "__main__":
             if abs(model[par2]).max() > scale:
                 scale = abs(model[par2]).max()
 
-            print 'Norm of H_{}_{}: {}'.format(par2, par1, np.linalg.norm(model[par2]))
+            print 'Norm of H_{}_{}: {:.3e}'.format(par2, par1, np.linalg.norm(model[par2]))
         print '\n'
 
     for image in imlist:

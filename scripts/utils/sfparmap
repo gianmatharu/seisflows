@@ -14,7 +14,7 @@ from seisflows.plugins.io.pewf2d import mread, mwrite
 
 def parse_args():
     # Parse input arguments
-    parser = argparse.ArgumentParser(description='Plot misfit gradients.')
+    parser = argparse.ArgumentParser(description='Perform reparametrization.')
 
     # file and format flags
     parser.add_argument('-p', '--path',
@@ -29,7 +29,7 @@ def parse_args():
 
     parser.add_argument('-i', '--inverse', action='store_true',
                         default=False,
-                        help='perform inverse mapping')
+                        help='perform inverse mapping (vel to other)')
 
     return parser.parse_args()
 

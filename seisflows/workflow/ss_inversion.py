@@ -1,12 +1,11 @@
 
 import sys
 from os.path import join
-
-import numpy as np
+from glob import glob
 
 from seisflows.tools import unix
 from seisflows.tools.array import loadnpy, savenpy
-from seisflows.tools.tools import divides, exists
+from seisflows.tools.tools import saveobj, divides, exists
 from seisflows.config import ParameterError, custom_import
 from seisflows.plugins.solver.pewf2d import iter_dirname, event_dirname
 
@@ -43,11 +42,17 @@ class ss_inversion(custom_import('workflow', 'p_inversion')):
         """
         super(ss_inversion, self).check()
 
+        if not PATH.DATA:
+            raise ValueError('Data path required.')
+
         if PAR.PREPROCESS != 'ssewf2d':
             raise ValueError('Can only run SS inversion with ssewf2d preprocessing class.')
 
         if PAR.SOLVER != 'ssewf2d':
             raise ValueError('Can only run SS inversion with ssewf2d solver class.')
+
+        if 'SAVEENCODING' not in PAR:
+            setattr(PAR, 'SAVEENCODING', 1)
 
     def setup(self):
         """ Lays groundwork for inversion
@@ -65,6 +70,9 @@ class ss_inversion(custom_import('workflow', 'p_inversion')):
         system.run('solver', 'setup',
                    hosts='all')
 
+        system.run('solver', 'setup_encoding',
+                   hosts='head')
+
     def compute_gradient(self):
         """ Compute gradients. Designed to avoid excessive storage
             of boundary files.
@@ -73,7 +81,11 @@ class ss_inversion(custom_import('workflow', 'p_inversion')):
         # output for inversion history
         unix.mkdir(join(PATH.OUTPUT, iter_dirname(optimize.iter)))
 
-        print('Encoding shots...')
+        print('Generate encoding...')
+        system.run('solver', 'generate_encoding',
+                   hosts='head')
+
+        print('Encoding data...')
         system.run('solver', 'generate_data',
                    hosts='all')
 
@@ -98,3 +110,25 @@ class ss_inversion(custom_import('workflow', 'p_inversion')):
 
         # evaluate misfit function
         self.sum_residuals(path=PATH.SOLVER, suffix='new')
+
+    def finalize(self):
+        """ Saves results from current model update iteration
+        """
+        system.checkpoint()
+
+        super(ss_inversion, self).finalize()
+
+        if divides(optimize.iter, PAR.SAVEENCODING):
+            self.save_encoding()
+
+    def save_encoding(self):
+        """ Save encoding scheme.
+        """
+        # copy source files
+        src = glob(join(PATH.SOURCE, '*.su'))
+        dst = join(PATH.OUTPUT, iter_dirname(optimize.iter))
+        unix.mv(src, dst)
+
+        # save encoding scheme
+        file = join(dst, 'encoding_{:03d}.pkl'.format(optimize.iter))
+        saveobj(file, solver.source_groups)

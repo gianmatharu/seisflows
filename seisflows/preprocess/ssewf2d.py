@@ -1,0 +1,205 @@
+
+import sys
+from os.path import join
+
+import numpy as np
+from obspy.core.trace import Trace
+from obspy.core.stream import Stream
+from obspy.io.segy.segy import SEGYTraceHeader
+
+from seisflows.tools import msg, unix
+from seisflows.tools.tools import exists
+from seisflows.tools.susignal import FixedStream
+from seisflows.config import ParameterError, custom_import
+from seisflows.plugins import adjoint, misfit, readers, writers
+from seisflows.plugins.encode import SourceArray
+from seisflows.plugins.solver.pewf2d import event_dirname
+
+PAR = sys.modules['seisflows_parameters']
+PATH = sys.modules['seisflows_paths']
+
+
+class ssewf2d(custom_import('preprocess', 'pewf2d')):
+    """ Data preprocessing class
+    """
+
+    def check(self):
+        # check parameters
+        if 'MISFIT' not in PAR:
+            setattr(PAR, 'MISFIT', 'Waveform')
+
+        if 'CHANNELS' not in PAR:
+            raise ParameterError(PAR, 'CHANNELS')
+
+        if 'READER' not in PAR:
+          raise ParameterError(PAR, 'READER')
+
+        if 'WRITER' not in PAR:
+          setattr(PAR, 'WRITER', PAR.READER)
+
+        if 'NORMALIZE' not in PAR:
+          setattr(PAR, 'NORMALIZE', True)
+
+        # filter settings
+        if 'BANDPASS' not in PAR:
+          setattr(PAR, 'BANDPASS', False)
+
+        if 'FREQLO' not in PAR:
+          setattr(PAR, 'FREQLO', 0.)
+
+        if 'FREQHI' not in PAR:
+          setattr(PAR, 'FREQHI', 0.)
+
+        # assertions
+        if PAR.READER != 'su_pewf2d':
+            raise ValueError('Must use su reader.')
+
+        if PAR.WRITER != 'su_pewf2d':
+            raise ValueError('Must use SU writer.')
+
+        if PAR.READER != PAR.WRITER:
+            print msg.DataFormatWarning % (PAR.READER, PAR.WRITER)
+
+        if 'STF_FILE' not in PAR:
+            raise ParameterError(PAR, 'STF_FILE')
+
+    def setup(self):
+
+        # define misfit function and adjoint trace generator
+        self.misfit = getattr(misfit, PAR.MISFIT)
+        self.adjoint = getattr(adjoint, PAR.MISFIT)
+
+        # define seismic data reader and writer
+        self.reader = getattr(readers, PAR.READER)
+        self.writer = getattr(writers, PAR.WRITER)
+
+        # prepare channels list
+        self.channels = []
+        for char in PAR.CHANNELS:
+            self.channels += [char]
+
+        # filter source wavelet
+        stf_file = join(PATH.SOLVER_INPUT, PAR.STF_FILE)
+        self.filter_stf(stf_file)
+
+        # create directories
+        unix.rm(PATH.SOURCE)
+        unix.mkdir(PATH.SOURCE)
+
+    def encode_sources(self, itask=0, path='', source_array=[], encoding=[]):
+        """ Perform source encoding to generate 'supershot'
+        """
+        if not isinstance(source_array, SourceArray):
+            raise TypeError('Expected SourceArray object.')
+
+        # load processed source wavelet
+        _, stf, dt = self._get_trace_from_ascii(join(PATH.SOLVER_INPUT, 'stf_f.txt'))
+
+        # encode source time functions
+        source = self.get_encoded_source(stf, dt, source_array, encoding)
+        source.write(join(PATH.SOURCE, 'source_{:03d}.su'.format(itask + 1)), format='SU', byteorder='<')
+
+        # encode data
+        for channel in self.channels:
+
+            data_list = []
+            for source, code in zip(source_array, encoding):
+                dpath = join(PATH.DATA, event_dirname(int(source.index)))
+                data_list += [self.encode_data(FixedStream(self.reader(dpath, channel)), code)]
+
+            # sum and write data
+            data = sum(data_list)
+            self.writer(data, path + '/' + 'traces/obs', channel)
+
+    def get_encoded_source(self, stf, dt, source_array, encoding):
+        """ Generate encoded source
+        """
+        if len(source_array) != len(encoding):
+            raise ValueError('Dimensions of group do not match encoding')
+
+        # initialize stream
+        stream = Stream()
+
+        for code, source in zip(encoding, source_array):
+            sx = source.x
+            sz = source.z
+            scode = code
+
+            stream.append(self.get_source_trace(stf, dt, sx, sz, scode))
+
+        stream = self.convert_to_float(stream)
+
+        return stream
+
+    def encode_data(self, stream, code):
+        for tr in stream:
+            tr.data = tr.data * code
+
+        return stream
+
+    def process_traces(self, stream, filter=True):
+        """ Performs data processing operations on traces
+        """
+        nt, dt, _ = self.get_time_scheme(stream)
+        n, _ = self.get_network_size(stream)
+        df = dt**-1
+
+        # Filtering
+        if filter:
+            for trace in stream:
+                self.filter_trace(trace)
+
+        return stream
+
+    def filter_trace(self, trace):
+        """ Filter obspy trace
+        """
+        if PAR.FREQLO and PAR.FREQHI:
+            trace.filter('bandpass', freqmin=PAR.FREQLO, freqmax=PAR.FREQHI, corners=2, zerophase=True)
+        elif PAR.FREQHI:
+            trace.filter('lowpass', freq=PAR.FREQHI, corners=2, zerophase=True)
+        else:
+            pass
+
+        return trace
+
+    ### utility functions
+
+    def filter_stf(self, file):
+        """ Load and filter source wavelet.
+        """
+        t, stf, dt = self._get_trace_from_ascii(join(PATH.SOLVER_INPUT, PAR.STF_FILE))
+        tr = Trace(stf)
+        tr.stats.delta = dt
+
+        stf = self.filter_trace(tr)
+
+        # write as ascii time series
+        with open(join(PATH.SOLVER_INPUT, 'stf_f.txt'), 'w') as f:
+            for i in range(len(stf.data)):
+                f.write('{:f} {:f}\n'.format(t[i], stf.data[i]))
+
+
+    def _get_trace_from_ascii(self, file):
+        """ Read ascii time series and return trace.
+        """
+        ts = np.loadtxt(file)
+        t = ts[:, 0]
+        d = ts[:, 1]
+        dt = t[1] - t[0]
+
+        return t, d, dt
+
+    def get_source_trace(self, d, dt, sx, sz, code):
+        """ Set source position in trace header.
+        """
+        tr = Trace(d)
+        tr.data = tr.data * code
+        tr.stats.delta = dt
+        tr.stats.su = {}
+        tr.stats.su.trace_header = SEGYTraceHeader()
+        tr.stats.su.trace_header.source_coordinate_x = int(sx)
+        tr.stats.su.trace_header.source_coordinate_y = int(sz)
+        tr.stats.su.trace_header.scalar_to_be_applied_to_all_coordinates = 1
+
+        return tr

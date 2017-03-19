@@ -33,14 +33,14 @@ def plot_vector(v, xlabel='', ylabel='', title=''):
 def plot_section(stream, ax=None, cmap='seismic', clip=100, title='', x_interval=1.0, y_interval=1.0):
     """ Plot a seismic section from an obspy stream.
     """
+    # convert stream to image array
+    data = _convert_to_array(stream)
+
     # get dimensions
     nr = len(stream)
     nt = len(stream[0].data)
     dt = stream[0].stats.delta
     d_aspect = nr / float(nt)
-
-    # convert stream to image array
-    data = _convert_to_array(stream)
 
     fsize = 6
     scale_factor = 1.5
@@ -267,20 +267,17 @@ def _convert_to_array(stream):
         and receivers respectively. Each column stores trace data for a single
         receiver. Assumes trace lengths are equal for all traces.
     """
-
-    try:
-        isinstance(stream, Stream)
-    except:
+    if not isinstance(stream, Stream):
         raise TypeError('Input object should be an Obspy stream')
-    else:
-        nt = len(stream.traces[0].data)
-        nr = len(stream)
-        output = np.zeros((nt, nr))
 
-        for i, trace in enumerate(stream):
-            output[:, i] = trace.data[:]
+    nt = len(stream.traces[0].data)
+    nr = len(stream)
+    output = np.zeros((nt, nr))
 
-        return output
+    for i, trace in enumerate(stream):
+        output[:, i] = trace.data[:]
+
+    return output
 
 
 def _cscale(v, clip=100):

@@ -1,9 +1,58 @@
 
 import numpy as np
+from obspy import Stream
 from seisflows.tools.math import nextpow2
 import matplotlib.pyplot as plt
 
 import scipy.signal as signal
+
+
+class FixedStream(Stream):
+    """ Custom class for Obspy streams of fixed dimensions.
+    """
+
+    def __add__(self, other):
+        """ perform addition of trace data in two equal size stream objects
+        """
+        self._validate_input(other)
+        for i in range(len(self.traces)):
+            self.traces[i].data += other[i].data
+
+        return Stream(self.traces)
+
+    def __sub__(self, other):
+        """ perform subtraction of trace data in two equal size stream objects
+        """
+        self._validate_input(other)
+        for i in range(len(self.traces)):
+            self.traces[i].data -= other[i].data
+
+        return Stream(self.traces)
+
+    def __radd__(self, other):
+        if other == 0:
+            return self
+        else:
+            return self.__add__(other)
+
+    def __rsub__(self, other):
+        if other == 0:
+            return self
+        else:
+            return self.__sub__(other)
+
+    def _validate_input(self, other):
+        """ Validate stream dimensions.
+        """
+        if not isinstance(other, Stream):
+            raise TypeError('Addition only available for stream object.')
+
+        if len(self.traces) != len(other):
+            raise ValueError('Stream objects must have equal length.')
+
+        for trace1, trace2 in zip(self.traces, other):
+            if len(trace1) != len(trace2):
+                raise ValueError('Trace data must be of equal length.')
 
 
 def slowpass(stream, **options):

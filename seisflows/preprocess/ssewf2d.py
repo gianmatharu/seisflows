@@ -63,6 +63,7 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
         if 'STF_FILE' not in PAR:
             raise ParameterError(PAR, 'STF_FILE')
 
+
     def setup(self):
 
         # define misfit function and adjoint trace generator
@@ -86,6 +87,7 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
         unix.rm(PATH.SOURCE)
         unix.mkdir(PATH.SOURCE)
 
+
     def encode_sources(self, itask=0, path='', source_array=[], encoding=[]):
         """ Perform source encoding to generate 'supershot'
         """
@@ -101,15 +103,96 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
 
         # encode data
         for channel in self.channels:
-
             data_list = []
             for source, code in zip(source_array, encoding):
+
+                # read data and process
                 dpath = join(PATH.DATA, event_dirname(int(source.index)))
-                data_list += [self.encode_data(FixedStream(self.reader(dpath, channel)), code)]
+                obs = self.reader(dpath, channel)
+                obs = self.process_traces(obs)
+
+                # append to encoded source list
+                data_list += [self.encode_data(FixedStream(obs), code)]
 
             # sum and write data
             data = sum(data_list)
             self.writer(data, path + '/' + 'traces/obs', channel)
+
+
+    def prepare_eval_grad(self, path='.'):
+        """ Prepares solver for gradient evaluation by writing residuals and
+          adjoint traces
+        """
+        if exists(path + '/residuals'):
+            unix.rm(path + '/residuals')
+
+        for channel in self.channels:
+            obs = self.reader(path+'/'+'traces/obs', channel)
+            syn = self.reader(path+'/'+'traces/syn', channel)
+
+            self.write_residuals(path, syn, obs)
+            self.store_residuals(path, channel, syn, obs)
+            self.write_adjoint_traces(path+'/'+'traces/adj', syn, obs, channel)
+
+
+    def evaluate_trial_step(self, path='.', path_try=''):
+        """ Evaluates trial step during line search.
+        """
+        if exists(path + '/residuals'):
+            unix.rm(path + '/residuals')
+
+        for channel in self.channels:
+            obs = self.reader(path+'/'+'traces/obs', channel)
+            syn = self.reader(path_try+'/'+'traces/syn', channel)
+
+            self.write_residuals(path_try, syn, obs)
+
+
+    ### utility functions
+
+
+    def process_traces(self, stream, filter=True):
+        """ Performs data processing operations on traces
+        """
+        nt, dt, _ = self.get_time_scheme(stream)
+        n, _ = self.get_network_size(stream)
+        df = dt**-1
+
+        # Filtering
+        if filter:
+            for trace in stream:
+                self.filter_trace(trace)
+
+        return stream
+
+
+    def filter_trace(self, trace):
+        """ Filter obspy trace
+        """
+        if PAR.FREQLO and PAR.FREQHI:
+            trace.filter('bandpass', freqmin=PAR.FREQLO, freqmax=PAR.FREQHI, corners=2, zerophase=True)
+        elif PAR.FREQHI:
+            trace.filter('lowpass', freq=PAR.FREQHI, corners=2, zerophase=True)
+        else:
+            pass
+
+        return trace
+
+
+    def filter_stf(self, file):
+        """ Load and filter source wavelet.
+        """
+        t, stf, dt = self._get_trace_from_ascii(join(PATH.SOLVER_INPUT, PAR.STF_FILE))
+        tr = Trace(stf)
+        tr.stats.delta = dt
+
+        stf = self.filter_trace(tr)
+
+        # write as ascii time series
+        with open(join(PATH.SOLVER_INPUT, 'stf_f.txt'), 'w') as f:
+            for i in range(len(stf.data)):
+                f.write('{:f} {:f}\n'.format(t[i], stf.data[i]))
+
 
     def get_encoded_source(self, stf, dt, source_array, encoding):
         """ Generate encoded source
@@ -131,53 +214,14 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
 
         return stream
 
+
     def encode_data(self, stream, code):
+        """ Apply code to data.
+        """
         for tr in stream:
             tr.data = tr.data * code
 
         return stream
-
-    def process_traces(self, stream, filter=True):
-        """ Performs data processing operations on traces
-        """
-        nt, dt, _ = self.get_time_scheme(stream)
-        n, _ = self.get_network_size(stream)
-        df = dt**-1
-
-        # Filtering
-        if filter:
-            for trace in stream:
-                self.filter_trace(trace)
-
-        return stream
-
-    def filter_trace(self, trace):
-        """ Filter obspy trace
-        """
-        if PAR.FREQLO and PAR.FREQHI:
-            trace.filter('bandpass', freqmin=PAR.FREQLO, freqmax=PAR.FREQHI, corners=2, zerophase=True)
-        elif PAR.FREQHI:
-            trace.filter('lowpass', freq=PAR.FREQHI, corners=2, zerophase=True)
-        else:
-            pass
-
-        return trace
-
-    ### utility functions
-
-    def filter_stf(self, file):
-        """ Load and filter source wavelet.
-        """
-        t, stf, dt = self._get_trace_from_ascii(join(PATH.SOLVER_INPUT, PAR.STF_FILE))
-        tr = Trace(stf)
-        tr.stats.delta = dt
-
-        stf = self.filter_trace(tr)
-
-        # write as ascii time series
-        with open(join(PATH.SOLVER_INPUT, 'stf_f.txt'), 'w') as f:
-            for i in range(len(stf.data)):
-                f.write('{:f} {:f}\n'.format(t[i], stf.data[i]))
 
 
     def _get_trace_from_ascii(self, file):
@@ -189,6 +233,7 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
         dt = t[1] - t[0]
 
         return t, d, dt
+
 
     def get_source_trace(self, d, dt, sx, sz, code):
         """ Set source position in trace header.

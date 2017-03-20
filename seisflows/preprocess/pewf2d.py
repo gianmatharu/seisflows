@@ -200,25 +200,6 @@ class pewf2d(object):
 
         return stream
 
-    def process_adjoint_trace(self, trace):
-        """ Implements adjoint of process_traces method. Currently not used.
-        """
-
-        trace.data = trace.data[::-1]
-
-        if PAR.FREQLO and PAR.FREQHI:
-            trace.filter('bandpass', freqmin=PAR.FREQLO, freqmax=PAR.FREQHI, corners=2)
-        elif PAR.FREQHI:
-            trace.filter('lowpass', freq=PAR.FREQHI, corners=2)
-        else:
-            pass
-            #raise ParameterError(PAR, 'BANDPASS')
-
-        # workaround obspy dtype conversion
-        trace.data = trace.data[::-1].astype(np.float32)
-
-        return trace
-
     def write_residuals(self, path, syn, dat):
         """ Computes residuals from observations and synthetics
         """
@@ -258,7 +239,6 @@ class pewf2d(object):
 
         for i in range(n):
             s[i].data = self.adjoint(s[i].data, d[i].data, nt, dt)
-            #s[i] = self.process_adjoint_trace(s[i])
 
         # normalize traces
         if PAR.NORMALIZE:

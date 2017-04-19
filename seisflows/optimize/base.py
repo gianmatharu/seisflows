@@ -180,7 +180,7 @@ class base(object):
                 alpha = p_ratio * PAR.STEPTHRESH
 
         # write trial model corresponding to chosen step length
-        savetxt('alpha', alpha)
+        self.savetxt('alpha', alpha)
         self.save('m_try', m + alpha*p)
 
         # append latest statistics
@@ -412,14 +412,14 @@ class base(object):
     def load(self, filename):
         return loadnpy(PATH.OPTIMIZE+'/'+filename)
 
-    def save(self, filename, v):
-        savenpy(PATH.OPTIMIZE+'/'+filename, v)
+    def save(self, filename, array):
+        savenpy(PATH.OPTIMIZE+'/'+filename, array)
 
 
     def loadtxt(self, filename):
         return loadtxt(PATH.OPTIMIZE+'/'+filename)
 
-    def savetxt(self, filename, c):
-        savetxt(PATH.OPTIMIZE+'/'+filename, c)
+    def savetxt(self, filename, scalar):
+        savetxt(PATH.OPTIMIZE+'/'+filename, scalar)
 
 

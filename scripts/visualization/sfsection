@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 # Specialized script used to visualize seismic section.
-
 # For convenience this routine assumes a particular directory structure that allows
 # simple access to inversion workflows.
 
@@ -9,6 +8,14 @@ import argparse
 from obspy import read
 from seisflows.tools.graphics import plot_section
 import matplotlib.pyplot as plt
+
+import argparse
+
+from obspy import read
+import matplotlib.pyplot as plt
+
+from seisflows.tools.graphics import plot_section
+
 
 def parse_args():
     # Parse input arguments

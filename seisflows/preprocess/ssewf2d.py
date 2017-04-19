@@ -88,18 +88,14 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
         unix.mkdir(PATH.SOURCE)
 
 
-    def encode_sources(self, itask=0, path='', source_array=[], encoding=[]):
+    def encode_input(self, itask=0, path='', source_array=[], encoding=[]):
         """ Perform source encoding to generate 'supershot'
         """
         if not isinstance(source_array, SourceArray):
             raise TypeError('Expected SourceArray object.')
 
-        # load processed source wavelet
-        _, stf, dt = self._get_trace_from_ascii(join(PATH.SOLVER_INPUT, 'stf_f.txt'))
-
-        # encode source time functions
-        source = self.get_encoded_source(stf, dt, source_array, encoding)
-        source.write(join(PATH.SOURCE, 'source_{:03d}.su'.format(itask + 1)), format='SU', byteorder='<')
+        # load processed source wavelet and encode
+        self.encode_sources(source_array, encoding, itask)
 
         # encode data
         for channel in self.channels:
@@ -110,9 +106,10 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
                 dpath = join(PATH.DATA, event_dirname(int(source.index)))
                 obs = self.reader(dpath, channel)
                 obs = self.process_traces(obs)
+                obs = self.encode_traces(obs, code)
 
                 # append to encoded source list
-                data_list += [self.encode_data(FixedStream(obs), code)]
+                data_list += [FixedStream(obs)]
 
             # sum and write data
             data = sum(data_list)
@@ -150,6 +147,50 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
 
     ### utility functions
 
+    def encode_sources(self, source_array, encoding, itask):
+        """ Encode source wavelet.
+        """
+        if len(source_array) != len(encoding):
+            raise ValueError('Dimensions of group do not match encoding')
+
+        # load processed source wavelet
+        ntask = len(source_array)
+        _, stf, dt = self._get_trace_from_ascii(join(PATH.SOLVER_INPUT, 'stf_f.txt'))
+
+        # initialize stream
+        stream = Stream()
+
+        # set headers
+        for i in xrange(ntask):
+            stream.append(self.get_source_trace(stf, dt, source_array[i].x, source_array[i].z))
+
+        # encode source time functions
+        if PAR.ENCODER == 'random':
+            for i in xrange(ntask):
+                stream[i].data = stream[i].data * encoding[i]
+        elif PAR.ENCODER in {'shift', 'plane_wave'}:
+            for i in xrange(ntask):
+                stream[i] = self.shift_trace(stream[i], encoding[i], PAR.MAX_SHIFT)
+
+        # write encoded sources
+        stream = self.convert_to_float(stream)
+        stream.write(join(PATH.SOURCE, 'source_{:03d}.su'.format(itask + 1)), format='SU', byteorder='<')
+
+        return stream
+
+
+    def encode_traces(self, stream, code):
+        """ Perform encoding
+        """
+        if PAR.ENCODER == 'random':
+            for trace in stream:
+                trace.data = trace.data * code
+        elif PAR.ENCODER in {'shift', 'plane_wave'}:
+            for trace in stream:
+                trace = self.shift_trace(trace, code, PAR.MAX_SHIFT)
+
+        return stream
+
 
     def process_traces(self, stream, filter=True):
         """ Performs data processing operations on traces
@@ -182,7 +223,7 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
     def filter_stf(self, file):
         """ Load and filter source wavelet.
         """
-        t, stf, dt = self._get_trace_from_ascii(join(PATH.SOLVER_INPUT, PAR.STF_FILE))
+        t, stf, dt = self._get_trace_from_ascii(file)
         tr = Trace(stf)
         tr.stats.delta = dt
 
@@ -192,36 +233,6 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
         with open(join(PATH.SOLVER_INPUT, 'stf_f.txt'), 'w') as f:
             for i in range(len(stf.data)):
                 f.write('{:f} {:f}\n'.format(t[i], stf.data[i]))
-
-
-    def get_encoded_source(self, stf, dt, source_array, encoding):
-        """ Generate encoded source
-        """
-        if len(source_array) != len(encoding):
-            raise ValueError('Dimensions of group do not match encoding')
-
-        # initialize stream
-        stream = Stream()
-
-        for code, source in zip(encoding, source_array):
-            sx = source.x
-            sz = source.z
-            scode = code
-
-            stream.append(self.get_source_trace(stf, dt, sx, sz, scode))
-
-        stream = self.convert_to_float(stream)
-
-        return stream
-
-
-    def encode_data(self, stream, code):
-        """ Apply code to data.
-        """
-        for tr in stream:
-            tr.data = tr.data * code
-
-        return stream
 
 
     def _get_trace_from_ascii(self, file):
@@ -235,11 +246,10 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
         return t, d, dt
 
 
-    def get_source_trace(self, d, dt, sx, sz, code):
+    def get_source_trace(self, d, dt, sx, sz):
         """ Set source position in trace header.
         """
         tr = Trace(d)
-        tr.data = tr.data * code
         tr.stats.delta = dt
         tr.stats.su = {}
         tr.stats.su.trace_header = SEGYTraceHeader()
@@ -248,3 +258,27 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
         tr.stats.su.trace_header.scalar_to_be_applied_to_all_coordinates = 1
 
         return tr
+
+    def shift_trace(self, trace, shift, max_shift):
+        """ Adds time shift to a trace. Extends trace 
+        """
+        n = len(trace.data)
+        dt = trace.stats.delta
+
+        nshift = int(shift / dt)
+        npad = int(max_shift / dt)
+
+        #if shift % dt != 0:
+        #    print('Warning: Shift not divisible by dt')
+
+        if max_shift < shift:
+            max_shift = shift
+
+        # shift using fft
+        nfft = n + npad
+        shifts = np.exp(-(2*np.pi*1j*np.arange(0, n)*nshift) / nfft)
+
+        F = np.fft.rfft(trace.data, nfft)
+        trace.data = np.fft.irfft(F*shifts[:(nfft//2)+1], nfft)
+
+        return trace

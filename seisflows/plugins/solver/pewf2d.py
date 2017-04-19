@@ -1,5 +1,5 @@
 import ConfigParser
-
+import numpy as np
 
 # Solver configuration parameter class.
 class Par(object):
@@ -120,3 +120,108 @@ def event_dirname(n):
     """ return string with event directory name
     """
     return '{:03d}'.format(n)
+
+
+def reshape_model_dict(model, nx, nz, inverse=False):
+    """ Reshapes model dictionary.
+    """
+    for key in model.keys():
+        if inverse:
+            model[key] = model[key].reshape(nz*nx)
+        else:
+            model[key] = model[key].reshape((nz, nx))
+
+    return model
+
+
+def model_diagnosis(p, vp, vs, f, dx, dr):
+    """ Inspect a Vp model and return characteristics about the model.
+    Vs model is either supplied or constructed.
+    """
+    if not isinstance(p, Par):
+        raise TypeError('p should be of type Par')
+
+    # extract grid interior
+    vp, vs = np.asarray(vp), np.asarray(vs)
+
+    if vp.ndim != 2:
+        raise TypeError('Check only suitable for 2D models.')
+
+    if vs.ndim != 2:
+        raise TypeError('Check only suitable for 2D models.')
+
+    if vp.ndim != 2:
+        raise TypeError('Check only suitable for 2D models.')
+
+    if vs.ndim != 2:
+        raise TypeError('Check only suitable for 2D models.')
+
+    # Length of model (excluding boundaries)
+    nx = p.nx
+    nz = p.nz
+
+    Lx = nx * p.dx
+    Lz = nz * p.dz
+
+    # Get min/max velocities
+    vpmin, vpmax = vp.min(), vp.max()
+    vsmin, vsmax = vs.min(), vs.max()
+    vpmean, vsmean = vp.mean(), vs.mean()
+
+    wp, ws = (vpmin / f), (vsmin / f)
+
+    vpdisp, vsdisp = (vpmin / (5 * f)), (vsmin / (5 * f))
+
+    # Courant number for fourth order derivative operator
+    courant = 7.0 / 6.0
+    cfl = p.dx / (courant * np.sqrt(2) * vpmax)
+
+    print('\n')
+    print('MODEL DIMENSIONS ------------------------')
+    print('Nx, Nz:          ({}, {})'.format(nx, nz))
+    print('dx - spacing (m):    {}'.format(p.dx))
+    print('X dimension (km):    {}'.format(Lx))
+    print('Z dimension (km):    {}'.format(Lz))
+    print('\n')
+
+    print('VELOCITY ATTRIBUTES ------------------------')
+    print('Vp Min/Max (km/s):      {:.0f} - {:.0f}'.format(vpmin, vpmax))
+    print('Vs Min/Max (km/s):      {:.0f} - {:.0f}'.format(vsmin, vsmax))
+    print('Vp mean (km/s):      {:.0f}'.format(vpmean))
+    print('Vs mean (km/s):      {:.0f}'.format(vsmean))
+    print('\n')
+
+    print('FREQUENCY SELECTION CRITERIA ------------------------')
+    print('Freqs (Hz):      {}'.format(f))
+    print('P wave min wavelengths (m):      {:.0f}'.format(wp))
+    print('S wave min wavelengths (m):      {:.0f}'.format(ws))
+    print('P Far-field resolution (m):      {:.0f}'.format(wp/2))
+    print('S Far-field resolution (m):      {:.0f}'.format(ws/2))
+    print('P wavelengths propagated:    {:.2f}'.format(Lz / wp))
+    print('S wavelengths propagated:    {:.2f}'.format(Lz / ws))
+    print('Span for smoothing:       {:.2f}'.format(wp / (2 * np.sqrt(8) * p.dx)))
+    print('CPML thickness:       {:.2f}'.format(0.5 * (wp / p.dx)))
+    print('\n')
+
+    print('SAMPLING CRITERIA ------------------------')
+    print('Source spacing (m):        {}'.format(dx))
+    print('Receiver spacing (m):        {}'.format(dr))
+    print('P aliasing limit (horz) (m):       {:.0f}'.format(wp * 0.5))
+    print('S aliasing limit (horz) (m):       {:.0f}'.format(ws * 0.5))
+    print('\n')
+
+    print('STABILITY CRITERIA')
+    if p.dt < cfl:
+        print('CFL condition passes:      dt < dx / (dqrt(2)*C*Vmax) = {:.2e}'.format(cfl))
+    else:
+        print('CFL condition fails:      dt > dx / (dqrt(2)*C*Vmax) = {:.2e}'.format(cfl))
+        print('Current dt:      {:.2e}'.format(p.dt))
+    if p.dx < vpdisp:
+        print('P wave dispersion (5 ppw):        dx < {:.0f}'.format(vpdisp))
+    else:
+        print('P wave dispersion expected:       dx  > {:.0f}'.format(vpdisp))
+    if p.dx < vsdisp:
+        print('S wave dispersion (5 ppw):       dx  < {:.0f}'.format(vsdisp))
+    else:
+        print('S wave dispersion expected:      dx > {:.0f}'.format(vsdisp))
+    print('\n')

@@ -6,6 +6,22 @@ import scipy.interpolate as _interp
 
 from seisflows.tools.math import gauss2
 
+def readgrid(file, nx, ny, **kwargs):
+    """ Read a binary file and return as ndarray.
+    """
+
+    # read binary file
+    x = np.fromfile(file, **kwargs)
+
+    # check dimensions
+    try:
+        len(x) == nx * ny
+    except:
+        raise ValueError('Dimension mismatch; Supplied nx * ny =/= file length')
+
+    # reshape and return ndarray
+    x = x.reshape((ny, nx))
+    return x
 
 def sortrows(a, return_index=False, return_inverse=False):
     """ Sorts rows of numpy array

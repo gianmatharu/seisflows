@@ -81,13 +81,14 @@ class ss_inversion(custom_import('workflow', 'p_inversion')):
         # output for inversion history
         unix.mkdir(join(PATH.OUTPUT, iter_dirname(optimize.iter)))
 
-        print('Generate encoding...')
-        system.run('solver', 'generate_encoding',
-                   hosts='head')
+        if optimize.iter == 1 or PAR.ITER_RESET:
+            print('Generate encoding...')
+            system.run('solver', 'generate_encoding',
+                       hosts='head')
 
-        print('Encoding data...')
-        system.run('solver', 'generate_data',
-                   hosts='all')
+            print('Encoding data...')
+            system.run('solver', 'generate_data',
+                       hosts='all')
 
         print('Generating synthetics...')
         system.run('solver', 'generate_synthetics',
@@ -127,7 +128,7 @@ class ss_inversion(custom_import('workflow', 'p_inversion')):
         # copy source files
         src = glob(join(PATH.SOURCE, '*.su'))
         dst = join(PATH.OUTPUT, iter_dirname(optimize.iter))
-        unix.mv(src, dst)
+        unix.cp(src, dst)
 
         # save encoding scheme
         file = join(dst, 'encoding_{:03d}.pkl'.format(optimize.iter))

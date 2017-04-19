@@ -7,11 +7,12 @@
 
 import argparse
 from os.path import join
+import numpy as np
 
 from seisflows.plugins.io.pewf2d import mread
 from seisflows.plugins.solver.pewf2d import Par
 from seisflows.tools.graphics import plot_model_comp
-
+from seisflows.tools.math import q_factor
 
 def parse_args():
     # Parse input arguments
@@ -50,6 +51,9 @@ if __name__ == "__main__":
     model1 = mread(args.path1, args.pars)
     model2 = mread(args.path2, args.pars)
 
+    # print model errors
+    for key in model1.keys():
+        err = q_factor(model1[key], model2[key])
+        print '{} model error: {:.6f}'.format(key, err)
+
     plot_model_comp(model1, model2, p, cmap=args.cmap)
-
-

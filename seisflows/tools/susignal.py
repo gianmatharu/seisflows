@@ -2,6 +2,7 @@
 import numpy as np
 from obspy import Stream
 from seisflows.tools.math import nextpow2
+from seisflows.tools.graphics import _convert_to_array
 import matplotlib.pyplot as plt
 
 import scipy.signal as signal
@@ -10,7 +11,6 @@ import scipy.signal as signal
 class FixedStream(Stream):
     """ Custom class for Obspy streams of fixed dimensions.
     """
-
     def __add__(self, other):
         """ perform addition of trace data in two equal size stream objects
         """
@@ -18,7 +18,7 @@ class FixedStream(Stream):
         for i in range(len(self.traces)):
             self.traces[i].data += other[i].data
 
-        return Stream(self.traces)
+        return FixedStream(self.traces)
 
     def __sub__(self, other):
         """ perform subtraction of trace data in two equal size stream objects
@@ -27,7 +27,19 @@ class FixedStream(Stream):
         for i in range(len(self.traces)):
             self.traces[i].data -= other[i].data
 
-        return Stream(self.traces)
+        return FixedStream(self.traces)
+
+    def __iadd__(self, other):
+        if other == 0:
+            return self
+        else:
+            return self.__add__(other)
+
+    def __isub__(self, other):
+        if other == 0:
+            return self
+        else:
+            return self.__sub__(other)
 
     def __radd__(self, other):
         if other == 0:
@@ -53,6 +65,30 @@ class FixedStream(Stream):
         for trace1, trace2 in zip(self.traces, other):
             if len(trace1) != len(trace2):
                 raise ValueError('Trace data must be of equal length.')
+
+
+def saddnoise(stream, snr=10.0, verbose=False):
+    """ Add Gaussian noise to data. 
+    """
+    # compute norm of data
+    d = _convert_to_array(stream)
+    dnorm = np.linalg.norm(d)**2
+
+    # approximate variance for Gaussian noise
+    var = (dnorm / 10**(0.1*snr)) / (d.shape[0] * d.shape[1])
+
+    # generate noise array
+    noise = np.sqrt(var) * np.random.randn(d.shape[0], d.shape[1])
+
+    for i, trace in enumerate(stream):
+        trace.data += noise[:, i]
+
+    if verbose:
+        nnorm = np.linalg.norm(noise)**2
+        snr = 10*np.log10(dnorm/nnorm)
+        print "SNR [dB] = {}".format(snr)
+
+    return stream
 
 
 def slowpass(stream, **options):

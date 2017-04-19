@@ -50,6 +50,8 @@ class SourceArray(object):
 class SourceGroups(object):
     """ Group sources. Each data member is a list that contains a
         'supershot'. Each supershot contains N sources.
+        Encoding holds a parameter for encoding. Currently
+        it holds a time shift or a random number. 
     """
     def __init__(self):
         self.source_group = []
@@ -58,25 +60,18 @@ class SourceGroups(object):
     def __getitem__(self, index):
         return self.source_group.__getitem__(index)
 
-    def group_sources(self, source_array, ngroups):
+    def group_sources(self, source_array, ngroups, repeat=False):
         """ Group sources uniformly with offsets.
         """
         if not isinstance(source_array, SourceArray):
             raise TypeError('Expected SourceArray object')
 
         # performs equidistant grouping
-        for i in range(ngroups):
-            self.source_group += [SourceArray(source_array[i::ngroups])]
-
-    def generate_encoding(self, reset=False):
-        """ Store source encoding
-        """
-        if reset:
-            self.encoding = []
-
-        if self.source_group:
-            for group in self.source_group:
-                self.encoding += [generate_random_plus_minus(len(group))]
+        for i in xrange(ngroups):
+            if repeat:
+                self.source_group += [SourceArray(source_array[:])]
+            else:
+                self.source_group += [SourceArray(source_array[i::ngroups])]
 
     def print_groups(self):
         """ Print source groups
@@ -97,7 +92,42 @@ class SourceGroups(object):
 
 # auxiliary functions
 
-def generate_random_plus_minus(n):
-
-    #return np.ones(n)
+def random_encoder(n):
+    """ Generate random phase encoding 
+    """
     return np.random.choice([-1, 1], n)
+    #return np.ones(n)
+
+
+def plane_wave_encoder(p, x0, source_array):
+    """ Generate plane wave time shifts for origin x0 and 
+        ray parameter p
+    """
+    if not isinstance(source_array, SourceArray):
+        raise TypeError('Expected SourceArray object.')
+
+    shifts = map(lambda x: abs(p)*(x.x - x0), source_array)
+
+    # reverse shifts if negative p
+    if p < 0:
+        shifts = shifts[::-1]
+
+    return shifts
+
+
+def shift_encoder(n, dt, max_dt):
+    """ Generate random time shifts between a maximum shift
+    """
+    max_dt = abs(max_dt)
+    dist = np.arange(-max_dt, max_dt+dt, dt)
+    return np.random.choice(dist, n)
+
+def generate_ray_parameters(pmin, pmax, n):
+
+    ray_parameters = (pmax-pmin) * np.random.random_sample(n) + pmin
+    ray_parameters *= np.random.choice([-1, 1], n)
+
+    return ray_parameters
+
+
+

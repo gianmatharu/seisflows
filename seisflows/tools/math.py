@@ -110,6 +110,15 @@ def eigsorted(A):
 
 infinity = np.inf
 
+def q_factor(m, mtrue):
+    """ Compute quality factor
+    """
+    normsq_diff = np.linalg.norm(m-mtrue)**2
+    normsq_true = np.linalg.norm(mtrue)**2
+    Q = 10 * np.log10(normsq_diff / normsq_true)
+
+    return Q
+
 
 ### finite difference
 

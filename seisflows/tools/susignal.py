@@ -67,7 +67,7 @@ class FixedStream(Stream):
                 raise ValueError('Trace data must be of equal length.')
 
 
-def saddnoise(stream, snr=10.0, verbose=False):
+def saddnoise(stream, snr=10.0, clean=False, verbose=False):
     """ Add Gaussian noise to data. 
     """
     # compute norm of data
@@ -80,8 +80,23 @@ def saddnoise(stream, snr=10.0, verbose=False):
     # generate noise array
     noise = np.sqrt(var) * np.random.randn(d.shape[0], d.shape[1])
 
+    if clean:
+        nt = len(stream[0].data)
+        dt = stream[0].stats.delta
+        time = np.arange(0, nt*dt, dt)
+
     for i, trace in enumerate(stream):
-        trace.data += noise[:, i]
+        if clean:
+            threshold = 1e-3 * max(abs(trace.data))
+
+            if len(np.where(abs(trace.data) > threshold)[0]) != 0:
+                tc = time[np.where(abs(trace.data) > threshold)[0][0]]
+
+            # find window indicies
+            ic = int(tc / dt)
+            trace.data[ic:] += noise[ic:, i]
+        else:
+            trace.data += noise[:, i]
 
     if verbose:
         nnorm = np.linalg.norm(noise)**2

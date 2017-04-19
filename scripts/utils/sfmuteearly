@@ -1,0 +1,98 @@
+#!/usr/bin/env python
+
+# Specialized script used to add noise to an SU dataset (assumes dir structure)
+
+# For convenience this routine assumes a particular directory structure that allows
+# simple access to inversion workflows.
+
+import argparse
+import numpy as np
+from os.path import join, exists
+from obspy import read
+
+from seisflows.plugins.solver.pewf2d import event_dirname
+from seisflows.tools.signal import mute_early_arrivals
+from seisflows.tools import unix
+
+
+def parse_args():
+    # Parse input arguments
+    parser = argparse.ArgumentParser(description='Mute dataset.')
+
+    # file and format flags
+    parser.add_argument('-pd', '--path',
+                        help='path to data')
+
+    parser.add_argument('-po', '--opath',
+                        help='output path')
+
+    parser.add_argument('-n', '--ntasks',
+                        type=int,
+                        help='number of sources')
+
+    parser.add_argument('-s', '--slope',
+                        type=float,
+                        help='mute slope velocity [m/s]')
+
+    parser.add_argument('-ts', '--tshift',
+                        type=float,
+                        help='time shift [s]')
+
+    return parser.parse_args()
+
+def get_coords(stream):
+    """ Return source, receiver coords from header.
+    """
+    s_coords = np.zeros((2, len(stream)))
+    r_coords = np.zeros((2, len(stream)))
+
+    scalco = stream[0].stats.su.trace_header.scalar_to_be_applied_to_all_coordinates
+
+    for i, trace in enumerate(stream):
+
+        s_coords[0, i] = trace.stats.su.trace_header.source_coordinate_x / scalco
+        s_coords[1, i] = trace.stats.su.trace_header.source_coordinate_y / scalco
+
+        r_coords[0, i] = trace.stats.su.trace_header.group_coordinate_x / scalco
+        r_coords[1, i] = trace.stats.su.trace_header.group_coordinate_y / scalco
+
+    return s_coords, r_coords
+
+
+if __name__ == "__main__":
+
+    args = parse_args()
+    channels = ['x', 'z']
+
+    # prepare output directory
+    if args.path.rstrip('/') == args.opath.rstrip('/'):
+        raise ValueError('Input and output paths conflict!')
+
+    if not exists(args.opath):
+        unix.mkdir(args.opath)
+
+    for i in xrange(args.ntasks):
+        unix.mkdir((join(args.opath, event_dirname(i+1))))
+
+    for channel in channels:
+        for i in xrange(args.ntasks):
+
+            filename = 'U{}_data.su'.format(channel)
+            infile = join(args.path, event_dirname(i+1), filename)
+
+            # read data file
+            stream = read(infile, format='SU', byteorder='<')
+
+            # get source/receiver data
+            dt = stream[0].stats.delta
+            nt = len(stream[0].data)
+            s_coords, r_coords = get_coords(stream)
+            
+            stream = mute_early_arrivals(stream,
+                                        1/args.slope,
+                                        args.tshift,
+                                        (nt, dt, 0),
+                                        s_coords,
+                                        r_coords)
+            output = join(args.opath, event_dirname(i+1), filename)
+            stream.write(output, format='SU', byteorder='<')

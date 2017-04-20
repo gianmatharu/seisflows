@@ -47,6 +47,9 @@ class pewf2d(object):
           setattr(PAR, 'MUTECONST', 0.)
 
         # filter settings
+        if 'PREFILTER' not in PAR:
+            setattr(PAR, 'PREFILTER', False)
+
         if 'BANDPASS' not in PAR:
           setattr(PAR, 'BANDPASS', False)
 
@@ -138,7 +141,7 @@ class pewf2d(object):
             obs = self.reader(path+'/'+'traces/obs', channel)
             syn = self.reader(path+'/'+'traces/syn', channel)
 
-            obs = self.process_traces(obs)
+            obs = self.process_traces(obs, filter=not PAR.PREFILTER)
             syn = self.process_traces(syn, filter=False)
 
             self.write_residuals(path, syn, obs)

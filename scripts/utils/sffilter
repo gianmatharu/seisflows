@@ -1,0 +1,93 @@
+#!/usr/bin/env python
+
+# Specialized script used to filter an SU dataset (assumes dir structure)
+
+# For convenience this routine assumes a particular directory structure that allows
+# simple access to inversion workflows.
+
+import argparse
+from os.path import join, exists
+from obspy import read
+
+from seisflows.plugins.solver.pewf2d import event_dirname
+from seisflows.tools.susignal import slowpass, sbandpass, convert_to_float
+from seisflows.tools import unix
+
+
+def parse_args():
+    # Parse input arguments
+    parser = argparse.ArgumentParser(description='Plot misfit gradients.')
+
+    # file and format flags
+    parser.add_argument('-pd', '--path',
+                        help='path to data')
+
+    parser.add_argument('-po', '--opath',
+                        help='output path')
+
+    parser.add_argument('-n', '--ntasks',
+                        type=int,
+                        help='number of sources')
+
+    parser.add_argument('-flo', '--freqlo',
+                        type=float,
+                        help='lowpass cutoff frequency')
+
+    parser.add_argument('-fhi', '--freqhi',
+                        type=float,
+                        help='highpass cutoff frequency')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+
+    args = parse_args()
+    channels = ['x', 'z']
+
+    if args.freqlo and args.freqhi:
+        print "Bandpass filtering..."
+
+        if args.freqlo < 0 or args.freqhi < 0:
+            raise ValueError('Provide positive freqlo/freqhi')
+
+        if args.freqhi < args.freqlo:
+            raise ValueError('Check cutoff frequencies, fmax < fmin')
+    elif args.freqhi:
+        print "Lowpass filtering..."
+        if args.freqhi < 0:
+            raise ValueError('Provide positive freqhi')
+    else:
+        raise ValueError('Require cutoff frequencies.')
+
+    # prepare output directory
+    if args.path.rstrip('/') == args.opath.rstrip('/'):
+        raise ValueError('Input and output paths conflict!')
+
+    if not exists(args.opath):
+        unix.mkdir(args.opath)
+
+    for i in xrange(args.ntasks):
+        unix.mkdir((join(args.opath, event_dirname(i+1))))
+
+    for channel in channels:
+        for i in xrange(args.ntasks):
+
+            filename = 'U{}_data.su'.format(channel)
+            infile = join(args.path, event_dirname(i+1), filename)
+
+            # read data file
+            stream = read(infile, format='SU', byteorder='<')
+
+            if args.freqlo and args.freqhi:
+                stream = sbandpass(stream, freqmin=args.freqlo, freqmax=args.freqhi,
+                                   corners=2, zerophase=True)
+            elif args.freqhi:
+                stream = slowpass(stream, freq=args.freqhi, corners=2, zerophase=True)
+
+            # data type conversion
+            stream = convert_to_float(stream)
+
+            # write filtered data
+            output = join(args.opath, event_dirname(i+1), filename)
+            stream.write(output, format='SU', byteorder='<')

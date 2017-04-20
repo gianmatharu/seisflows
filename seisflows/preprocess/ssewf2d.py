@@ -41,6 +41,9 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
           setattr(PAR, 'NORMALIZE', True)
 
         # filter settings
+        if 'PREFILTER' not in PAR:
+            setattr(PAR, 'PREFILTER', False)
+
         if 'BANDPASS' not in PAR:
           setattr(PAR, 'BANDPASS', False)
 
@@ -105,7 +108,7 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
                 # read data and process
                 dpath = join(PATH.DATA, event_dirname(int(source.index)))
                 obs = self.reader(dpath, channel)
-                obs = self.process_traces(obs)
+                obs = self.process_traces(obs, filter=not PAR.PREFILTER)
                 obs = self.encode_traces(obs, code)
 
                 # append to encoded source list

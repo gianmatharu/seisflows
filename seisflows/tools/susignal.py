@@ -106,6 +106,15 @@ def saddnoise(stream, snr=10.0, clean=False, verbose=False):
     return stream
 
 
+def convert_to_float(stream):
+    """ Convert trace data to float format
+    """
+    for trace in stream:
+        trace.data = trace.data.astype(np.float32)
+
+    return stream
+
+
 def slowpass(stream, **options):
     """ Wrapper to obspy.signal.filter.lowpass for stream object.
     """

@@ -1,5 +1,5 @@
 import numpy as np
-
+from seisflows.plugins.misc.model import insert_gaussian
 
 def volume(v, perc=None):
     """ Apply unit or percentage perturbation
@@ -85,3 +85,18 @@ def random(v, perc):
     v += pert
 
     return v, pert
+
+
+def gaussian(v, dims, xpos, zpos, perc, sigma):
+    # reshape
+    nx, nz = dims
+    v = v.reshape((nz, nx))
+
+    val = (perc/100.) * abs(v).max()
+
+    # insert perturbations
+    for iz in zpos:
+        for ix in xpos:
+            v = insert_gaussian(v, (iz, ix), sigma, val)
+
+    return v, val

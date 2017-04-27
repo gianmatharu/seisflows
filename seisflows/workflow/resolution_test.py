@@ -80,13 +80,13 @@ class resolution_test(object):
         if 'TEST' not in PAR:
             raise ParameterError(PAR, 'TEST_TYPE')
 
-        if PAR.TEST not in ['Volume', 'Spike', 'Random']:
+        if PAR.TEST not in ['Volume', 'Spike', 'Random', 'Gaussian']:
             raise ValueError('Requested test "{}" not implemented'.format(PAR.TEST))
 
         if 'PERC_PERT' not in PAR:
             setattr(PAR, 'PERC_PERT', None)
 
-        if PAR.TEST == 'Spike':
+        if PAR.TEST in ['Spike', 'Gaussian']:
             if 'SPIKE_X' not in PAR:
                 raise ParameterError(PAR, 'SPIKE_X')
             else:
@@ -96,6 +96,10 @@ class resolution_test(object):
                 raise ParameterError(PAR, 'SPIKE_Z')
             else:
                 resolution.check_spike_pars(PAR.SPIKE_Z, p.nz)
+
+        if PAR.TEST == 'Gaussian':
+            if 'PERTWIDTH' not in PAR:
+                raise ParameterError(PAR, 'PERTWIDTH')
 
 
     def main(self):
@@ -199,12 +203,18 @@ class resolution_test(object):
         elif PAR.TEST == 'Random':
             model[par], pert = resolution.random(model[par], PAR.PERC_PERT)
             write(pert, join(PATH.GRAD, par), par, suffix='_pert')
+        elif PAR.TEST == 'Gaussian':
+            sigma = PAR.PERTWIDTH / (p.dx * 2.355)
+            print sigma
+            xpos = resolution.get_spike_array(PAR.SPIKE_X)
+            zpos = resolution.get_spike_array(PAR.SPIKE_Z)
+            model[par], pert_val = resolution.gaussian(model[par], (p.nx, p.nz), xpos, zpos, PAR.PERC_PERT, sigma)
 
         # write perturbed model
         mwrite(model, PATH.MODEL_EST)
 
         # save perturbation value to scale Hdm
-        if PAR.TEST in ['Volume', 'Spike']:
+        if PAR.TEST in ['Volume', 'Spike', 'Gaussian']:
             # apply parameter rescaling
             if PAR.RESCALE:
                 print '{} pert_val: {}'.format(par, pert_val)
@@ -230,7 +240,7 @@ class resolution_test(object):
         pert_grad = mread(ppath, solver.parameters, suffix='_kernel')
 
         # read perturbation value to scale Hdm
-        if PAR.TEST in ['Volume', 'Spike']:
+        if PAR.TEST in ['Volume', 'Spike', 'Gaussian']:
             pert_val = loadtxt(join(PATH.GRAD, '{}_pert_val'.format(par)))
             print('Scaling Hdm by perturbation value: {}'.format(pert_val))
 
@@ -240,7 +250,7 @@ class resolution_test(object):
             if PAR.RESCALE:
                 pert_grad[key] *= solver.scale[key]
 
-            if PAR.TEST in ['Volume', 'Spike']:
+            if PAR.TEST in ['Volume', 'Spike', 'Gaussian']:
                 pert_grad[key] /= pert_val
 
             write(pert_grad[key], PATH.HESSPROD, par, prefix='H_{}_'.format(key))

@@ -49,7 +49,7 @@ class ssewf2d(custom_import('solver', 'pewf2d')):
             raise ParameterError(PAR, 'ENCODER')
 
         if 'ITER_RESET' not in PAR:
-            setattr(PAR, 'ITER_RESET', False)
+            setattr(PAR, 'ITER_RESET', 1)
 
         if 'REPEAT' not in PAR:
             setattr(PAR, 'REPEAT', False)

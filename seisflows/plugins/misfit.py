@@ -84,6 +84,13 @@ def InstantaneousPhase2(syn, obs, nt, dt, eps=0.):
     return np.sqrt(np.sum(diff*diff*dt))
 
 
+def Correlation1(syn, obs, nt, dt):
+    # normalized zero-lag cross-correlation
+    nfac = 1./(np.sqrt(np.sum(obs*obs*dt)) * np.sqrt(np.sum(syn*syn*dt)))
+    xcorr = np.sum(syn*obs*dt)
+
+    return -nfac * xcorr
+
 
 def Displacement(syn, obs, nt, dt):
     return Exception('This function can only used for migration.')

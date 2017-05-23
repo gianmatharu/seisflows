@@ -148,6 +148,41 @@ class impedance(isotropic):
 
         return output
 
+class slowness(isotropic):
+    """ Slowness parameter class
+    """
+    parameters = ['pp', 'ps']
+
+    @classmethod
+    def par_map_forward(cls, model):
+        cls.check_model_forward(model)
+
+        output = {}
+
+        vp = model['vp']
+        vs = model['vs']
+        rho = model['rho']
+
+        output['rho'] = rho
+        output['pp'] = 1 / vp
+        output['ps'] = 1 / vs
+
+        return output
+
+    @classmethod
+    def par_map_inverse(cls, model):
+        cls.check_model_inverse(model)
+
+        output = {}
+        rho = model['rho']
+        pp = model['pp']
+        ps = model['ps']
+
+        output['rho'] = rho
+        output['vp'] = 1 / pp
+        output['vs'] = 1 / ps
+
+        return output
 # class for parameter rescaling
 
 

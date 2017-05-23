@@ -54,6 +54,13 @@ class ss_inversion(custom_import('workflow', 'p_inversion')):
         if 'SAVEENCODING' not in PAR:
             setattr(PAR, 'SAVEENCODING', 1)
 
+        if PAR.OPTIMIZE == 'NLCG':
+            if PAR.NLCGMAX != PAR.ITER_RESET:
+                raise ValueError('Encoding reset must match optimization reset.')
+        elif PAR.OPTIMIZE == 'LBFGS':
+            if PAR.LBFGSMAX != PAR.ITER_RESET:
+                raise ValueError('Encoding reset must match optimization reset.')
+
     def setup(self):
         """ Lays groundwork for inversion
         """
@@ -81,7 +88,7 @@ class ss_inversion(custom_import('workflow', 'p_inversion')):
         # output for inversion history
         unix.mkdir(join(PATH.OUTPUT, iter_dirname(optimize.iter)))
 
-        if optimize.iter == 1 or PAR.ITER_RESET:
+        if optimize.iter == 1 or (optimize.iter % PAR.ITER_RESET == 0):
             print('Generate encoding...')
             system.run('solver', 'generate_encoding',
                        hosts='head')

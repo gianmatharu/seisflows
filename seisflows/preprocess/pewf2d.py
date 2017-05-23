@@ -243,13 +243,6 @@ class pewf2d(object):
         for i in range(n):
             s[i].data = self.adjoint(s[i].data, d[i].data, nt, dt)
 
-        # normalize traces
-        if PAR.NORMALIZE:
-            for ir in range(n):
-                w = np.linalg.norm(d[i], ord=2)
-                if w > 0:
-                    s[:,ir] /= w
-
         self.writer(s, path, channel, tag='adj')
 
     ### utility functions

@@ -99,4 +99,6 @@ def gaussian(v, dims, xpos, zpos, perc, sigma):
         for ix in xpos:
             v = insert_gaussian(v, (iz, ix), sigma, val)
 
+    v = v.reshape((nx * nz))
+
     return v, val

@@ -130,7 +130,7 @@ class westgrid(custom_import('system', 'base')):
             raise(KeyError('Hosts parameter not set/recognized.'))
 
 
-    def getnode(self):
+    def taskid(self):
         """ Gets number of running task
         """
         return int(os.getenv('PBS_VNODENUM')) + int(os.getenv('TASKID')) * PAR.NPROC

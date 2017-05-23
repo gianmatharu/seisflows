@@ -1,4 +1,3 @@
-
 import os
 import sys
 import numpy as np
@@ -14,11 +13,9 @@ PATH = sys.modules['seisflows_paths']
 class serial(custom_import('system', 'base')):
     """ An interface through which to submit workflows, run tasks in serial or 
       parallel, and perform other system functions.
-
       By hiding environment details behind a python interface layer, these 
       classes provide a consistent command set across different computing
       environments.
-
       For important additional information, please see 
       http://seisflows.readthedocs.org/en/latest/manual/manual.html#system-configuration
     """
@@ -38,10 +35,6 @@ class serial(custom_import('system', 'base')):
         # number of processers per task
         if 'NPROC' not in PAR:
             setattr(PAR, 'NPROC', 1)
-
-        # how to invoke executables
-        if 'MPIEXEC' not in PAR:
-            setattr(PAR, 'MPIEXEC', '')
 
         # level of detail in output messages
         if 'VERBOSE' not in PAR:
@@ -90,15 +83,15 @@ class serial(custom_import('system', 'base')):
         unix.mkdir(PATH.SYSTEM)
 
         if hosts == 'all':
-            for tid in range(PAR.NTASK):
-                self.setid(tid)
-                self.progress(tid)
+            for itask in range(PAR.NTASK):
+                self.setnode(itask)
+                self.progress(itask)
                 func = getattr(__import__('seisflows_'+classname), funcname)
                 func(**kwargs)
             print ''
 
         elif hosts == 'head':
-            self.setid(0)
+            self.setnode(0)
             func = getattr(__import__('seisflows_'+classname), funcname)
             func(**kwargs)
 
@@ -111,18 +104,21 @@ class serial(custom_import('system', 'base')):
         """
         return int(os.environ['SEISFLOWS_TASKID'])
 
-    def setid(self, tid):
+    def setnode(self, itask):
         """ Sets number of running task
         """
-        os.environ['SEISFLOWS_TASKID'] = str(tid)
+        os.environ['SEISFLOWS_TASKID'] = str(itask)
 
     def mpiexec(self):
         """ Specifies MPI exectuable; used to invoke solver
         """
-        return PAR.MPIEXEC
+        if PAR.NPROC > 1:
+            return 'mpiexec -np %d ' % PAR.NPROC
+        else:
+            return ''
 
-    def progress(self, tid=None):
+    def progress(self, itask=None):
         """ Provides status updates
         """
         if PAR.VERBOSE and PAR.NTASK > 1:
-            print ' task ' + '%02d'%(tid + 1) + ' of ' + '%02d'%PAR.NTASK
+            print ' task ' + '%02d'%(itask + 1) + ' of ' + '%02d'%PAR.NTASK

@@ -237,7 +237,7 @@ class pewf2d(object):
     def process_trial_step(self):
         """ Process line search data
         """
-        itask = system.getnode()
+        itask = system.taskid()
         trial_dir = join(PATH.FUNC, event_dirname(itask + 1))
 
         # delete old file
@@ -455,7 +455,7 @@ class pewf2d(object):
 
     @property
     def getpath(self):
-        itask = system.getnode()
+        itask = system.taskid()
         return join(PATH.SOLVER, event_dirname(itask + 1))
 
     def data_filenames(self, path):

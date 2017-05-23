@@ -140,7 +140,7 @@ class ssewf2d(custom_import('solver', 'pewf2d')):
         """
         # get encoded shot path
         path = self.getpath
-        itask = system.getnode()
+        itask = system.taskid()
 
         # get local source group information
         source_array = self.source_groups[itask]

@@ -39,13 +39,13 @@ class lsf_lg(custom_import('system', 'base')):
         if 'TITLE' not in PAR:
             setattr(PAR, 'TITLE', basename(abspath('.')))
 
-        # time allocated for entire workflow in minutes
+        # time allocated for workflow in minutes
         if 'WALLTIME' not in PAR:
             setattr(PAR, 'WALLTIME', 30.)
 
         # time allocated for each individual task in minutes
-        if 'STEPTIME' not in PAR:
-            setattr(PAR, 'STEPTIME', 15.)
+        if 'TASKTIME' not in PAR:
+            setattr(PAR, 'TASKTIME', 15.)
 
         # number of tasks
         if 'NTASK' not in PAR:
@@ -58,6 +58,10 @@ class lsf_lg(custom_import('system', 'base')):
          # number of cores per node
         if 'NODESIZE' not in PAR:
             raise ParameterError(PAR, 'NODESIZE')
+
+        # how to invoke executables
+        if 'MPIEXEC' not in PAR:
+            setattr(PAR, 'MPIEXEC', 'mpiexec')
 
         # optional additional LSF arguments
         if 'LSFARGS' not in PAR:
@@ -158,7 +162,7 @@ class lsf_lg(custom_import('system', 'base')):
             + '%s ' % PAR.LSFARGS
             + '-n %d ' % PAR.NPROC
             + '-R "span[ptile=%d]" ' % PAR.NODESIZE
-            + '-W %d:00 ' % PAR.STEPTIME
+            + '-W %d:00 ' % PAR.TASKTIME
             + '-J "%s' %PAR.TITLE
             + self.launch_args(hosts)
             + findpath('seisflows.system') +'/'+ 'wrapper/run '
@@ -203,7 +207,7 @@ class lsf_lg(custom_import('system', 'base')):
     def mpiexec(self):
         """ Specifies MPI exectuable; used to invoke solver
         """
-        return 'mpiexec '
+        return PAR.MPIEXEC
 
 
     def _query(self, jobid):
@@ -217,7 +221,7 @@ class lsf_lg(custom_import('system', 'base')):
         return state
 
 
-    def getnode(self):
+    def taskid(self):
         """ Gets number of running task
         """
         return int(os.getenv('LSB_JOBINDEX'))-1

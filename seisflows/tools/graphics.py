@@ -10,9 +10,38 @@ from obspy.core.stream import Stream
 
 from seisflows.plugins.solver.pewf2d import Par, event_dirname
 
+def plot_gll(x, y, z):
+    """ Plots values on 2D unstructured GLL mesh
+    """
+    r = (max(x) - min(x))/(max(y) - min(y))
+    rx = r/np.sqrt(1 + r**2)
+    ry = 1/np.sqrt(1 + r**2)
 
-def plot_vector(v, xlabel='', ylabel='', title=''):
+    f = plt.figure(figsize=(10*rx, 10*ry))
+    p = plt.tricontourf(x, y, z, 125)
+    plt.axis('image')
+    return f, p
 
+
+def plot_vector(t, v, xlabel='', ylabel='', title=''):
+    """ Plots a vector or time series.
+    Parameters
+    ----------
+    v: ndarray, ndims = 1/2
+        Vector or time series to plot
+    xlabel: str
+        x axis label
+    ylabel: str
+        y axis label
+    title: str
+        plot title
+    Raises
+    ------
+    ValueError
+        If dimensions of v are greater than 2
+    """
+
+    # check input dimension
     if v.ndim > 2:
         raise ValueError('v must be a vector or a time series')
 
@@ -23,7 +52,8 @@ def plot_vector(v, xlabel='', ylabel='', title=''):
         x = v[:, 0]
         y = v[:, 1]
 
-    plt.plot(x, y)
+    # plot
+    plt.plot(t, v)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.title(title)

@@ -71,7 +71,6 @@ def uniquerows(a, sort_array=False, return_index=False):
 def stack(*args):
     return np.column_stack(args)
 
-
 def as_ndarrays(*args):
     """ Convert a list of array_like objects to numpy arrays.
 
@@ -97,7 +96,9 @@ def check_2d(*args):
         if item.ndim != 2:
             raise ValueError('Array must be 2-dimensional.')
 
+
 ### array input/output
+
 
 def loadnpy(filename):
     """Loads numpy binary file."""
@@ -110,10 +111,8 @@ def savenpy(filename, v):
     os.rename(filename + '.npy', filename)
 
 
-
-
 # in the function and variable names, we use 'grid' to describe a set of
-# structured coordinates, and 'mesh' to describe a set of unstructured 
+# structured coordinates, and 'mesh' to describe a set of unstructured
 # coordinates
 
 
@@ -163,7 +162,7 @@ def meshsmooth(v, mesh, span):
 
 
 def mesh2grid(v, mesh):
-    """ Interpolates from an unstructured coordinates (mesh) to a structured 
+    """ Interpolates from an unstructured coordinates (mesh) to a structured
         coordinates (grid)
     """
     x = mesh[:,0]
@@ -197,7 +196,7 @@ def mesh2grid(v, mesh):
 
 
 def grid2mesh(V, grid, mesh):
-    """ Interpolates from structured coordinates (grid) to unstructured 
+    """ Interpolates from structured coordinates (grid) to unstructured
         coordinates (mesh)
     """
     return _interp.griddata(grid, V.flatten(), mesh, 'linear')

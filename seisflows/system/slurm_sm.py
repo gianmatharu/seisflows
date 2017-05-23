@@ -37,7 +37,7 @@ class slurm_sm(custom_import('system', 'base')):
         if 'TITLE' not in PAR:
             setattr(PAR, 'TITLE', basename(abspath('.')))
 
-        # time allocated for entire workflow in minutes
+        # time allocated for workflow in minutes
         if 'WALLTIME' not in PAR:
             setattr(PAR, 'WALLTIME', 30.)
 
@@ -48,6 +48,10 @@ class slurm_sm(custom_import('system', 'base')):
         # number of cores per task
         if 'NPROC' not in PAR:
             raise ParameterError(PAR, 'NPROC')
+
+        # how to invoke executables
+        if 'MPIEXEC' not in PAR:
+            setattr(PAR, 'MPIEXEC', '')
 
         # optional additional SLURM arguments
         if 'SLURMARGS' not in PAR:
@@ -146,7 +150,7 @@ class slurm_sm(custom_import('system', 'base')):
             return [line.strip() for line in f.readlines()]
 
 
-    def getnode(self):
+    def taskid(self):
         """ Gets number of running task
         """
         gid = os.getenv('SLURM_GTIDS').split(',')
@@ -157,8 +161,7 @@ class slurm_sm(custom_import('system', 'base')):
     def mpiexec(self):
         """ Specifies MPI exectuable; used to invoke solver
         """
-        return ''
-        #return 'mpirun -np %d '%PAR.NPROC
+        return PAR.MPIEXEC
 
 
     def save_kwargs(self, classname, funcname, kwargs):

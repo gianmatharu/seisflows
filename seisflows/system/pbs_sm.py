@@ -41,13 +41,9 @@ class pbs_lg(custom_import('system', 'base')):
         if 'TITLE' not in PAR:
             setattr(PAR, 'TITLE', basename(abspath('.')))
 
-        # time allocated for entire workflow in minutes
+        # time allocated for workflow in minutes
         if 'WALLTIME' not in PAR:
             setattr(PAR, 'WALLTIME', 30.)
-
-        # time allocated for each individual task in minutes
-        if 'STEPTIME' not in PAR:
-            setattr(PAR, 'STEPTIME', 15.)
 
         # number of tasks
         if 'NTASK' not in PAR:
@@ -60,6 +56,10 @@ class pbs_lg(custom_import('system', 'base')):
         # number of cores per node
         if 'NODESIZE' not in PAR:
             raise ParameterError(PAR, 'NODESIZE')
+
+        # how to invoke executables
+        if 'MPIEXEC' not in PAR:
+            setattr(PAR, 'MPIEXEC', '')
 
         # optional additional PBS arguments
         if 'PBSARGS' not in PAR:
@@ -135,11 +135,11 @@ class pbs_lg(custom_import('system', 'base')):
             # run all tasks
             call(findpath('seisflows.system')  +'/'+'wrappers/dsh '
                     + ','.join(self.hostlist()) + ' '
+                    + findpath('seisflows.system')  +'/'+'wrappers/run '
                     + PATH.OUTPUT + ' '
                     + classname + ' '
                     + funcname + ' '
-                    + findpath('seisflows.system')  +'/'+'wrappers/run '
-                    + 'PYTHONPATH='+findpath('seisflows.system'),+','
+                    + 'PYTHONPATH='+findpath('seisflows'),+','
                     + PAR.ENVIRONS)
 
         elif hosts == 'head':
@@ -151,7 +151,7 @@ class pbs_lg(custom_import('system', 'base')):
                     + PATH.OUTPUT + ' '
                     + classname + ' '
                     + funcname + ' '
-                    + 'PYTHONPATH='+findpath('seisflows.system'),+','
+                    + 'PYTHONPATH='+findpath('seisflows'),+','
                     + PAR.ENVIRONS
                     +'"')
 
@@ -163,10 +163,10 @@ class pbs_lg(custom_import('system', 'base')):
     def mpiexec(self):
         """ Specifies MPI exectuable; used to invoke solver
         """
-        return 'mpiexec '
+        return PAR.MPIEXEC
 
 
-    def getnode(self):
+    def taskid(self):
         """ Gets number of running task
         """
         try:

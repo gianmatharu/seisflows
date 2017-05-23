@@ -41,13 +41,9 @@ class pbs_lg(custom_import('system', 'base')):
         if 'TITLE' not in PAR:
             setattr(PAR, 'TITLE', basename(abspath('.')))
 
-        # time allocated for entire workflow in minutes
+        # time allocated for workflow in minutes
         if 'WALLTIME' not in PAR:
             setattr(PAR, 'WALLTIME', 30.)
-
-        # time allocated for each individual task in minutes
-        if 'STEPTIME' not in PAR:
-            setattr(PAR, 'STEPTIME', 15.)
 
         # number of tasks
         if 'NTASK' not in PAR:
@@ -60,6 +56,10 @@ class pbs_lg(custom_import('system', 'base')):
         # number of cores per node
         if 'NODESIZE' not in PAR:
             raise ParameterError(PAR, 'NODESIZE')
+
+        # how to invoke executables
+        if 'MPIEXEC' not in PAR:
+            setattr(PAR, 'MPIEXEC', 'mpiexec')
 
         # optional additional PBS arguments
         if 'PBSARGS' not in PAR:
@@ -146,10 +146,10 @@ class pbs_lg(custom_import('system', 'base')):
     def mpiexec(self):
         """ Specifies MPI exectuable; used to invoke solver
         """
-        return 'mpiexec '
+        return PAR.MPIEXEC
 
 
-    def getnode(self):
+    def taskid(self):
         """ Gets number of running task
         """
         try:
@@ -182,8 +182,8 @@ class pbs_lg(custom_import('system', 'base')):
         ncpus = PAR.NPROC
         mpiprocs = PAR.NPROC
 
-        hours = PAR.STEPTIME/60
-        minutes = PAR.STEPTIME%60
+        hours = PAR.TASKTIME/60
+        minutes = PAR.TASKTIME%60
         walltime = 'walltime=%02d:%02d:00 '%(hours, minutes)
 
         return ('qsub '

@@ -1,11 +1,14 @@
 
 import os
+import random
 import shutil
 import socket
 import subprocess
 import sys
+import time
 
 from os.path import abspath, basename, isdir, isfile, join
+from seisflows.tools.tools import iterable
 
 
 def cat(src, *dst):
@@ -51,7 +54,7 @@ def cp(src='', dst=''):
 def ln(src, dst):
     dst = abspath(dst)
     if os.path.isdir(dst):
-        for name in _strlist(src):
+        for name in iterable(src):
             s = abspath(name)
             d = join(dst, basename(name))
             os.symlink(s, d)
@@ -67,17 +70,11 @@ def ls(path):
     return dirs
 
 
-def mkdir(dirs, noexit=False):
-    try:
-        for dir in _strlist(dirs):
-            if not os.path.isdir(dir):
-                os.makedirs(dir)
-    except EnvironmentError as e:
-        # hack to deal with race conditions on parallel file system
-        if noexit:
-            pass
-        else:
-            raise e
+def mkdir(dirs):
+    time.sleep(2 * random.random())
+    for dir in iterable(dirs):
+        if not os.path.isdir(dir):
+            os.makedirs(dir)
 
 def mv(src='', dst=''):
     if isinstance(src, (list, tuple)):
@@ -94,13 +91,13 @@ def mv(src='', dst=''):
 
 
 def rename(old, new, names):
-    for name in _strlist(names):
+    for name in iterable(names):
         if name.find(old) >= 0:
             os.rename(name, name.replace(old, new))
 
 
 def rm(path=''):
-    for name in _strlist(path):
+    for name in iterable(path):
         if os.path.isfile(name):
             os.remove(name)
         elif os.path.islink(name):
@@ -137,8 +134,20 @@ def touch(filename, times=None):
 
 
 
-def _strlist(object):
-    if not isinstance(object, list):
-        return [object]
+def which(name):
+    def isexe(file):
+        return os.path.isfile(file) and os.access(file, os.X_OK)
+
+    dirname, filename = os.path.split(name)
+    if dirname:
+        if isexe(name):
+            return name
+
+    for path in os.environ["PATH"].split(os.pathsep):
+        path = path.strip('"')
+        fullname = os.path.join(path, name)
+        if isexe(fullname):
+            return fullname
     else:
-        return object
+        return None
+

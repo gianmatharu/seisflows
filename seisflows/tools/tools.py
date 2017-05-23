@@ -5,10 +5,12 @@ import pickle
 import re
 import subprocess
 import sys
+import time
 import traceback
 
 from imp import load_source
 from importlib import import_module
+from pkgutil import find_loader
 from os.path import basename
 
 import numpy as np
@@ -28,7 +30,7 @@ def call(*args, **kwargs):
     subprocess.check_call(*args, **kwargs)
 
 
-def call_solver(mpiexec, executable, output='/dev/null'):
+def call_solver(mpiexec, executable, output='solver.log'):
     """ Calls MPI solver executable
 
       A less complicated version, without error catching, would be
@@ -50,41 +52,16 @@ def call_solver(mpiexec, executable, output='/dev/null'):
         f.close()
 
 
-def call_solver_nompi(executable, output='/dev/null'):
-    """ Calls non-MPI solver executable
-
-      A less complicated version, without error catching, would be
-      subprocess.call(executable, shell=True)
+def diff(list1, list2):
+    """ Difference between two lists
     """
-    try:
-        f = open(output,'w')
-        subprocess.check_call(
-            executable,
-            shell=True,
-            stdout=f)
-    except subprocess.CalledProcessError, err:
-        print msg.SolverError % executable
-        sys.exit(-1)
-    except OSError:
-        print msg.SolverError % executable
-        sys.exit(-1)
-    finally:
-        f.close()
-
-
-def cast(var):
-    if isinstance(var, list):
-        return var
-    elif isinstance(var, float):
-        return [var]
-    elif isinstance(var, int):
-        return [var]
-    else:
-        raise TypeError
+    c = set(list1).union(set(list2))
+    d = set(list1).intersection(set(list2))
+    return list(c - d)
 
 
 def divides(i, j):
-    """Returns true if j divides i"""
+    """True if j divides i"""
     if j is 0:
         return False
     elif i % j:
@@ -93,12 +70,17 @@ def divides(i, j):
         return True
 
 
-def exists(name):
+def exists(names):
     """Wrapper for os.path.exists"""
-    if not isinstance(name, basestring):
-        return False
+    for name in iterable(names):
+        if not name:
+            return False
+        elif not isinstance(name, basestring):
+            raise TypeError
+        elif not os.path.exists(name):
+            return False
     else:
-        return os.path.exists(name)
+        return True
 
 
 def findpath(name):
@@ -112,6 +94,25 @@ def findpath(name):
     path = re.sub('__init__.py$', '', path)
 
     return path
+
+
+def iterable(arg):
+    if not isinstance(arg, (list, tuple)):
+        return [arg]
+    else:
+        return arg
+
+
+def module_exists(name):
+    return find_loader(name)
+
+
+def package_exists(name):
+    return find_loader(name)
+
+
+def timestamp():
+    return time.strftime('%H:%M:%S')
 
 
 def loadobj(filename):
@@ -155,6 +156,18 @@ def loadpy(filename):
     return output
 
 
+def loadnpy(filename):
+    """Loads numpy binary file."""
+    return np.load(filename)
+
+
+def savenpy(filename, v):
+    """Saves numpy binary file."""
+    np.save(filename, v)
+    os.rename(filename + '.npy', filename)
+
+
+
 def loadyaml(filename):
     import yaml
 
@@ -169,15 +182,10 @@ def loadyaml(filename):
     return dict
 
 
-def unique(mylist):
-    """Finds unique elements of list"""
-    return list(set(mylist))
-
-
 def getset(arg):
     if not arg:
         return set()
-    elif type(arg) in [str, unicode]:
+    elif isinstance(arg, basestring):
         return set([arg])
     else:
         return set(arg)

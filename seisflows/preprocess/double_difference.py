@@ -7,7 +7,6 @@ from obspy.core import Stream, Trace
 
 from seisflows.plugins import adjoint, misfit
 from seisflows.tools import unix
-from seisflows.tools.tools import Struct
 from seisflows.config import ParameterError, custom_import
 
 PAR = sys.modules['seisflows_parameters']
@@ -93,6 +92,15 @@ class double_difference(custom_import('preprocess', 'base')):
             rsdlist = []
         rsdlist += [rsd]
         np.savetxt(filename, rsdlist)
+
+
+    def sum_residuals(self):
+        """ Sums squares of residuals
+        """
+        total_misfit = 0.
+        for path in paths:
+            total_misfit += np.sum(np.loadtxt(path)**2.)
+        return total_misfit
 
 
     def write_adjoint_traces(self, path, syn, dat, channel):

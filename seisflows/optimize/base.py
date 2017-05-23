@@ -6,10 +6,9 @@ from os.path import join
 from seisflows.config import ParameterError
 from seisflows.plugins import preconds
 from seisflows.tools import msg, unix
-from seisflows.tools.array import loadnpy, savenpy
-from seisflows.tools.tools import exists, loadtxt, savetxt
 from seisflows.tools.math import angle, polyfit2, backtrack2
 from seisflows.tools.shared import  Writer, StepWriter
+from seisflows.tools.tools import loadnpy, savenpy
 
 
 PAR = sys.modules['seisflows_parameters']
@@ -190,9 +189,15 @@ class base(object):
     def update_status(self):
         """ Updates line search status
 
-            Maintains line search history by keeping track of step length and
-            function value from each trial model evaluation. From line search
-            history, determines whether stopping criteria have been satisfied.
+          Maintains line search history by keeping track of step length and
+          function value from each trial model evaluation. From line search
+          history, determines whether stopping criteria have been satisfied.
+
+          Here and elsewhere we use the convention
+              status > 0  : success
+              status == 0 : not finished
+              status < 0  : failed
+
         """
         x_ = self.loadtxt('alpha')
         f_ = self.loadtxt('f_try')
@@ -202,9 +207,9 @@ class base(object):
         # update search history
         self.search_history += [[x_, f_]]
         self.step_count += 1
+
         x = self.step_lens()
         f = self.func_vals()
-
         fmin = f.min()
         imin = f.argmin()
 
@@ -309,9 +314,9 @@ class base(object):
 
         # write updated model
         alpha = x[f.argmin()]
-        savetxt('alpha', alpha)
+        self.savetxt('alpha', alpha)
         self.save('m_new', m + alpha*p)
-        savetxt('f_new', f.min())
+        self.savetxt('f_new', f.min())
 
         # append latest statistics
         self.writer('factor', -self.dot(g,g)**-0.5 * (f[1]-f[0])/(x[1]-x[0]))
@@ -330,6 +335,12 @@ class base(object):
     def retry_status(self):
         """ Returns false if search direction was the same as gradient
           direction; returns true otherwise
+
+          Here and elsewhere we use the convention
+              status > 0  : success
+              status == 0 : not finished
+              status < 0  : failed
+
         """
         g = self.load('g_new')
         p = self.load('p_new')
@@ -352,7 +363,7 @@ class base(object):
         """
         g = self.load('g_new')
         self.save('p_new', -g)
-        savetxt('s_new', self.dot(g,g))
+        self.savetxt('s_new', self.dot(g,g))
         self.restarted = 1
         self.stepwriter.iter -= 1
         self.stepwriter.newline()
@@ -417,9 +428,9 @@ class base(object):
 
 
     def loadtxt(self, filename):
-        return loadtxt(PATH.OPTIMIZE+'/'+filename)
+        return float(np.loadtxt(PATH.OPTIMIZE+'/'+filename))
 
     def savetxt(self, filename, scalar):
-        savetxt(PATH.OPTIMIZE+'/'+filename, scalar)
+        np.savetxt(PATH.OPTIMIZE+'/'+filename, [scalar], '%11.6e')
 
 

@@ -87,7 +87,7 @@ def saddnoise(stream, snr=10.0, clean=False, verbose=False):
 
     for i, trace in enumerate(stream):
         if clean:
-            threshold = 1e-3 * max(abs(trace.data))
+            threshold = 1e-1 * max(abs(trace.data))
 
             if len(np.where(abs(trace.data) > threshold)[0]) != 0:
                 tc = time[np.where(abs(trace.data) > threshold)[0][0]]
@@ -131,6 +131,16 @@ def sbandpass(stream, **options):
 
     for trace in stream:
         trace.filter('bandpass', **options)
+
+    return stream
+
+
+def shighpass(stream, **options):
+    """ Wrapper to Obspy filter. Performs bandpass filtering via obpsy.signal.filter.highpass
+    """
+
+    for trace in stream:
+        trace.filter('highpass', **options)
 
     return stream
 
@@ -391,7 +401,7 @@ def compute_amplitude_spectrum(t, y, Fs, Fmax=None, pad=False, onesided=True, ve
 
     if verbose:
         print('Peak frequency, fmax = {}'.format(freq[abs(Y).argmax()]))
-        fig = plt.figure()
+        fig = plt.figure(figsize=(10, 10))
         ax1 = fig.add_subplot(2, 1, 1)
         ax1.xaxis.set_label_text('Time (s)')
         ax1.yaxis.set_label_text('Norm. amp.')

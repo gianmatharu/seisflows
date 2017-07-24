@@ -10,7 +10,7 @@ from os.path import join, exists
 from obspy import read
 
 from seisflows.plugins.solver.pewf2d import event_dirname
-from seisflows.tools.susignal import slowpass, sbandpass, convert_to_float
+from seisflows.tools.susignal import slowpass, shighpass, sbandpass, convert_to_float
 from seisflows.tools import unix
 
 
@@ -24,6 +24,10 @@ def parse_args():
 
     parser.add_argument('-po', '--opath',
                         help='output path')
+
+    parser.add_argument('-pr',
+                        action='store_true',
+                        help='pressure data')
 
     parser.add_argument('-n', '--ntasks',
                         type=int,
@@ -43,7 +47,10 @@ def parse_args():
 if __name__ == "__main__":
 
     args = parse_args()
-    channels = ['x', 'z']
+    if args.pr:
+        channels = ['p']
+    else:
+        channels = ['Ux', 'Uz']
 
     if args.freqlo and args.freqhi:
         print "Bandpass filtering..."
@@ -56,6 +63,10 @@ if __name__ == "__main__":
     elif args.freqhi:
         print "Lowpass filtering..."
         if args.freqhi < 0:
+            raise ValueError('Provide positive freqhi')
+    elif args.freqlo:
+        print "Hipass filtering..."
+        if args.freqlo < 0:
             raise ValueError('Provide positive freqhi')
     else:
         raise ValueError('Require cutoff frequencies.')
@@ -73,7 +84,7 @@ if __name__ == "__main__":
     for channel in channels:
         for i in xrange(args.ntasks):
 
-            filename = 'U{}_data.su'.format(channel)
+            filename = '{}_data.su'.format(channel)
             infile = join(args.path, event_dirname(i+1), filename)
 
             # read data file
@@ -84,6 +95,8 @@ if __name__ == "__main__":
                                    corners=2, zerophase=True)
             elif args.freqhi:
                 stream = slowpass(stream, freq=args.freqhi, corners=2, zerophase=True)
+            elif args.freqlo:
+                stream = shighpass(stream, freq=args.freqlo, corners=2, zerophase=True)
 
             # data type conversion
             stream = convert_to_float(stream)

@@ -29,6 +29,15 @@ def parse_args():
                         action='store_true',
                         help='pressure data')
 
+    parser.add_argument('-zp',
+                        action='store_true',
+                        help='pressure data')
+
+    parser.add_argument('-c',
+                        type=int,
+                        default=4,
+                        help='filter corners')
+
     parser.add_argument('-n', '--ntasks',
                         type=int,
                         help='number of sources')
@@ -92,11 +101,11 @@ if __name__ == "__main__":
 
             if args.freqlo and args.freqhi:
                 stream = sbandpass(stream, freqmin=args.freqlo, freqmax=args.freqhi,
-                                   corners=2, zerophase=True)
+                                   corners=args.c, zerophase=args.zp)
             elif args.freqhi:
-                stream = slowpass(stream, freq=args.freqhi, corners=2, zerophase=True)
+                stream = slowpass(stream, freq=args.freqhi, corners=args.c, zerophase=args.zp)
             elif args.freqlo:
-                stream = shighpass(stream, freq=args.freqlo, corners=2, zerophase=True)
+                stream = shighpass(stream, freq=args.freqlo, corners=args.c, zerophase=args.zp)
 
             # data type conversion
             stream = convert_to_float(stream)

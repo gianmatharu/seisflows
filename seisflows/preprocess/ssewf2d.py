@@ -44,6 +44,12 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
         if 'PREFILTER' not in PAR:
             setattr(PAR, 'PREFILTER', False)
 
+        if 'ZEROPHASE' not in PAR:
+            setattr(PAR, 'ZEROPHASE', False)
+
+        if 'CORNERS' not in PAR:
+            setattr(PAR, 'CORNERS', 4)
+
         if 'BANDPASS' not in PAR:
           setattr(PAR, 'BANDPASS', False)
 
@@ -214,9 +220,9 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
         """ Filter obspy trace
         """
         if PAR.FREQLO and PAR.FREQHI:
-            trace.filter('bandpass', freqmin=PAR.FREQLO, freqmax=PAR.FREQHI, corners=2, zerophase=True)
+            trace.filter('bandpass', freqmin=PAR.FREQLO, freqmax=PAR.FREQHI, corners=PAR.CORNERS, zerophase=PAR.ZEROPHASE)
         elif PAR.FREQHI:
-            trace.filter('lowpass', freq=PAR.FREQHI, corners=2, zerophase=True)
+            trace.filter('lowpass', freq=PAR.FREQHI, corners=PAR.CORNERS, zerophase=PAR.ZEROPHASE)
         else:
             pass
 

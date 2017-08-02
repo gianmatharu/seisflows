@@ -124,10 +124,10 @@ class ss_inversion(custom_import('workflow', 'p_inversion')):
         """
         system.checkpoint()
 
-        super(ss_inversion, self).finalize()
-
         if divides(optimize.iter, PAR.SAVEENCODING):
             self.save_encoding()
+
+        super(ss_inversion, self).finalize()
 
     def save_encoding(self):
         """ Save encoding scheme.

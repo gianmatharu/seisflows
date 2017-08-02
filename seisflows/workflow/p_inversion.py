@@ -55,6 +55,9 @@ class p_inversion(custom_import('workflow', 'inversion')):
             if not exists(join(PATH.SOLVER_INPUT, PAR.STF_FILE)):
                 raise IOError('Source time function file not found.')
 
+        if 'STOPCRITERIA' not in PAR:
+            setattr(PAR, 'STOPCRITERIA', None)
+
         # check paths
         if 'MODELS' not in PATH:
             setattr(PATH, 'MODELS', join(PATH.WORKDIR, 'models'))
@@ -228,6 +231,9 @@ class p_inversion(custom_import('workflow', 'inversion')):
         if divides(optimize.iter, PAR.SAVERESIDUALS):
             self.save_residuals()
 
+        if PAR.STOPCRITERIA and optimize.iter > 1:
+            self.check_stopping_criteria()
+
 
     def clean(self):
         """ Cleans directories in which function and gradient evaluations were
@@ -237,6 +243,19 @@ class p_inversion(custom_import('workflow', 'inversion')):
         unix.rm(PATH.FUNC)
         unix.mkdir(PATH.GRAD)
         unix.mkdir(PATH.FUNC)
+
+
+    def check_stopping_criteria(self):
+        """ Employs basic relative reduction in misfit stopping criteria
+        """
+        m_0 = np.loadtxt(PATH.WORKDIR+'/'+'output.stats/misfit')
+        m_curr = np.loadtxt(PATH.OPTIMIZE+'/'+'f_new')
+        #rred = m_curr / m_0[0]
+        rred = m_0[-1] / m_0[0]
+
+        if rred < PAR.STOPCRITERIA:
+            print('Stopping criteria met. Terminating workflow.')
+            sys.exit(0)
 
 
     def write_model(self, path='', suffix=''):

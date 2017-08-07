@@ -4,6 +4,7 @@ from obspy import Stream
 from seisflows.tools.math import nextpow2
 from seisflows.tools.graphics import _convert_to_array
 import matplotlib.pyplot as plt
+from scipy.signal import convolve2d
 
 import scipy.signal as signal
 
@@ -67,21 +68,27 @@ class FixedStream(Stream):
                 raise ValueError('Trace data must be of equal length.')
 
 
-def saddnoise(stream, snr=10.0, clean=False, verbose=False):
+def saddnoise(stream, var=None, snr=10.0, clean=False, verbose=False):
     """ Add Gaussian noise to data. 
     """
-    # compute norm of data
+    # compute norm of data and root-mean square
     d = _convert_to_array(stream)
-    dnorm = np.linalg.norm(d)**2
+    nt, nr = d.shape
+    drms = np.sqrt(np.mean(d**2))
 
-    # approximate variance for Gaussian noise
-    var = (dnorm / 10**(0.1*snr)) / (d.shape[0] * d.shape[1])
+    # variance of noise
+    if not var:
+        var = drms**2 / 10**(0.1*snr)
 
     # generate noise array
-    noise = np.sqrt(var) * np.random.randn(d.shape[0], d.shape[1])
+    noise = np.sqrt(var) * np.random.randn(nt, nr)
+
+    # band-limit white noise
+    w = np.hamming(5)
+    w2d = np.outer(w, w)
+    noise = convolve2d(noise, w2d, mode='same')
 
     if clean:
-        nt = len(stream[0].data)
         dt = stream[0].stats.delta
         time = np.arange(0, nt*dt, dt)
 
@@ -99,8 +106,7 @@ def saddnoise(stream, snr=10.0, clean=False, verbose=False):
             trace.data += noise[:, i]
 
     if verbose:
-        nnorm = np.linalg.norm(noise)**2
-        snr = 10*np.log10(dnorm/nnorm)
+        snr = 10*np.log10(drms**2 / var)
         print "SNR [dB] = {}".format(snr)
 
     return stream
@@ -414,7 +420,7 @@ def compute_amplitude_spectrum(t, y, Fs, Fmax=None, pad=False, onesided=True, ve
         ax2.yaxis.set_label_text('Norm. amp.')
         ax2.set_title('Amplitude spectrum')
         ax2.set_ylim([0, 1])
-        fi = ax2.fill(freq, abs(Y) / abs(Y).max(), 'c')
+        #fi = ax2.fill(freq, abs(Y) / abs(Y).max(), 'c')
         pt = ax2.plot(freq, abs(Y) / abs(Y).max())
 
         if Fmax:

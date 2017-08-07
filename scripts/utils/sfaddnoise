@@ -6,12 +6,14 @@
 # simple access to inversion workflows.
 
 import argparse
+import numpy as np
 from os.path import join, exists
 from obspy import read
 
 from seisflows.plugins.solver.pewf2d import event_dirname
 from seisflows.tools.susignal import saddnoise
 from seisflows.tools import unix
+from seisflows.tools.graphics import _convert_to_array
 
 
 def parse_args():
@@ -38,7 +40,6 @@ def parse_args():
                         default=False,
                         help='noise after first-arrival only')
 
-
     return parser.parse_args()
 
 
@@ -57,16 +58,25 @@ if __name__ == "__main__":
     for i in xrange(args.ntasks):
         unix.mkdir((join(args.opath, event_dirname(i+1))))
 
-    for channel in channels:
-        for i in xrange(args.ntasks):
+        # fixed variance noise
+        x_file = join(args.path, event_dirname(i+1), 'Ux_data.su')
+        z_file = join(args.path, event_dirname(i+1), 'Uz_data.su')
 
-            filename = 'U{}_data.su'.format(channel)
-            infile = join(args.path, event_dirname(i+1), filename)
+        x_stream = read(x_file, format='SU', byteorder='<')
+        z_stream = read(z_file, format='SU', byteorder='<')
 
-            # read data file
-            stream = read(infile, format='SU', byteorder='<')
-            stream = saddnoise(stream, snr=args.snr, clean=args.clean)
+        # compute RMS for z component
+        d = _convert_to_array(z_stream)
+        drms = np.sqrt(np.mean(d**2))
 
-            # write noisy data
-            output = join(args.opath, event_dirname(i+1), filename)
-            stream.write(output, format='SU', byteorder='<')
+        # compute variance of noise
+        var = drms**2 / 10**(0.1*args.snr)
+
+        # add fixed-variance noise
+        x_out = saddnoise(x_stream, var=var, snr=args.snr, clean=args.clean, verbose=True)
+        z_out = saddnoise(z_stream, var=var, snr=args.snr, clean=args.clean, verbose=True)
+
+        # write noisy data
+        output = join(args.opath, event_dirname(i+1))
+        x_stream.write(join(output, 'Ux_data.su'), format='SU', byteorder='<')
+        z_stream.write(join(output, 'Uz_data.su'), format='SU', byteorder='<')

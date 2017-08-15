@@ -36,7 +36,7 @@ class Par(object):
             self.nx = int(p["nx"])
             self.nz = int(p["nz"])
             self.dx = float(p["dx"])
-            self.dz = float(p["dx"])
+            self.dz = float(p["dz"])
             self.dt = float(p["dt"])
             self.ntimesteps = int(p["ntimesteps"])
             self.output_interval = int(p["output_interval"])
@@ -165,16 +165,19 @@ def model_diagnosis(p, vp, vs, f, dx, dr):
 
     # Get min/max velocities
     vpmin, vpmax = vp.min(), vp.max()
-    vsmin, vsmax = vs.min(), vs.max()
+    mask = vs > 0.0
+    vsmin, vsmax = vs[mask].min(), vs[mask].max()
     vpmean, vsmean = vp.mean(), vs.mean()
 
     wp, ws = (vpmin / f), (vsmin / f)
 
-    vpdisp, vsdisp = (vpmin / (5 * f)), (vsmin / (5 * f))
+    vpdisp, vsdisp = (vpmin / (5. * f)), (vsmin / (5. * f))
 
     # Courant number for fourth order derivative operator
     courant = 7.0 / 6.0
-    cfl = p.dx / (courant * np.sqrt(2) * vpmax)
+
+    dh=p.dx if (p.dx < p.dz) else p.dz
+    cfl = dh / (courant * np.sqrt(2) * vpmax)
 
     print('\n')
     print('MODEL DIMENSIONS ------------------------')
@@ -216,11 +219,11 @@ def model_diagnosis(p, vp, vs, f, dx, dr):
     else:
         print('CFL condition fails:      dt > dx / (dqrt(2)*C*Vmax) = {:.2e}'.format(cfl))
         print('Current dt:      {:.2e}'.format(p.dt))
-    if p.dx < vpdisp:
+    if dx < vpdisp:
         print('P wave dispersion (5 ppw):        dx < {:.0f}'.format(vpdisp))
     else:
         print('P wave dispersion expected:       dx  > {:.0f}'.format(vpdisp))
-    if p.dx < vsdisp:
+    if dx < vsdisp:
         print('S wave dispersion (5 ppw):       dx  < {:.0f}'.format(vsdisp))
     else:
         print('S wave dispersion expected:      dx > {:.0f}'.format(vsdisp))

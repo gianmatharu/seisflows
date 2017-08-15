@@ -36,7 +36,7 @@ def parse_args():
                         help='parameters')
 
     parser.add_argument('-cm', '--cmap',
-                        default='seismic_r',
+                        default='RdBu',
                         help='Matplotlib colormap scheme.')
 
     return parser.parse_args()

@@ -497,3 +497,13 @@ def get_adjoint_source(T, f, s, w, mu):
 
     adj = np.fft.irfft(A)
     return adj
+
+def ricker(t, t0, f0, factor=1.0):
+
+    pi_f0_square = np.pi * np.pi * f0 * f0
+    tau = t - t0
+
+    stf = factor * (1 - 2 * pi_f0_square * tau * tau) * \
+          np.exp(-pi_f0_square * tau * tau)
+
+    return stf

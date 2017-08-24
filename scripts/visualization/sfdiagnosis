@@ -1,0 +1,36 @@
+#!/usr/bin/env python
+
+# script to plot velocity models.
+
+import argparse
+import numpy as np
+from os.path import join
+from seisflows.plugins.solver.pewf2d import model_diagnosis, Par
+
+def readgrid(filename, nx, nz, dtype='float32'):
+    v = np.fromfile(filename, dtype=dtype)
+    v = v.reshape((nz, nx))
+    return v
+
+# Parse input arguments
+parser = argparse.ArgumentParser(description='Analyze properties of velocity model.')
+
+# file and format flags
+parser.add_argument('-f', '--file', default='./solver/INPUT/par_template.cfg', help='solver parameter file')
+parser.add_argument('-p', '--path', default='.', help='path to velocity models')
+parser.add_argument('-d', '--dtype', default='float32', help='numpy data type')
+parser.add_argument('-fq', '--freq', type=float, default=1.0, help='Frequency (Hz)')
+parser.add_argument('-dx', type=float, default=1.0, help='Source spacing (m)')
+parser.add_argument('-dr', type=float, default=1.0, help='Receiver spacing (m)')
+
+
+args = parser.parse_args()
+
+
+p = Par()
+p.read_par_file(args.file)
+
+vp = readgrid(join(args.path, 'vp.bin'), p.nx, p.nz, dtype=args.dtype)
+vs = readgrid(join(args.path, 'vs.bin'), p.nx, p.nz, dtype=args.dtype)
+
+model_diagnosis(p, vp, vs, args.freq, args.dx, args.dr)

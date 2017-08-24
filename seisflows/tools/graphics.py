@@ -4,6 +4,7 @@ from functools import partial
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from obspy import read
 from obspy.core.stream import Stream
@@ -60,6 +61,23 @@ def plot_vector(t, v, xlabel='', ylabel='', title=''):
     plt.show()
 
 
+def imshow_wcbar(image, ax, cticks=[], cticklabels=[], clabel='', **kwargs):
+
+    im = ax.imshow(image, **kwargs)
+    div = make_axes_locatable(ax)
+    cax = div.append_axes("right", size="5%", pad=0.05)
+    cbar = plt.colorbar(im, cax=cax)
+
+    if list(cticks):
+        cbar.set_ticks(cticks)
+    if cticklabels:
+        cbar.set_ticklabels(cticklabels)
+    if clabel:
+        cbar.set_label(clabel)
+
+    return
+
+
 def plot_section(stream, ax=None, cmap='seismic', clip=100, title='', x_interval=1.0, y_interval=1.0):
     """ Plot a seismic section from an obspy stream.
     """
@@ -86,16 +104,16 @@ def plot_section(stream, ax=None, cmap='seismic', clip=100, title='', x_interval
     ax.set_xlabel('Offset [km]')
     ax.set_ylabel('Time [s]')
 
-    #set ticks
-    t = _get_time(stream)
-    yticks, ytick_labels = get_regular_ticks(t, y_interval)
-    ax.set_yticks(yticks)
-    ax.set_yticklabels(ytick_labels)
-
-    offsets =_get_offsets(stream)
-    xticks, xtick_labels = get_regular_ticks(offsets, x_interval)
-    ax.set_xticks(xticks)
-    ax.set_xticklabels(xtick_labels)
+    # #set ticks
+    # t = _get_time(stream)
+    # yticks, ytick_labels = get_regular_ticks(t, y_interval)
+    # ax.set_yticks(yticks)
+    # ax.set_yticklabels(ytick_labels)
+    #
+    # offsets =_get_offsets(stream)
+    # xticks, xtick_labels = get_regular_ticks(offsets, x_interval)
+    # ax.set_xticks(xticks)
+    # ax.set_xticklabels(xtick_labels)
 
     return ax
 
@@ -240,6 +258,52 @@ def plot_data(path, eventid, data=True, syn=False, res=False, adj=False, cmap='s
         xadj, zadj = _read_components(join(path, 'adj'), adj=True)
         section(xadj, ax=axes[0, icol], title='Ux - Adj. source')
         section(zadj, ax=axes[1, icol], title='Uz - Adj. source')
+
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_pdata(path, eventid, data=True, syn=False, res=False, adj=False, cmap='seismic_r', clip=100, \
+              title='', x_interval=1.0, y_interval=1.0):
+
+    # set subplot dimensions.
+    rows = 1
+    cols = data + syn + res + adj
+
+    # set path
+    eventid = event_dirname(eventid)
+    path = join(path, eventid, 'traces')
+
+    # prepare plot
+    section = partial(plot_section, clip=clip, x_interval=x_interval, y_interval=y_interval, cmap=cmap)
+    f, axes = plt.subplots(rows, cols, squeeze=False, figsize=(15, 10))
+    plt.set_cmap(cmap)
+
+    icol = 0
+
+    # read seismogramgs
+    if data:
+        pdata = _read_component(join(path, 'obs', 'p_data.su'))
+        section(pdata, ax=axes[0, icol], title='p - data')
+        icol += 1
+    if syn:
+        psyn = _read_component(join(path, 'syn', 'p_data.su'))
+        section(psyn, ax=axes[0, icol], title='Ux - Synth')
+        icol += 1
+    if res:
+        if not data:
+            pdata = _read_component(join(path, 'obs', 'p_data.su'))
+
+        if not syn:
+            psyn = _read_component(join(path, 'syn', 'p_data.su'))
+
+        pres = _compute_residuals(psyn, pdata)
+        section(pres, ax=axes[0, icol], title='p - Residuals')
+        icol += 1
+
+    if adj:
+        padj = _read_component(join(path, 'adj', 'p_adj.su'))
+        section(padj, ax=axes[0, icol], title='p - Adj. source')
 
     plt.tight_layout()
     plt.show()

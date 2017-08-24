@@ -1,0 +1,73 @@
+#!/usr/bin/env python
+
+# Specialized script used to visualize gradients.
+
+# For convenience this routine assumes a particular directory structure that allows
+# simple access to inversion workflows.
+
+import argparse
+from os.path import join
+
+from seisflows.tools.array import loadnpy
+from seisflows.plugins.solver.pewf2d import Par
+from seisflows.tools.graphics import plot_model
+
+def parse_args():
+    # Parse input arguments
+    parser = argparse.ArgumentParser(description='Plot misfit gradients.')
+
+    # file and format flags
+    parser.add_argument('file')
+
+    parser.add_argument('-f', '--fpath',
+                        default='./solver/INPUT/',
+                        help='solver parameter file')
+
+    parser.add_argument('-p', '--path',
+                        default='scratch/optimize',
+                        help='gradient path')
+
+    parser.add_argument('--pars', type=str, nargs='*',
+                        default=['vp', 'vs', 'rho'],
+                        help='gradient path')
+
+    parser.add_argument('-cm', '--cmap',
+                        default='seismic_r',
+                        help='Matplotlib colormap scheme.')
+
+    parser.add_argument('-c', '--clip', type=int,
+                        default='100',
+                        help='Clip amplitudes')
+
+    parser.add_argument('-l', '--clim', action='store_true',
+                        default=False,
+                        help='non-symmetric color limits')
+
+    return parser.parse_args()
+
+
+def split(v, parameters):
+    npar = len(parameters)
+    n = int(len(v) / npar)
+    model = {}
+
+    for ipar, key in enumerate(parameters):
+        vpar = v[(ipar*n):(ipar*n) + n]
+        model[key] = vpar
+
+    return model
+
+if __name__ == "__main__":
+
+    args = parse_args()
+    p = Par()
+    p.read_par_file(join(args.fpath, 'par_template.cfg'))
+
+    model = split(loadnpy(join(args.path, args.file)), args.pars)
+
+    if args.clim:
+        args.clip = None
+
+    plot_model(model, p, cmap=args.cmap, clip=args.clip)
+
+

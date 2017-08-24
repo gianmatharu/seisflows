@@ -7,7 +7,7 @@
 
 import argparse
 from functools import partial
-from seisflows.tools.graphics import plot_data
+from seisflows.tools.graphics import plot_data, plot_pdata
 
 def parse_args():
     # Parse input arguments
@@ -25,6 +25,9 @@ def parse_args():
 
     parser.add_argument('-a', action='store_true',
                         help='Show adjoint source')
+
+    parser.add_argument('-pr', action='store_true',
+                        help='Pressure data')
 
     parser.add_argument('-p', '--path', default='./scratch/solver',
                         help='Path to solver dir')
@@ -62,7 +65,13 @@ def parse_args():
 if __name__ == "__main__":
 
     args = parse_args()
-    plot = partial(plot_data, args.path,
+
+    if args.pr:
+        func_plot = plot_pdata
+    else:
+        func_plot = plot_data
+
+    plot = partial(func_plot, args.path,
                    data=args.d, syn=args.s, res=args.r, adj=args.a,
                    cmap=args.cmap, clip=args.clip, x_interval=args.x_interval, y_interval=args.y_interval)
 

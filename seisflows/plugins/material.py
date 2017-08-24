@@ -60,6 +60,20 @@ class shear(isotropic):
         cls.check_model_inverse(model)
         return model
 
+class density(isotropic):
+    """ Density inversion
+    """
+    parameters = []
+
+    @classmethod
+    def par_map_forward(cls, model):
+        cls.check_model_forward(model)
+        return model
+
+    @classmethod
+    def par_map_inverse(cls, model):
+        cls.check_model_inverse(model)
+        return model
 
 class elastic(isotropic):
     """ Isotropic elastic class

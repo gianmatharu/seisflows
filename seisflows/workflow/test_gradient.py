@@ -100,7 +100,7 @@ class test_gradient(object):
 
         src = PATH.GRAD
         dst = join(PATH.OPTIMIZE, 'g_new')
-        savenpy(dst, solver.merge(solver.load(src, suffix='_kernel_smooth')))
+        savenpy(dst, solver.merge(solver.load(src, suffix='_kernel')))
 
     def clean_directory(self, path):
         """ If dir exists clean otherwise make

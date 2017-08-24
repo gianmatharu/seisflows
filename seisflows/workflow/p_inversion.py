@@ -142,7 +142,7 @@ class p_inversion(custom_import('workflow', 'inversion')):
 
         dst = join(PATH.OPTIMIZE, 'g_new')
         savenpy(dst, solver.merge(solver.load(PATH.GRAD,
-                                              suffix='_kernel_smooth')))
+                                              suffix='_kernel')))
 
         # evaluate misfit function
         self.sum_residuals(path=PATH.SOLVER, suffix='new')
@@ -278,7 +278,14 @@ class p_inversion(custom_import('workflow', 'inversion')):
             src = path +'/'+ event_dirname(itask + 1) +'/'+ 'residuals'
             fromfile = np.loadtxt(src)
             residuals.append(fromfile**2.)
-        np.savetxt(dst, [np.sum(residuals)])
+
+        total_misfit = np.sum(residuals)
+
+        # add regularization term
+        if PAR.POSTPROCESS in ['tikhonov0', 'tikhonov1']:
+            total_misfit += postprocess.sum_residuals()
+
+        np.savetxt(dst, [total_misfit])
 
 
     def save_gradient(self):

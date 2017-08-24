@@ -22,7 +22,6 @@ class pewf2d(custom_import('postprocess', 'base')):
     def check(self):
         """ Checks parameters and paths
         """
-
         # check parameters
         if 'SMOOTH' not in PAR:
             setattr(PAR, 'SMOOTH', 0.)
@@ -31,8 +30,14 @@ class pewf2d(custom_import('postprocess', 'base')):
             setattr(PAR, 'PRECOND', False)
 
         # check paths
+        if 'MASK' not in PATH:
+            setattr(PATH, 'MASK', None)
+
         if 'PRECOND' not in PATH:
             setattr(PATH, 'PRECOND', None)
+
+        if PATH.MASK:
+            assert exists(PATH.MASK)
 
     def setup(self):
         """ Performs any required initialization or setup tasks
@@ -56,22 +61,36 @@ class pewf2d(custom_import('postprocess', 'base')):
         if not exists(path):
             unix.mkdir(path)
 
-        self.combine_kernels(path, solver.parameters)
-        self.process_kernels(path, solver.parameters)
-
-    def combine_kernels(self, path, parameters):
-        system.run('solver', 'combine',
+        system.run('postprocess', 'process_kernels',
                    hosts='head',
                    path=path,
-                   parameters=parameters)
+                   parameters=solver.parameters)
+
+        g = solver.merge(solver.load(path,
+                                     suffix='_kernel'))
+
+        if PATH.MASK:
+            # apply mask
+            g *= solver.merge(solver.load(PATH.MASK))
+            self.save(path, g, backup='nomask')
 
     def process_kernels(self, path, parameters):
-        if PAR.SMOOTH > 0.:
-            system.run('solver', 'smooth',
-                       hosts='head',
-                       span=PAR.SMOOTH,
-                       path=path,
+        solver.combine(path=path,
                        parameters=parameters)
 
+        if PAR.SMOOTH > 0.:
+            solver.smooth(path=path,
+                          parameters=parameters,
+                          span=PAR.SMOOTH)
+
+    def save(self, path, g, backup=None):
+        if backup:
+            for par in solver.parameters:
+                src = path + '/' + '{}_kernel.bin'.format(par)
+                dst = path + '/' + '{}_kernel_{}.bin'.format(par, backup)
+                unix.mv(src, dst)
+
+        solver.save(solver.split(g), path,
+                    suffix='_kernel')
 
 

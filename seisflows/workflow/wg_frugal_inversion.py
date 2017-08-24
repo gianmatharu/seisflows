@@ -104,7 +104,7 @@ class wg_frugal_inversion(custom_import('workflow', 'wg_inversion')):
             postprocess.write_gradient(PATH.GRAD)
             dst = join(PATH.OPTIMIZE, 'g_new')
             savenpy(dst, solver.merge(solver.load(PATH.GRAD,
-                                              suffix='_kernel_smooth')))
+                                              suffix='_kernel')))
 
             # evaluate misfit function
             self.sum_residuals(path=PATH.SOLVER, suffix='new')

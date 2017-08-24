@@ -144,7 +144,6 @@ class pewf2d(object):
     def initialize_solver_directories(self):
         """ Initialize solver directories.
         """
-        self.check_solver_parameters()
         unix.mkdir(self.getpath)
         unix.cd(self.getpath)
 
@@ -159,6 +158,7 @@ class pewf2d(object):
         """ Perform setup. Generates synthetic observed data.
         """
         # Initialize solver directories
+        self.check_solver_parameters()
         self.initialize_solver_directories()
 
         if PATH.DATA:
@@ -271,24 +271,23 @@ class pewf2d(object):
 
             grad[key] = gradp
 
+            if PAR.RESCALE:
+                grad[key] /= self.scale[key]
+
+        # backup raw kernel
+        self.save(grad, path, suffix='_kernel_raw')
         self.save(grad, path, suffix='_kernel')
 
-    def smooth(self, span=0., path='', parameters=[]):
+    def smooth(self, path='', parameters=[], span=0.):
         """ Process gradient
         """
-        grad = self.load(path, suffix='_kernel', rescale=PAR.RESCALE)
-        grads = {}
+        grad = self.load(path, suffix='_kernel')
 
         for key in parameters or self.parameters:
-            gradp = grad[key].reshape((p.nz, p.nx))
-            gradp = gridsmooth(gradp, span)
+            grad[key] = grad[key].reshape((p.nz, p.nx))
+            grad[key] = gridsmooth(grad[key], span)
 
-            if int(PAR.CLIP) > 0:
-                gradp[:int(PAR.CLIP), :] = 0
-
-            grads[key] = gradp
-
-        self.save(grads, path, suffix='_kernel_smooth')
+        self.save(grad, path, suffix='_kernel')
 
     # solver specific utils
 
@@ -319,7 +318,7 @@ class pewf2d(object):
                 # rescale model files (warning, precond + masks use no prefix/suffix, ensure rescale=False)
                 if not prefix and not suffix:
                     model[key] /= self.scale[key]
-                elif suffix in ['_kernel', '_kernel_smooth']:
+                elif suffix in ['_kernel']:
                     model[key] *= self.scale[key]
 
         return model
@@ -336,7 +335,7 @@ class pewf2d(object):
 
         # determine gradient call
         unix.mkdir(path)
-        if suffix in ['_kernel', '_kernel_smooth']:
+        if suffix in ['_kernel']:
             grad_call = True
         else:
             grad_call = False

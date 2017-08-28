@@ -250,7 +250,7 @@ class pewf2d(object):
             s[i].data = self.adjoint(s[i].data, d[i].data, nt, dt)
 
             if channel == 'p':
-                print 'Use second derivative'
+                #print 'Use second derivative'
                 s[i].data[1:-1] = (s[i].data[2:] - s[i].data[0:-2])/(2.*dt)
                 s[i].data[0] = 0.
                 s[i].data[-1] = 0.

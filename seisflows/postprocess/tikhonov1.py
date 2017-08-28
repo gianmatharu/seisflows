@@ -18,12 +18,12 @@ p.read_par_file(join(PATH.SOLVER_INPUT, 'par_template.cfg'))
 
 class tikhonov1(custom_import('postprocess', 'regularize')):
     """ Adds regularization options to base class
- 
+
         Available options include 0-, 1-, and 2- order Tikhonov and total
         variation regularization. While the underlying theory is classical,
         application to unstructured numerical grids via the
-        "seisflows.tools.math.nabla" operator is somewhat complicated. 
- 
+        "seisflows.tools.math.nabla" operator is somewhat complicated.
+
         So far, can only be used for 2D inversion, because the required spatial
         derivative operator "nabla" is not yet available for 3D grids.
     """
@@ -40,12 +40,15 @@ class tikhonov1(custom_import('postprocess', 'regularize')):
         if 'PAD_LAP' not in PAR:
             setattr(PAR, 'PAD_LAP', 4)
 
-    def sum_residuals(self):
-        """ Evaluate regularization term. 
+    def sum_residuals(self, path):
+        """ Evaluate regularization term.
            1/2 (|| DxM || + ||DzM||)
         """
         residuals = 0.
-        m = solver.load(PATH.MODELS + '/model_est', rescale=PAR.RESCALE)
+        m = solver.load(path, rescale=PAR.RESCALE)
+        dh = max(p.dx, p.dz)
+        dx = p.dx / dh
+        dz = p.dz / dh
 
         for key in solver.parameters:
             m[key] = m[key].reshape((p.nz, p.nx))
@@ -57,11 +60,11 @@ class tikhonov1(custom_import('postprocess', 'regularize')):
             Dz[PAR.PAD_LAP:p.nz-PAR.PAD_LAP, PAR.PAD_LAP:p.nx-PAR.PAD_LAP] = \
                 grad(m[key][PAR.PAD_LAP:p.nz-PAR.PAD_LAP,
                                  PAR.PAD_LAP:p.nx-PAR.PAD_LAP],
-                                 h=[p.dx, p.dz])
+                                 h=[dx, dz])
 
             # add contribution to misfit
-            residuals += 0.5 * PAR.HYPERPAR * np.sum(Dx*Dx)
-            residuals += 0.5 * PAR.HYPERPAR * np.sum(Dz*Dz)
+            residuals += 0.5 * np.sum(Dx*Dx)
+            residuals += 0.5 * np.sum(Dz*Dz)
 
         return residuals
 
@@ -70,7 +73,11 @@ class tikhonov1(custom_import('postprocess', 'regularize')):
         """
         m = m.reshape((p.nz, p.nx))
         gm = np.zeros((p.nz, p.nx))
+        dh = max(p.dx, p.dz)
+        dx = p.dx / dh
+        dz = p.dz / dh
+
         gm[PAR.PAD_LAP:p.nz-PAR.PAD_LAP,
            PAR.PAD_LAP:p.nx-PAR.PAD_LAP] = nabla2(m[PAR.PAD_LAP:p.nz-PAR.PAD_LAP,
                                                     PAR.PAD_LAP:p.nx-PAR.PAD_LAP], h=[p.dx, p.dz])
-        return gm.reshape((p.nz*p.nx))
+        return gm.reshape((p.nz*p.nx)) / np.mean(m)

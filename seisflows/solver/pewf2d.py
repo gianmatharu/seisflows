@@ -275,7 +275,6 @@ class pewf2d(object):
                 grad[key] /= self.scale[key]
 
         # backup raw kernel
-        self.save(grad, path, suffix='_kernel_raw')
         self.save(grad, path, suffix='_kernel')
 
     def smooth(self, path='', parameters=[], span=0.):
@@ -335,7 +334,7 @@ class pewf2d(object):
 
         # determine gradient call
         unix.mkdir(path)
-        if suffix in ['_kernel']:
+        if suffix == '_kernel':
             grad_call = True
         else:
             grad_call = False

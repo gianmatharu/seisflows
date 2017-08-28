@@ -90,7 +90,6 @@ class pewf2d(custom_import('postprocess', 'base')):
                 dst = path + '/' + '{}_kernel_{}.bin'.format(par, backup)
                 unix.mv(src, dst)
 
-        solver.save(solver.split(g), path,
-                    suffix='_kernel')
+        solver.save(solver.split(g), path, suffix='_kernel')
 
 

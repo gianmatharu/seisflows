@@ -279,14 +279,33 @@ class p_inversion(custom_import('workflow', 'inversion')):
             fromfile = np.loadtxt(src)
             residuals.append(fromfile**2.)
 
-        total_misfit = np.sum(residuals)
+        data_misfit = np.sum(residuals)
+        total_misfit = data_misfit
+        np.savetxt(dst, [total_misfit])
 
         # add regularization term
         if PAR.POSTPROCESS in ['tikhonov0', 'tikhonov1']:
-            total_misfit += postprocess.sum_residuals()
+            if suffix == 'new':
+                path = PATH.MODELS +'/'+ 'model_est'
+            elif suffix == 'try':
+                path = PATH.FUNC +'/' + 'model'
 
-        np.savetxt(dst, [total_misfit])
+            reg_misfit = postprocess.sum_residuals(path)
 
+            total_misfit = data_misfit
+            #total_misfit = data_misfit + PAR.HYPERPAR * reg_misfit
+            np.savetxt(dst, [total_misfit])
+
+            # write data and regularization misfit
+            dst = PATH.OPTIMIZE +'/'+ 'fr_' + suffix
+            np.savetxt(dst, [reg_misfit])
+
+            dst = PATH.OPTIMIZE +'/'+ 'fd_' + suffix
+            np.savetxt(dst, [data_misfit])
+            print 'Misfit - {} |--------------------'.format(suffix)
+            print 'Total misfit: {:.3e}'.format(total_misfit)
+            print 'Data misfit: {:.3e}'.format(data_misfit)
+            print 'Regr misfit: {:.3e}'.format(reg_misfit)
 
     def save_gradient(self):
         src = glob(join(PATH.GRAD, '*_kernel.bin'))

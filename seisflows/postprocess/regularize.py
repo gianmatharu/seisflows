@@ -14,7 +14,7 @@ class regularize(custom_import('postprocess', 'pewf2d')):
         This parent class is only an abstract base class; see child classes
         TIKHONOV1 and TIKHONOV1 for usable regularization.
 
-        Regularization hyperparameter is controlled by HYPERPAR (default = 0.0, 
+        Regularization hyperparameter is controlled by HYPERPAR (default = 0.0,
         no regularization). Regularization is only valid for a rectangular grid.
     """
 
@@ -36,8 +36,12 @@ class regularize(custom_import('postprocess', 'pewf2d')):
         g = solver.load(path, suffix='_kernel')
         m = solver.load(PATH.MODELS + '/model_est', rescale=PAR.RESCALE)
 
+        print 'Max of gradient: {}'.format(abs(solver.merge(g)).max())
+
         for key in solver.parameters:
-                g[key] += PAR.HYPERPAR * self.nabla(m[key])
+                d = self.nabla(m[key], key)
+                print 'Max of {} gradient: {}'.format(key, abs(d).max())
+                g[key] += PAR.HYPERPAR * self.nabla(m[key], key)
 
         self.save(path, solver.merge(g), backup='noregularize')
 
@@ -50,5 +54,5 @@ class regularize(custom_import('postprocess', 'pewf2d')):
     def sum_residuals(self):
         raise NotImplementedError("Must be implemented by subclass.")
 
-    def nabla(self, m):
+    def nabla(self, m, key):
         raise NotImplementedError("Must be implemented by subclass.")

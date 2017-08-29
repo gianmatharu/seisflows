@@ -292,8 +292,8 @@ class p_inversion(custom_import('workflow', 'inversion')):
 
             reg_misfit = postprocess.sum_residuals(path)
 
-            total_misfit = data_misfit
-            #total_misfit = data_misfit + PAR.HYPERPAR * reg_misfit
+            #total_misfit = data_misfit
+            total_misfit = data_misfit + PAR.HYPERPAR * reg_misfit
             np.savetxt(dst, [total_misfit])
 
             # write data and regularization misfit

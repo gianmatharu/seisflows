@@ -46,9 +46,6 @@ class tikhonov1(custom_import('postprocess', 'regularize')):
         """
         residuals = 0.
         m = solver.load(path, rescale=PAR.RESCALE)
-        dh = max(p.dx, p.dz)
-        dx = p.dx / dh
-        dz = p.dz / dh
 
         for key in solver.parameters:
             m[key] = m[key].reshape((p.nz, p.nx))
@@ -59,8 +56,7 @@ class tikhonov1(custom_import('postprocess', 'regularize')):
             Dx[PAR.PAD_LAP:p.nz-PAR.PAD_LAP, PAR.PAD_LAP:p.nx-PAR.PAD_LAP], \
             Dz[PAR.PAD_LAP:p.nz-PAR.PAD_LAP, PAR.PAD_LAP:p.nx-PAR.PAD_LAP] = \
                 grad(m[key][PAR.PAD_LAP:p.nz-PAR.PAD_LAP,
-                                 PAR.PAD_LAP:p.nx-PAR.PAD_LAP],
-                                 h=[dx, dz])
+                                 PAR.PAD_LAP:p.nx-PAR.PAD_LAP])
 
             # add contribution to misfit
             residuals += 0.5 * np.sum(Dx*Dx)
@@ -68,16 +64,12 @@ class tikhonov1(custom_import('postprocess', 'regularize')):
 
         return residuals
 
-    def nabla(self, m):
+    def nabla(self, m, key):
         """ Evaluate regularization gradient term.
         """
         m = m.reshape((p.nz, p.nx))
         gm = np.zeros((p.nz, p.nx))
-        dh = max(p.dx, p.dz)
-        dx = p.dx / dh
-        dz = p.dz / dh
-
         gm[PAR.PAD_LAP:p.nz-PAR.PAD_LAP,
            PAR.PAD_LAP:p.nx-PAR.PAD_LAP] = nabla2(m[PAR.PAD_LAP:p.nz-PAR.PAD_LAP,
-                                                    PAR.PAD_LAP:p.nx-PAR.PAD_LAP], h=[p.dx, p.dz])
-        return gm.reshape((p.nz*p.nx)) / np.mean(m)
+                                                    PAR.PAD_LAP:p.nx-PAR.PAD_LAP])
+        return gm.reshape((p.nz*p.nx))

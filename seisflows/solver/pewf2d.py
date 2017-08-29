@@ -272,7 +272,7 @@ class pewf2d(object):
             grad[key] = gradp
 
             if PAR.RESCALE:
-                grad[key] /= self.scale[key]
+                grad[key] *= self.scale[key]
 
         # backup raw kernel
         self.save(grad, path, suffix='_kernel')
@@ -317,7 +317,7 @@ class pewf2d(object):
                 # rescale model files (warning, precond + masks use no prefix/suffix, ensure rescale=False)
                 if not prefix and not suffix:
                     model[key] /= self.scale[key]
-                elif suffix in ['_kernel']:
+                elif suffix == '_kernel':
                     model[key] *= self.scale[key]
 
         return model

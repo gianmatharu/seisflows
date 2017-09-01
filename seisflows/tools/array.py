@@ -3,6 +3,7 @@ import os
 import numpy as np
 import scipy.signal as _signal
 import scipy.interpolate as _interp
+from scipy.ndimage.filters import gaussian_filter
 
 from seisflows.tools.math import gauss2
 
@@ -122,18 +123,20 @@ def gridsmooth(Z, span):
     import warnings
     warnings.filterwarnings('ignore')
 
-    x = np.linspace(-2.*span, 2.*span, 2.*span + 1.)
-    y = np.linspace(-2.*span, 2.*span, 2.*span + 1.)
-    (X, Y) = np.meshgrid(x, y)
-    mu = np.array([0., 0.])
-    sigma = np.diag([span, span])**2.
-    F = gauss2(X, Y, mu, sigma)
-    F = F/np.sum(F)
-    W = np.ones(Z.shape)
-    Z = _signal.convolve2d(Z, F, 'same')
-    W = _signal.convolve2d(W, F, 'same')
-    Z = Z/W
-    return Z
+    return gaussian_filter(Z, span/2.)
+
+    # x = np.linspace(-2.*span, 2.*span, 2.*span + 1.)
+    # y = np.linspace(-2.*span, 2.*span, 2.*span + 1.)
+    # (X, Y) = np.meshgrid(x, y)
+    # mu = np.array([0., 0.])
+    # sigma = np.diag([span, span])**2.
+    # F = gauss2(X, Y, mu, sigma)
+    # F = F/np.sum(F)
+    # W = np.ones(Z.shape)
+    # Z = _signal.convolve2d(Z, F, 'same')
+    # W = _signal.convolve2d(W, F, 'same')
+    # Z = Z/W
+    # return Z
 
 
 def meshsmooth(v, mesh, span):

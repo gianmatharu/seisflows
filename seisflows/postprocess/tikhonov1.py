@@ -42,25 +42,21 @@ class tikhonov1(custom_import('postprocess', 'regularize')):
 
     def sum_residuals(self, path):
         """ Evaluate regularization term.
-           1/2 (|| DxM || + ||DzM||)
+           1/2 (|| m' Lm||)
         """
         residuals = 0.
         m = solver.load(path, rescale=PAR.RESCALE)
 
         for key in solver.parameters:
             m[key] = m[key].reshape((p.nz, p.nx))
-            Dx = np.zeros((p.nz, p.nx))
-            Dz = np.zeros((p.nz, p.nx))
+            L = np.zeros((p.nz, p.nx))
 
-            # Compute spatial derivatives
-            Dx[PAR.PAD_LAP:p.nz-PAR.PAD_LAP, PAR.PAD_LAP:p.nx-PAR.PAD_LAP], \
-            Dz[PAR.PAD_LAP:p.nz-PAR.PAD_LAP, PAR.PAD_LAP:p.nx-PAR.PAD_LAP] = \
-                grad(m[key][PAR.PAD_LAP:p.nz-PAR.PAD_LAP,
-                                 PAR.PAD_LAP:p.nx-PAR.PAD_LAP])
-
+            # Compute laplacian
+            L[PAR.PAD_LAP:p.nz-PAR.PAD_LAP,
+              PAR.PAD_LAP:p.nx-PAR.PAD_LAP] = nabla2(m[key][PAR.PAD_LAP:p.nz-PAR.PAD_LAP,
+                                                            PAR.PAD_LAP:p.nx-PAR.PAD_LAP])
             # add contribution to misfit
-            residuals += 0.5 * np.sum(Dx*Dx)
-            residuals += 0.5 * np.sum(Dz*Dz)
+            residuals += 0.5 * np.sum(m*L)
 
         return residuals
 

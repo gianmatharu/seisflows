@@ -61,7 +61,10 @@ def plot_vector(t, v, xlabel='', ylabel='', title=''):
     plt.show()
 
 
-def imshow_wcbar(image, ax, cticks=[], cticklabels=[], clabel='', **kwargs):
+def imshow_wcbar(image, ax=None, cticks=[], cticklabels=[], clabel='', **kwargs):
+
+    if ax is None:
+        ax = plt.gca()
 
     im = ax.imshow(image, **kwargs)
     div = make_axes_locatable(ax)

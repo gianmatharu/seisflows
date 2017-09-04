@@ -56,7 +56,7 @@ class tikhonov1(custom_import('postprocess', 'regularize')):
               PAR.PAD_LAP:p.nx-PAR.PAD_LAP] = nabla2(m[key][PAR.PAD_LAP:p.nz-PAR.PAD_LAP,
                                                             PAR.PAD_LAP:p.nx-PAR.PAD_LAP])
             # add contribution to misfit
-            residuals += 0.5 * np.sum(m*L)
+            residuals += 0.5 * np.sum(m[key]*L)
 
         return residuals
 

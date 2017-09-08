@@ -277,7 +277,11 @@ class p_inversion(custom_import('workflow', 'inversion')):
         for itask in range(PAR.NTASK):
             src = path +'/'+ event_dirname(itask + 1) +'/'+ 'residuals'
             fromfile = np.loadtxt(src)
-            residuals.append(fromfile**2.)
+
+            if PAR.MISFIT == 'Correlation1':
+                residuals.append(fromfile)
+            else:
+                residuals.append(fromfile**2.)
 
         data_misfit = np.sum(residuals)
         total_misfit = data_misfit

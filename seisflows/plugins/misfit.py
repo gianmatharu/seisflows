@@ -86,10 +86,10 @@ def InstantaneousPhase2(syn, obs, nt, dt, eps=0.):
 
 def Correlation1(syn, obs, nt, dt):
     # normalized zero-lag cross-correlation
-    nfac = 1./(np.sqrt(np.sum(obs*obs*dt)) * np.sqrt(np.sum(syn*syn*dt)))
+    nfac = np.sqrt(np.sum(obs*obs*dt)) * np.sqrt(np.sum(syn*syn*dt))
     xcorr = np.sum(syn*obs*dt)
 
-    return -nfac * xcorr
+    return -xcorr / nfac
 
 
 def Displacement(syn, obs, nt, dt):

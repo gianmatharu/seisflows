@@ -116,10 +116,10 @@ def InstantaneousPhase2(syn, obs, nt, dt, eps=0.):
 
 def Correlation1(syn, obs, nt, dt):
     # normalized zero-lag cross-correlation
-    nfac = 1./(_np.sqrt(_np.sum(obs*obs*dt)) * _np.sqrt(_np.sum(syn*syn*dt)))
+    nfac = _np.sqrt(_np.sum(obs * obs * dt)) * _np.sqrt(_np.sum(syn * syn * dt))
     cfac = _np.sum(obs*syn*dt)/_np.sum(syn*syn*dt)
 
-    wadj = nfac * (cfac*syn - obs)
+    wadj = (cfac*syn - obs) / nfac
     return wadj
 
 ### migration

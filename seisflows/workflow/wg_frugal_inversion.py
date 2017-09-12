@@ -25,7 +25,7 @@ class wg_frugal_inversion(custom_import('workflow', 'wg_inversion')):
         conditions are not met, the class launches a standard inversion.
     """
 
-    def solver_status(self, maxiter=1):
+    def solver_status(self, maxiter=1, optimize_isdone=False):
         """ Keeps track of whether a forward simulation would be redundant
         """
         if optimize.iter <= maxiter:
@@ -33,10 +33,11 @@ class wg_frugal_inversion(custom_import('workflow', 'wg_inversion')):
             # prior to first iteration
             return False
 
-        elif optimize.iter == PAR.BEGIN:
-            # forward simulation not redundant because solver files need to be
-            # reinstated after possible multiscale transition
-            return False
+        elif not optimize_isdone:
+            if optimize.iter == PAR.BEGIN:
+                # forward simulation not redundant because solver files need to be
+                # reinstated after possible multiscale transition
+                return False
 
         elif PAR.LINESEARCH != 'Backtrack':
             # thrifty inversion only implemented for backtracking line search,
@@ -132,7 +133,7 @@ class wg_frugal_inversion(custom_import('workflow', 'wg_inversion')):
         super(wg_frugal_inversion, self).iterate_search()
 
         isdone = optimize.isdone
-        isready = self.solver_status()
+        isready = self.solver_status(optimize_isdone=isdone)
 
         # to avoid redundant forward simulation, save solver files associated
         # with 'best' trial model

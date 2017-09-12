@@ -19,7 +19,7 @@ if __name__ == '__main__':
 
     system = sys.modules['seisflows_system']
 
-    if system.getnode() == 0:
+    if system.taskid() == 0:
         # load function arguments
         kwargspath = join(mypath, 'kwargs')
         kwargs = loadobj(join(kwargspath, myclass+'_'+myfunc + '.p'))

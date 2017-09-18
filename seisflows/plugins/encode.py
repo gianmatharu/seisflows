@@ -122,6 +122,7 @@ def shift_encoder(n, dt, max_dt):
     dist = np.arange(-max_dt, max_dt+dt, dt)
     return np.random.choice(dist, n)
 
+
 def generate_ray_parameters(pmin, pmax, n):
 
     ray_parameters = (pmax-pmin) * np.random.random_sample(n) + pmin
@@ -130,4 +131,20 @@ def generate_ray_parameters(pmin, pmax, n):
     return ray_parameters
 
 
+def decimate_source_array(source_array, ndecimate, random=False):
+    """ Return a decimated source array  
+    """
+    if not isinstance(source_array, SourceArray):
+        raise TypeError('Input should be a SourceArray object.')
+
+    n = len(source_array)
+
+    if random:
+        index_list = np.random.choice(n, ndecimate, replace=False)
+        index_list.sort()
+    else:
+        # perform uniform decimation (assumes ordered array).
+        index_list = np.linspace(0, n, ndecimate, endpoint=False)
+        index_list = [int(item) for item in index_list]
+    return SourceArray([source_array[i] for i in index_list])
 

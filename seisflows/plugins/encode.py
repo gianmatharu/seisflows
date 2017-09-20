@@ -131,7 +131,7 @@ def generate_ray_parameters(pmin, pmax, n):
     return ray_parameters
 
 
-def decimate_source_array(source_array, ndecimate, random=False):
+def decimate_source_array(source_array, ndecimate, random=False, batch=False):
     """ Return a decimated source array  
     """
     if not isinstance(source_array, SourceArray):
@@ -140,11 +140,29 @@ def decimate_source_array(source_array, ndecimate, random=False):
     n = len(source_array)
 
     if random:
-        index_list = np.random.choice(n, ndecimate, replace=False)
+        # perform batch-random sampling
+        if batch:
+            index_list = _random_batch_choice(n, ndecimate)
+        else:
+            index_list = np.random.choice(n, ndecimate, replace=False)
         index_list.sort()
     else:
         # perform uniform decimation (assumes ordered array).
         index_list = np.linspace(0, n, ndecimate, endpoint=False)
         index_list = [int(item) for item in index_list]
+
     return SourceArray([source_array[i] for i in index_list])
+
+def _random_batch_choice(n, nchoice):
+    """ Performs random sampling for batches. Assumes ordered array. 
+        Warning, assumes ordered reflection geometry. 
+    """
+    index_list = []
+    ninterval = int(n / nchoice)
+
+    for i in xrange(nchoice):
+        print np.arange(i*ninterval, (i+1)*ninterval)
+        index_list.append(np.random.choice(np.arange(i*ninterval, (i+1)*ninterval)))
+
+    return index_list
 

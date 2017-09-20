@@ -45,6 +45,9 @@ class spewf2d(custom_import('solver', 'pewf2d')):
         if 'STOCHASTIC' not in PAR:
             setattr(PAR, 'STOCHASTIC', False)
 
+        if 'BATCH' not in PAR:
+            setattr(PAR, 'BATCH', False)
+
         if 'ITER_RESET' not in PAR:
             setattr(PAR, 'ITER_RESET', 1)
 
@@ -83,7 +86,10 @@ class spewf2d(custom_import('solver', 'pewf2d')):
         """ Decimate source array.
         """
         # generate working source array
-        self.source_array_subset = decimate_source_array(self.source_array, PAR.NTASK, random=PAR.STOCHASTIC)
+        self.source_array_subset = decimate_source_array(self.source_array,
+                                                         PAR.NTASK,
+                                                         random=PAR.STOCHASTIC,
+                                                         batch=PAR.BATCH)
         self._write_source_file()
 
         if PAR.VERBOSE:

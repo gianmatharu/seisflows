@@ -11,7 +11,7 @@ from os.path import join, exists
 from obspy import read
 
 from seisflows.plugins.solver.pewf2d import event_dirname
-from seisflows.tools.signal import mute_early_arrivals
+from seisflows.tools.signal import mute_early_arrivals, mute_late_arrivals
 from seisflows.tools import unix
 
 
@@ -37,6 +37,12 @@ def parse_args():
     parser.add_argument('-ts', '--tshift',
                         type=float,
                         help='time shift [s]')
+
+    parser.add_argument('-e', '--early',
+                        action='store_true',
+                        default=False,
+                        help='Mute early arrivals.')
+
 
     return parser.parse_args()
 
@@ -87,12 +93,21 @@ if __name__ == "__main__":
             dt = stream[0].stats.delta
             nt = len(stream[0].data)
             s_coords, r_coords = get_coords(stream)
-            
-            stream = mute_early_arrivals(stream,
-                                        1/args.slope,
-                                        args.tshift,
-                                        (nt, dt, 0),
-                                        s_coords,
-                                        r_coords)
+
+            if args.eearly:
+                stream = mute_early_arrivals(stream,
+                                            1/args.slope,
+                                            args.tshift,
+                                            (nt, dt, 0),
+                                            s_coords,
+                                            r_coords)
+            else:
+                stream = mute_late_arrivals(stream,
+                                            1/args.slope,
+                                            args.tshift,
+                                            (nt, dt, 0),
+                                            s_coords,
+                                            r_coords)
+
             output = join(args.opath, event_dirname(i+1), filename)
             stream.write(output, format='SU', byteorder='<')

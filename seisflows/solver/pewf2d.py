@@ -299,6 +299,17 @@ class pewf2d(object):
             dst = join(path, 'traces/obs')
             unix.mv(src, dst)
 
+    def export_gradient(self, path=''):
+        """ Move data
+        """
+        for itask in range(PAR.NTASK):
+            src_path = join(PATH.SOLVER, event_dirname(itask + 1), 'traces/syn')
+            src = glob(join(src_path, '*_kernel.bin'))
+            dst = join(path, event_dirname(itask+1))
+            if not exists(dst):
+                unix.mkdir(dst)
+            unix.mv(src, dst)
+
     def clean_boundary_storage(self):
         """ Delete boundary files required for wavefield reconstruction
         """

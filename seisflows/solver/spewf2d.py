@@ -74,6 +74,7 @@ class spewf2d(custom_import('solver', 'pewf2d')):
         """
         # construct source array (all sources)
         self.source_array = SourceArray.fromfile(join(PATH.DATA, PAR.SOURCE_FILE))
+        self.count = np.zeros(len(self.source_array))
 
         # check input
         if len(self.source_array) != PAR.NSOURCES:
@@ -91,10 +92,13 @@ class spewf2d(custom_import('solver', 'pewf2d')):
                                                          random=PAR.STOCHASTIC,
                                                          batch=PAR.BATCH)
         self._write_source_file()
+        for source in self.source_array_subset:
+            self.count[source.index-1] += 1
 
         if PAR.VERBOSE:
             print 'Current subset...'
             self.source_array_subset.print_positions()
+            self.print_count()
 
 
     def fetch_data(self):
@@ -160,6 +164,15 @@ class spewf2d(custom_import('solver', 'pewf2d')):
                          use_src_file=True,
                          src_file=join(PATH.SOURCE, 'SOURCES'))
         self.forward()
+
+    def print_count(self):
+        """ Print running tally for frequency of source. 
+        """
+        for source in self.source_array:
+            print "Source {:02d}: ".format(source.index) + \
+                  "{0:<50} ".format(int(self.count[source.index-1])*'|') + \
+                  "({})".format(self.count[source.index-1])
+        print('\n')
 
     def _write_source_file(self):
         """ Write solver suitable source file.

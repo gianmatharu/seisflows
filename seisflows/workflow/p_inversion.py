@@ -46,7 +46,7 @@ class p_inversion(custom_import('workflow', 'inversion')):
         super(p_inversion, self).check()
 
         # check parameters
-        if PAR.SOLVER not in ['pewf2d', 'ssewf2d', 'spewf2d']:
+        if PAR.SOLVER not in ['pewf2d', 'ssewf2d', 'spewf2d', 'saga_pewf2d']:
             raise ValueError('Use solver class "pewf2d" here.')
 
         if not PAR.USE_STF_FILE:

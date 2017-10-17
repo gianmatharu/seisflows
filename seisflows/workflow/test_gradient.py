@@ -43,6 +43,9 @@ class test_gradient(object):
         if 'MODEL_EST' not in PATH:
             setattr(PATH, 'MODEL_EST', join(PATH.MODELS, 'model_est'))
 
+        if 'STORE' not in PATH:
+            setattr(PATH, 'STORE', join(PATH.WORKDIR, 'gradients'))
+
         # check parameters
         if not PAR.USE_STF_FILE:
             raise ValueError('Must use stf for gradient calculations.')
@@ -69,6 +72,7 @@ class test_gradient(object):
 
         self.generate_data()
         self.evaluate_gradient()
+        self.store_gradient()
         print('Finished')
 
     def generate_data(self):
@@ -101,6 +105,15 @@ class test_gradient(object):
         src = PATH.GRAD
         dst = join(PATH.OPTIMIZE, 'g_new')
         savenpy(dst, solver.merge(solver.load(src, suffix='_kernel')))
+
+
+    def store_gradient(self):
+        """ Store individual gradients
+        """
+        self.clean_directory(PATH.STORE)
+        system.run('solver', 'export_gradient',
+                    path=PATH.STORE,
+                    hosts='head')
 
     def clean_directory(self, path):
         """ If dir exists clean otherwise make

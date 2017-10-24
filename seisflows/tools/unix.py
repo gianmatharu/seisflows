@@ -75,7 +75,7 @@ def ls(path):
 
 
 def mkdir(dirs):
-    time.sleep(2 * random.random())
+    #time.sleep(2 * random.random())
     for dir in iterable(dirs):
         if not os.path.isdir(dir):
             os.makedirs(dir)
@@ -128,7 +128,6 @@ def select(items, prompt=''):
 def touch(filename, times=None):
     with open(filename, 'a'):
         os.utime(filename, times)
-
 
 
 def which(name):

@@ -91,4 +91,6 @@ class LCG(object):
     def apply_precond(self, r):
         return r
 
+    def finalize(self):
+        pass
 

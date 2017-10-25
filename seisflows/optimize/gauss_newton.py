@@ -1,11 +1,6 @@
-import numpy as np
+import sys
 
-from seisflows.tools import unix
-from seisflows.tools.array import loadnpy, savenpy
-from seisflows.tools.tools import loadtxt, savetxt
-from seisflows.config import , ParameterError, custom_import
-
-from seisflows.optimize import lib
+from seisflows.config import ParameterError, custom_import
 
 PAR = sys.modules['seisflows_parameters']
 PATH = sys.modules['seisflows_paths']
@@ -22,4 +17,4 @@ class gauss_newton(custom_import('optimize', 'newton')):
 
 
     def hessian_product(cls, h):
-        return self.load('g_lcg')/h
+        return cls.load('g_lcg')/h

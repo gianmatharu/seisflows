@@ -122,7 +122,10 @@ class base(object):
         unix.mkdir(PATH.OPTIMIZE)
         if 'MODEL_INIT' in PATH:
             solver = sys.modules['seisflows_solver']
-            self.save('m_new', solver.merge(solver.load(PATH.MODEL_INIT, rescale=PAR.RESCALE)))
+            if PAR.SOLVER not in ['pewf2d', 'ssewf2d', 'spewf2d', 'saga_pewf2d']:
+                self.save('m_new', solver.merge(solver.load(PATH.MODEL_INIT)))
+            else:
+                self.save('m_new', solver.merge(solver.load(PATH.MODEL_INIT, rescale=PAR.RESCALE)))
 
 
     def compute_direction(self):

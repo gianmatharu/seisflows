@@ -6,13 +6,14 @@ from os.path import abspath, basename, join, dirname
 from seisflows.tools import unix
 from seisflows.tools.tools import call, findpath, saveobj
 from seisflows.config import ParameterError, custom_import
+from seisflows.workflow.base import base
 
 
 PAR = sys.modules['seisflows_parameters']
 PATH = sys.modules['seisflows_paths']
 
 
-class westgrid(custom_import('system', 'base')):
+class westgrid(base):
     """ An interface through which to submit workflows, run tasks in serial or
       parallel, and perform other system functions.
 
@@ -81,53 +82,56 @@ class westgrid(custom_import('system', 'base')):
         workflow.main()
 
 
-    def run(self, classname, funcname, hosts='all', **kwargs):
-        """  Runs tasks in serial or parallel on specified hosts
+    def run(self, classname, funcname, **kwargs):
+        """  Runs tasks in serial or parallel on all hosts
         """
         self.checkpoint()
         self.save_kwargs(classname, funcname, kwargs)
 
-        if hosts == 'all':
-            # run on all available nodes
+        # run on all available nodes
+        iloop = 0
+        queue = list(range(PAR.NTASK))
 
-            iloop = 0
-            queue = list(range(PAR.NTASK))
+        while queue:
 
-            while queue:
-
-                call('pbsdsh '
-                        + join(findpath('seisflows.system'), 'wrappers/export_paths.sh ')
-                        + os.getenv('PATH') + ' '
-                        + os.getenv('LD_LIBRARY_PATH') + ' '
-                        + str(iloop) + ' '
-                        + join(findpath('seisflows.system'), 'wrappers/run_pbsdsh ')
-                        + PATH.OUTPUT + ' '
-                        + classname + ' '
-                        + funcname + ' '
-                        + dirname(findpath('seisflows').rstrip('/')))
-
-                iloop += 1
-                queue = queue[:-PAR.NPROC]
-
-        elif hosts == 'head':
-            # run on head node
             call('pbsdsh '
                     + join(findpath('seisflows.system'), 'wrappers/export_paths.sh ')
                     + os.getenv('PATH') + ' '
                     + os.getenv('LD_LIBRARY_PATH') + ' '
-                    + str(0) + ' '
-                    + join(findpath('seisflows.system'), 'wrappers/run_pbsdsh_head ')
+                    + str(iloop) + ' '
+                    + join(findpath('seisflows.system'), 'wrappers/run_pbsdsh ')
                     + PATH.OUTPUT + ' '
                     + classname + ' '
                     + funcname + ' '
                     + dirname(findpath('seisflows').rstrip('/')))
 
-        elif hosts == 'mpi_c':
-            func = getattr(__import__('seisflows_'+classname), funcname)
-            func(**kwargs)
+            iloop += 1
+            queue = queue[:-PAR.NPROC]
 
-        else:
-            raise(KeyError('Hosts parameter not set/recognized.'))
+
+    def run_single(self, classname, funcname, **kwargs):
+        """  Runs tasks in serial on single host
+        """
+        self.checkpoint()
+        self.save_kwargs(classname, funcname, kwargs)
+        # run on head node
+        call('pbsdsh '
+                + join(findpath('seisflows.system'), 'wrappers/export_paths.sh ')
+                + os.getenv('PATH') + ' '
+                + os.getenv('LD_LIBRARY_PATH') + ' '
+                + str(0) + ' '
+                + join(findpath('seisflows.system'), 'wrappers/run_pbsdsh_head ')
+                + PATH.OUTPUT + ' '
+                + classname + ' '
+                + funcname + ' '
+                + dirname(findpath('seisflows').rstrip('/')))
+
+
+    def run_parallel(self, classname, funcname, **kwargs):
+        """ Run a code that runs in parallel internally.
+        """
+        func = getattr(__import__('seisflows_'+classname), funcname)
+        func(**kwargs)
 
 
     def taskid(self):

@@ -24,62 +24,36 @@ class frugal_inversion(custom_import('workflow', 'p_inversion')):
         computation. Only useable with a backtracking linesearch. If
         conditions are not met, the class launches a standard inversion.
     """
+    status = 0
 
-    def solver_status(self, maxiter=1, optimize_isdone=False):
+    def update_status(self, maxiter=1, optimize_isdone=False):
         """ Keeps track of whether a forward simulation would be redundant
         """
         if optimize.iter <= maxiter:
             # forward simulation not redundant because solver files do not exist
             # prior to first iteration
-            return False
+            self.status = 0
 
         elif not optimize_isdone:
             if optimize.iter == PAR.BEGIN:
                 # forward simulation not redundant because solver files need to be
                 # reinstated after possible multiscale transition
-                return False
+                self.status = 0
 
         elif PAR.LINESEARCH != 'Backtrack':
             # thrifty inversion only implemented for backtracking line search,
             # not bracketing line search
-            return False
+            self.status = 0
 
         elif optimize.restarted:
             # forward simulation not redundant following optimization algorithm
             # restart
-            return False
+            self.status = 0
 
         else:
             # if none of the above conditions are triggered, then forward
             # simulation is redundant, can be skipped
-            return True
-
-
-    def setup(self):
-        """ Lays groundwork for inversion
-        """
-        # clean scratch directories
-        if PAR.BEGIN == 1:
-            unix.rm(PATH.SCRATCH)
-            unix.mkdir(PATH.SCRATCH)
-
-            preprocess.setup()
-            postprocess.setup()
-            optimize.setup()
-
-        isready = self.solver_status()
-        if not isready:
-            # initialize directories
-            system.run('solver', 'setup',
-                       hosts='all')
-
-            # copy/generate data
-            if PATH.DATA:
-                print('Copying data...')
-            else:
-                print('Generating data...')
-                system.run('solver', 'generate_data',
-                            hosts='head')
+            self.status = 1
 
 
     def compute_gradient(self):
@@ -87,26 +61,23 @@ class frugal_inversion(custom_import('workflow', 'p_inversion')):
             of boundary files.
         """
         # are prerequisites for gradient evaluation in place?
-        isready = self.solver_status(maxiter=2)
+        self.update_status()
+        print "Status: {}".format(self.status)
 
         # if not, then prepare for gradient evaluation
-        if not isready:
+        if self.status == 0:
             super(frugal_inversion, self).compute_gradient()
         else:
             print('Computing gradient (frugal)...')
-
             print('Prepare adjoint sources...')
-            system.run('solver', 'prepare_eval_grad',
-                       hosts='all')
+            system.run('solver', 'prepare_eval_grad')
 
             print('Computing gradient...')
-            system.run('solver', 'compute_gradient',
-                        hosts='head')
+            system.run_single('solver', 'compute_gradient')
 
             postprocess.write_gradient(PATH.GRAD)
             dst = join(PATH.OPTIMIZE, 'g_new')
-            savenpy(dst, solver.merge(solver.load(PATH.GRAD,
-                                              suffix='_kernel')))
+            savenpy(dst, solver.merge(solver.load(PATH.GRAD, suffix='_kernel')))
 
             # evaluate misfit function
             self.sum_residuals(path=PATH.SOLVER, suffix='new')
@@ -118,29 +89,43 @@ class frugal_inversion(custom_import('workflow', 'p_inversion')):
         print('Frugal eval...')
         self.write_model(path=PATH.FUNC, suffix='try')
 
-        system.run('solver', 'evaluate_function',
-                   mode=1,
-                   hosts='head')
-        system.run('solver', 'process_trial_step',
-                   hosts='all')
+        system.run_single('solver', 'evaluate_function', mode=1)
+        system.run('solver', 'process_trial_step')
 
         self.sum_residuals(path=PATH.FUNC, suffix='try')
 
 
-    def iterate_search(self):
-        """ First, calls self.evaluate_function, which carries out a forward
-          simulation given the current trial model. Then calls
-          optimize.update_status, which maintains search history and checks
-          stopping conditions.
-        """
-        super(frugal_inversion, self).iterate_search()
+    def line_search(self):
+        """ Conducts line search in given search direction
 
-        isdone = optimize.isdone
-        isready = self.solver_status(optimize_isdone=isdone)
+            Status codes
+                status > 0  : finished
+                status == 0 : not finished
+                status < 0  : failed
+          """
+        optimize.initialize_search()
 
-        # to avoid redundant forward simulation, save solver files associated
-        # with 'best' trial model
-        if isready and isdone:
-            system.run('solver', 'export_trial_solution',
-                       hosts='all',
-                       path=PATH.FUNC)
+        while True:
+            print " trial step", optimize.line_search.step_count + 1
+            self.evaluate_function()
+            status = optimize.update_search()
+
+            if status > 0:
+                self.update_status(optimize_isdone=status)
+                if self.status == 1:
+                    system.run('solver', 'export_trial_solution', path=PATH.FUNC)
+                optimize.finalize_search()
+                break
+
+            elif status == 0:
+                continue
+
+            elif status < 0:
+                if optimize.retry_status():
+                    print ' Line search failed\n\n Retrying...'
+                    optimize.restart()
+                    self.line_search()
+                    break
+                else:
+                    print ' Line search failed\n\n Aborting...'
+                    sys.exit(-1)

@@ -76,16 +76,14 @@ class wg_inversion(custom_import('workflow', 'p_inversion')):
             optimize.setup()
 
         # initialize directories
-        system.run('solver', 'setup',
-                   hosts='all')
+        system.run('solver', 'setup')
 
         # copy/generate data
         if PATH.DATA:
             print('Copying data...')
         else:
             print('Generating data...')
-            system.run('solver', 'generate_data',
-                        hosts='mpi_c')
+            system.run_parallel('solver', 'generate_data')
 
 
     def compute_gradient(self):
@@ -97,22 +95,17 @@ class wg_inversion(custom_import('workflow', 'p_inversion')):
         unix.mkdir(join(PATH.OUTPUT, iter_dirname(optimize.iter)))
 
         print('Generating synthetics...')
-        system.run('solver', 'generate_synthetics',
-                    mode=1,
-                    hosts='mpi_c')
+        system.run_parallel('solver', 'generate_synthetics', mode=1)
 
         print('Prepare adjoint sources...')
-        system.run('solver', 'prepare_eval_grad',
-                   hosts='all')
+        system.run('solver', 'prepare_eval_grad')
 
         print('Computing gradient...')
-        system.run('solver', 'compute_gradient',
-                    hosts='mpi_c')
+        system.run_parallel('solver', 'compute_gradient')
 
         postprocess.write_gradient(PATH.GRAD)
         dst = join(PATH.OPTIMIZE, 'g_new')
-        savenpy(dst, solver.merge(solver.load(PATH.GRAD,
-                                              suffix='_kernel')))
+        savenpy(dst, solver.merge(solver.load(PATH.GRAD, suffix='_kernel')))
 
         # evaluate misfit function
         self.sum_residuals(path=PATH.SOLVER, suffix='new')
@@ -126,11 +119,8 @@ class wg_inversion(custom_import('workflow', 'p_inversion')):
 
         self.write_model(path=PATH.FUNC, suffix='try')
 
-        system.run('solver', 'evaluate_function',
-                   hosts='mpi_c')
-        system.run('solver', 'process_trial_step',
-                   hosts='all')
-
+        system.run_parallel('solver', 'evaluate_function')
+        system.run('solver', 'process_trial_step')
         self.sum_residuals(path=PATH.FUNC, suffix='try')
 
 

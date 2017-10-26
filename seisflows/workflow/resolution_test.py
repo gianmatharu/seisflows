@@ -3,13 +3,14 @@ import sys
 from glob import glob
 from os.path import join
 
+from seisflows.tools import unix
 from seisflows.config import ParameterError
 from seisflows.tools.tools import exists
 from seisflows.plugins.solver.pewf2d import Par
 from seisflows.tools.tools import savetxt, loadtxt
-from seisflows.plugins.io.pewf2d import mread, mwrite, read, write
+from seisflows.plugins.solver_io.pewf2d import mread, mwrite, read, write
 from seisflows.plugins.misc import resolution
-from seisflows.tools import unix
+from seisflows.workflow.base import base
 
 
 PAR = sys.modules['seisflows_parameters']
@@ -24,7 +25,8 @@ postprocess = sys.modules['seisflows_postprocess']
 p = Par()
 p.read_par_file(join(PATH.SOLVER_INPUT, 'par_template.cfg'))
 
-class resolution_test(object):
+
+class resolution_test(base):
     """ Resolution test base class.
 
       Computes Hessian vector products to approximate point-spread functions.
@@ -112,8 +114,7 @@ class resolution_test(object):
         # setup
         preprocess.setup()
         postprocess.setup()
-        system.run('solver', 'setup',
-                   hosts='all')
+        system.run('solver', 'setup')
 
         # make gradient and hessian-product directories
         self.clean_directory(PATH.GRAD)
@@ -148,20 +149,16 @@ class resolution_test(object):
     def compute_gradient(self, par):
         # generate synthetics in perturbed model
         print('Generating synthetics...')
-        system.run('solver', 'generate_synthetics',
-                    mode=1,
-                    hosts='head')
+        system.run_single('solver', 'generate_synthetics', mode=1)
 
         print('Prepare adjoint sources...')
-        system.run('solver', 'prepare_eval_grad',
-                   hosts='all')
+        system.run('solver', 'prepare_eval_grad')
 
         print('Computing gradient...')
-        system.run('solver', 'compute_gradient',
-                    hosts='head')
+        system.run_single('solver', 'compute_gradient')
 
         # write gradient
-        postprocess.combine_kernels(join(PATH.GRAD, par), solver.parameters)
+        postprocess.process_kernels(join(PATH.GRAD, par), solver.parameters)
 
     def setup_model(self, par):
         """ copy model

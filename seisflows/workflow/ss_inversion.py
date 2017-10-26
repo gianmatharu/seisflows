@@ -74,11 +74,8 @@ class ss_inversion(custom_import('workflow', 'p_inversion')):
             optimize.setup()
 
         # initialize directories
-        system.run('solver', 'setup',
-                   hosts='all')
-
-        system.run('solver', 'setup_encoding',
-                   hosts='head')
+        system.run('solver', 'setup')
+        system.run_single('solver', 'setup_encoding')
 
     def compute_gradient(self):
         """ Compute gradients. Designed to avoid excessive storage
@@ -90,31 +87,25 @@ class ss_inversion(custom_import('workflow', 'p_inversion')):
 
         if optimize.iter == 1 or (optimize.iter % PAR.ITER_RESET == 0):
             print('Generate encoding...')
-            system.run('solver', 'generate_encoding',
-                       hosts='head')
+            system.run_single('solver', 'generate_encoding')
 
             print('Encoding data...')
-            system.run('solver', 'generate_data',
-                       hosts='all')
+            system.run('solver', 'generate_data')
 
         print('Generating synthetics...')
-        system.run('solver', 'generate_synthetics',
-                    mode=1,
-                    hosts='head')
+        system.run_single('solver', 'generate_synthetics',
+                          mode=1)
 
         print('Prepare adjoint sources...')
-        system.run('solver', 'prepare_eval_grad',
-                   hosts='all')
+        system.run('solver', 'prepare_eval_grad')
 
         print('Computing gradient...')
-        system.run('solver', 'compute_gradient',
-                    hosts='head')
+        system.run_single('solver', 'compute_gradient')
 
         postprocess.write_gradient(PATH.GRAD)
 
         dst = join(PATH.OPTIMIZE, 'g_new')
-        savenpy(dst, solver.merge(solver.load(PATH.GRAD,
-                                              suffix='_kernel')))
+        savenpy(dst, solver.merge(solver.load(PATH.GRAD, suffix='_kernel')))
 
         # evaluate misfit function
         self.sum_residuals(path=PATH.SOLVER, suffix='new')
@@ -122,7 +113,7 @@ class ss_inversion(custom_import('workflow', 'p_inversion')):
     def finalize(self):
         """ Saves results from current model update iteration
         """
-        system.checkpoint()
+        self.checkpoint()
 
         if divides(optimize.iter, PAR.SAVEENCODING):
             self.save_encoding()

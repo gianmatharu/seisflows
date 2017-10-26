@@ -70,8 +70,7 @@ class saga_inversion(custom_import('workflow', 'stochastic_inversion')):
 
 
     def compute_gradient(self):
+        """ compute aggregate gradient
+        """
         super(saga_inversion, self).compute_gradient()
-
-        system.run('solver', 'update_aggregate_gradient',
-                   path=PATH.SAGA,
-                   hosts='head')
+        system.run_single('solver', 'update_aggregate_gradient', path=PATH.SAGA)

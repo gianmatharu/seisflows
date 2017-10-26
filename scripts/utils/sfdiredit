@@ -1,0 +1,46 @@
+#!/usr/bin/env python
+
+# Specialized script to edit directory structure of data
+
+# For convenience this routine assumes a particular directory structure that allows
+# simple access to inversion workflows.
+
+import argparse
+from glob import glob
+from os.path import join, exists
+
+from seisflows.plugins.solver.pewf2d import event_dirname
+from seisflows.tools import unix
+
+
+def parse_args():
+    # Parse input arguments
+    parser = argparse.ArgumentParser(description='Plot misfit gradients.')
+
+    # file and format flags
+    parser.add_argument('-n', '--ntasks',
+                        type=int,
+                        help='number of sources')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+
+    args = parse_args()
+
+    for itask in xrange(args.ntasks):
+        dst = join('.', event_dirname(itask+1))
+        src = glob(join(dst, 'traces/obs/*'))
+        unix.mv(src, dst)
+        unix.rm(join(dst, 'traces'))
+
+    # add numbering to SOURCES file
+    unix.mv('SOURCES', 'SOURCES_ORIG')
+
+    itask = 0
+    with open('SOURCES_ORIG', 'r') as rf, open('SOURCES', 'w') as wf:
+        for line in rf:
+            line = event_dirname(itask+1) + ' ' + line
+            wf.write(line)
+            itask += 1

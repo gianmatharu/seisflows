@@ -121,7 +121,7 @@ class stochastic_inversion(custom_import('workflow', 'p_inversion')):
     def finalize(self):
         """ Saves results from current model update iteration
         """
-        system.checkpoint()
+        self.checkpoint()
 
         if divides(optimize.iter, PAR.SAVESUBSET):
             self.save_subset()

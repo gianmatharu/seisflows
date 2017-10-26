@@ -105,7 +105,7 @@ class pbs_lg(custom_import('system', 'base')):
         unix.mkdir(PATH.OUTPUT)
         unix.mkdir(PATH.WORKDIR+'/'+'output.pbs')
 
-        self.checkpoint()
+        workflow.checkpoint()
 
         hours = PAR.WALLTIME/60
         minutes = PAR.WALLTIME%60
@@ -127,30 +127,32 @@ class pbs_lg(custom_import('system', 'base')):
                 + PATH.OUTPUT)
 
 
-    def run(self, classname, funcname, hosts='all', **kwargs):
-        """ Runs tasks in serial or parallel on specified hosts.
-        """
-        self.checkpoint()
+    def run(self, classname, method, hosts='all', **kwargs):
+        """ Runs task multiple times in embarrassingly parallel fasion
 
-        self.save_kwargs(classname, funcname, kwargs)
-        jobs = self.submit_job_array(classname, funcname, hosts)
+          Executes classname.method(*args, **kwargs) NTASK times, each time on
+          NPROC cpu cores
+        """
+        self.checkpoint(PATH.OUTPUT, classname, method, args, kwargs)
+
+        jobs = self.submit_job_array(classname, method, hosts)
         while True:
             # wait a few seconds before checking again
             time.sleep(5)
             self._timestamp()
-            isdone, jobs = self.job_array_status(classname, funcname, jobs)
+            isdone, jobs = self.job_array_status(classname, method, jobs)
             if isdone:
                 return
 
 
     def mpiexec(self):
-        """ Specifies MPI exectuable; used to invoke solver
+        """ Specifies MPI executable used to invoke solver
         """
         return PAR.MPIEXEC
 
 
     def taskid(self):
-        """ Gets number of running task
+        """ Provides a unique identifier for each running task
         """
         try:
             return os.getenv('PBS_ARRAY_INDEX')
@@ -160,9 +162,9 @@ class pbs_lg(custom_import('system', 'base')):
 
     ### private methods
 
-    def submit_job_array(self, classname, funcname, hosts='all'):
+    def submit_job_array(self, classname, method, hosts='all'):
         with open(PATH.SYSTEM+'/'+'job_id', 'w') as f:
-            call(self.job_array_cmd(classname, funcname, hosts),
+            call(self.job_array_cmd(classname, method, hosts),
                 stdout=f)
 
         # retrieve job ids
@@ -177,7 +179,7 @@ class pbs_lg(custom_import('system', 'base')):
             return [job]
 
 
-    def job_array_cmd(self, classname, funcname, hosts):
+    def job_array_cmd(self, classname, method, hosts):
         nodes = math.ceil(PAR.NTASK/float(PAR.NODESIZE))
         ncpus = PAR.NPROC
         mpiprocs = PAR.NPROC
@@ -199,7 +201,7 @@ class pbs_lg(custom_import('system', 'base')):
                 + self.job_array_args(hosts)
                 + PATH.OUTPUT + ' '
                 + classname + ' '
-                + funcname + ' '
+                + method + ' '
                 + 'PYTHONPATH='+findpath('seisflows.system'),+','
                 + PAR.ENVIRONS)
 
@@ -218,18 +220,18 @@ class pbs_lg(custom_import('system', 'base')):
         return args
 
 
-    def job_array_status(self, classname, funcname, jobs):
+    def job_array_status(self, classname, method, jobs):
         """ Determines completion status of one or more jobs
         """
+        states = []
         for job in jobs:
             state = self._query(job)
-            states = []
             if state in ['C']:
                 states += [1]
             else:
                 states += [0]
             if state in ['F']:
-                print msg.TaskError_PBS % (classname, funcname, job)
+                print msg.TaskError_PBS % (classname, method, job)
                 sys.exit(-1)
         isdone = all(states)
 
@@ -260,9 +262,9 @@ class pbs_lg(custom_import('system', 'base')):
             line = time.strftime('%H:%M:%S')+'\n'
             f.write(line)
 
-    def save_kwargs(self, classname, funcname, kwargs):
+    def save_kwargs(self, classname, method, kwargs):
         kwargspath = join(PATH.OUTPUT, 'kwargs')
-        kwargsfile = join(kwargspath, classname+'_'+funcname+'.p')
+        kwargsfile = join(kwargspath, classname+'_'+method+'.p')
         unix.mkdir(kwargspath)
         saveobj(kwargsfile, kwargs)
 

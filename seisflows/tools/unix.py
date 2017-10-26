@@ -51,6 +51,10 @@ def cp(src='', dst=''):
         shutil.copytree(src, dst)
 
 
+def hostname():
+    return socket.gethostname().split('.')[0]
+
+
 def ln(src, dst):
     dst = abspath(dst)
     if os.path.isdir(dst):
@@ -104,13 +108,6 @@ def rm(path=''):
             os.remove(name)
         elif os.path.isdir(name):
             shutil.rmtree(name)
-
-
-def run(args):
-    child = subprocess.Popen(args, shell=1)
-    streamdata = child.communicate()[0]
-    if child.returncode!=0:
-        sys.exit(-1)
 
 
 def select(items, prompt=''):

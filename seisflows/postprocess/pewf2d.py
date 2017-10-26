@@ -5,7 +5,7 @@ from os.path import join
 
 from seisflows.tools import unix
 from seisflows.tools.tools import exists
-from seisflows.plugins.io.pewf2d import mread, mwrite
+from seisflows.plugins.solver_io.pewf2d import mread, mwrite
 from seisflows.config import ParameterError, custom_import
 
 PAR = sys.modules['seisflows_parameters']

@@ -1,12 +1,11 @@
 
-from os.path import exists
-
 import sys
-
 import numpy as np
 
+from os.path import exists
 
-class diagonal(object):
+
+class Diagonal(object):
     """ User supplied diagonal preconditioner
 
         Rescales model parameters based on user supplied weights

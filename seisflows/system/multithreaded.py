@@ -8,14 +8,14 @@ from subprocess import Popen
 from time import sleep
 
 from seisflows.tools import unix
-from seisflows.tools.tools import call, findpath, saveobj
+from seisflows.tools.tools import call, findpath, nproc, saveobj
 from seisflows.config import ParameterError, custom_import
 
 PAR = sys.modules['seisflows_parameters']
 PATH = sys.modules['seisflows_paths']
 
 
-class multithreaded(custom_import('system', 'serial')):
+class multithreaded(custom_import('system', 'multicore')):
     """ An interface through which to submit workflows, run tasks in serial or 
       parallel, and perform other system functions.
 
@@ -30,75 +30,13 @@ class multithreaded(custom_import('system', 'serial')):
     def check(self):
         """ Checks parameters and paths
         """
-        super(multithreaded, self).check()
+        print """
+            DEPRECATION WARNING
 
-        # number of available cores
-        if 'NPROCMAX' not in PAR:
-            raise Exception
+                SYSTEM.MULTITHREADED has been renamed SYSTEM.MULTICORE
 
-
-    def run(self, classname, funcname, hosts='all', **kwargs):
-        """ Runs tasks in serial or parallel on specified hosts
+                Please update your parameter file.
         """
-        self.checkpoint()
-        self.save_kwargs(classname, funcname, kwargs)
 
-        if hosts == 'all':
-            running_tasks = dict()
-            queued_tasks = range(PAR.NTASK)
-
-            # implements "work queue" pattern
-            while queued_tasks or running_tasks:
-
-                # launch queued tasks
-                while len(queued_tasks) > 0 and \
-                      len(running_tasks) < int(PAR.NPROCMAX/PAR.NPROC):
-                    i = queued_tasks.pop(0)
-                    p = self._launch(classname, funcname, tid=i)
-                    running_tasks[i] = p
-                    sleep(0.1)
-
-                # checks status of running tasks
-                for i, p in running_tasks.items():
-                    if p.poll() != None:
-                        running_tasks.pop(i)
-
-                if running_tasks:
-                    sleep(1.)
-
-            print ''
-
-        elif hosts == 'head':
-            self.setid(0)
-            func = getattr(__import__('seisflows_'+classname), funcname)
-            func(**kwargs)
-
-        else:
-            raise KeyError('Bad keyword argument: system.run: hosts')
-
-
-    ### private methods
-
-    def _launch(self, classname, funcname, tid=0):
-        self.progress(tid)
-
-        env = os.environ.copy().items()
-        env += [['SEISFLOWS_TASKID', str(tid)]]
-
-        p = Popen(
-            findpath('seisflows.system') +'/'+ 'wrappers/run '
-            + PATH.OUTPUT + ' '
-            + classname + ' '
-            + funcname,
-            shell=True,
-            env=dict(env))
-
-        return p
-
-
-    def save_kwargs(self, classname, funcname, kwargs):
-        kwargspath = join(PATH.OUTPUT, 'kwargs')
-        kwargsfile = join(kwargspath, classname+'_'+funcname+'.p')
-        unix.mkdir(kwargspath)
-        saveobj(kwargsfile, kwargs)
+        super(multithreaded, self).check()
 

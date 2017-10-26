@@ -15,7 +15,10 @@ solver = sys.modules['seisflows_solver']
 
 
 class base(object):
-    """ Gradient postprocessing class
+    """ Postprocessing base class
+
+      Postprocesing refers to image processing and regularization operations on 
+      models or gradients
     """
 
     def check(self):
@@ -28,8 +31,8 @@ class base(object):
         if 'SMOOTH' not in PAR:
             setattr(PAR, 'SMOOTH', 0.)
 
-        if 'LOGARITHMIC' not in PAR:
-            setattr(PAR, 'LOGARITHMIC', True)
+        if 'KERNELTYPE' not in PAR:
+            setattr(PAR, 'KERNELTYPE', 'Relative')
 
         if 'PRECOND' not in PAR:
             setattr(PAR, 'PRECOND', False)
@@ -46,50 +49,81 @@ class base(object):
 
 
     def setup(self):
-        """ Performs any required initialization or setup tasks
+        """ Can be used to perform any required initialization or setup tasks
         """
         pass
 
 
     def write_gradient(self, path):
-        """ Reads kernels and writes gradient of objective function
+        """ Processes and combines contributions to the gradient from
+          individual sources
         """
         if not exists(path):
-            raise Exception()
+            raise Exception
 
-        system.run('postprocess', 'process_kernels',
-                 hosts='head',
-                 path=path,
+        system.run_single('postprocess', 'process_kernels',
+                 path=path+'/kernels',
                  parameters=solver.parameters)
 
         g = solver.merge(solver.load(
                  path +'/'+ 'kernels/sum',
                  suffix='_kernel'))
 
-        if PAR.LOGARITHMIC:
-            # convert from logarithmic to absolute perturbations
+        self.save(g, path)
+
+        if PAR.KERNELTYPE=='Relative':
+            # convert from relative to absolute perturbations
             g *= solver.merge(solver.load(path +'/'+ 'model'))
-        self.save(path, g)
+            self.save(g, path, backup='relative')
 
         if PATH.MASK:
             # apply mask
             g *= solver.merge(solver.load(PATH.MASK))
-            self.save(path, g, backup='nomask')
+            self.save(g, path, backup='nomask')
 
 
     def process_kernels(self, path='', parameters=[]):
-        solver.combine(
-               path +'/'+ 'kernels',
-               parameters)
+        """ Combines contributions from individual sources and performs any 
+         required processing steps
 
-        if PAR.SMOOTH > 0.:
+          INPUT
+              PATH - directory containing sensitivity kernels
+              PARAMETERS - list of material parameters e.g. ['vp','vs']
+        """
+        if not exists(path):
+            raise Exception
+
+        if not parameters:
+            parameters = solver.parameters
+
+        if PAR.SMOOTH > 0:
+            solver.combine(
+                   input_path=path,
+                   output_path=path+'/'+'sum_nosmooth',
+                   parameters=parameters)
+
             solver.smooth(
-                   path=path +'/'+ 'kernels/sum',
+                   input_path=path+'/'+'sum_nosmooth',
+                   output_path=path+'/'+'sum',
                    parameters=parameters,
                    span=PAR.SMOOTH)
+        else:
+            solver.combine(
+                   input_path=path,
+                   output_path=path+'/'+'sum',
+                   parameters=parameters)
 
 
-    def save(self, path, g, backup=None):
+
+    def save(self, g, path='', parameters=[], backup=None):
+        """ Utility for saving dictionary representation of gradient
+        """
+        if not exists(path):
+            raise Exception
+
+        if not parameters:
+            parameters = solver.parameters
+
         if backup:
             src = path +'/'+ 'gradient'
             dst = path +'/'+ 'gradient_'+backup
@@ -97,7 +131,7 @@ class base(object):
 
         solver.save(solver.split(g),
                     path +'/'+ 'gradient',
-                    parameters=solver.parameters,
+                    parameters=parameters,
                     suffix='_kernel')
 
 

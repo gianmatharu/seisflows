@@ -40,6 +40,16 @@ SOLVER FAILED
 """
 
 
+SystemWarning = """
+
+Please double check SYSTEM parameter
+
+    Expected hostname: %s
+    Actual hostname: %s
+
+"""
+
+
 ReceiverError_SPECFEM = """
 
 ERROR READING RECEIVERS
@@ -72,18 +82,6 @@ PARAMETER WARNING
     Overwriting with:  %s
 
 """
-
-
-SmoothingError_SPECFEM2D= """
-
-NOT IMPLEMENTED ERROR
-
-    2D parallel smoothing is not implemented. Consider adding this feature in 
-    SPECFEM2D rather than in SeisFlows. (For a long time SPECFEM2D lacked its
-    own smoothing utility; the smoothing methods in SeisFlows were intended 
-    only as a crude workaround.) 
-"""
-
 
 
 DataFormatWarning = """
@@ -122,19 +120,6 @@ WRITER ERROR
 
 ###
 
-TaskError_LSF = """
-
-TASK ERROR
-
-    Task failed:  %s.%s
-
-    For more information, see output.lsf/%s
-
-    Stopping workflow...
-
-"""
-
-
 TaskTimeout = """
 
 TASK TIMED OUT
@@ -147,6 +132,20 @@ TASK TIMED OUT
         Time limit (minutes): %s
 
 """
+
+
+TaskError_LSF = """
+
+TASK ERROR
+
+    Task failed:  %s.%s
+
+    For more information, see output.lsf/%s
+
+    Stopping workflow...
+
+"""
+
 
 
 TaskError_PBS = """

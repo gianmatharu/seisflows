@@ -55,6 +55,10 @@ class lsf_lg(custom_import('system', 'base')):
         if 'NPROC' not in PAR:
             raise ParameterError(PAR, 'NPROC')
 
+        # limit on number of concurrent tasks
+        if 'NTASKMAX' not in PAR:
+            setattr(PAR, 'NTASKMAX', PAR.NTASK)
+
          # number of cores per node
         if 'NODESIZE' not in PAR:
             raise ParameterError(PAR, 'NODESIZE')
@@ -107,7 +111,7 @@ class lsf_lg(custom_import('system', 'base')):
         unix.mkdir(PATH.OUTPUT)
         unix.mkdir(PATH.WORKDIR+'/'+'output.lsf')
 
-        self.checkpoint()
+        workflow.checkpoint()
 
         # prepare bsub arguments
         call('bsub '
@@ -122,82 +126,99 @@ class lsf_lg(custom_import('system', 'base')):
                 + PATH.OUTPUT)
 
 
-    def run(self, classname, funcname, hosts='all', **kwargs):
-        """  Runs tasks in serial or parallel on specified hosts.
+    def run(self, classname, method, hosts='all', **kwargs):
+        """ Runs task multiple times in embarrassingly parallel fasion
+
+          Executes classname.method(*args, **kwargs) NTASK times, each time on
+          NPROC cpu cores
         """
-        self.save_objects()
-        self.save_kwargs(classname, funcname, kwargs)
-        jobs = self.submit_job_array(classname, funcname, hosts)
+        self.checkpoint(PATH.OUTPUT, classname, method, args, kwargs)
+
+        stdout = check_output(
+            'bsub %s ' % PAR.LSFARGS
+            + '-n %d ' % PAR.NPROC
+            + '-R "span[ptile=%d]" ' % PAR.NODESIZE
+            + '-W %d:00 ' % PAR.TASKTIME
+            + '-J "%s' %PAR.TITLE
+            + '[%d-%d] %% %d' % (1, PAR.NTASK, PAR.NTASKMAX)
+            + '-o %s ' % (PATH.WORKDIR+'/'+'output.lsf/'+'%J_%I')
+            + '%s ' % findpath('seisflows.system') +'/'+ 'wrapper/run '
+            + '%s ' % PATH.OUTPUT + ' '
+            + '%s ' % classname + ' '
+            + '%s ' % method + ' '
+            + '%s ' % PAR.ENVIRONS,
+            shell=True)
+
+        # keep track of job ids
+        jobs = self.job_id_list(stdout, PAR.NTASK)
+
         while True:
             # wait 30 seconds before checking status again
             time.sleep(30)
 
             self.timestamp()
-            isdone, jobs = self.job_status(classname, funcname, jobs)
+            isdone, jobs = self.job_status(classname, method, jobs)
             if isdone:
                 return
 
 
-    def submit_job_array(self, classname, funcname, hosts='all'):
-        # submit job
-        with open(PATH.SYSTEM+'/'+'job_id', 'w') as f:
-            call(self.job_array_cmd(classname, funcname, hosts), stdout=f)
+    def run_single(self, classname, method, hosts='all', **kwargs):
+        """ Runs task multiple times in embarrassingly parallel fasion
 
-        # retrieve job ids
-        with open(PATH.SYSTEM+'/'+'job_id', 'r') as f:
-            # reads one entire line from the file
-            line = f.readline()
-            job_buf = line.split()[1].strip()
-            job = job_buf[1:-1]
-        if hosts == 'all' and PAR.NSRC > 1:
-            nn = range(1,PAR.NSRC+1)
-            #return [job+'_'+str(ii) for ii in nn]
-            return [job+'['+str(ii)+']' for ii in nn]
-        else:
-            return [job]
+          Executes classname.method(*args, **kwargs) NTASK times, each time on
+          NPROC cpu cores
+        """
+        self.checkpoint(PATH.OUTPUT, classname, method, args, kwargs)
 
-
-    def job_array_cmd(self, classname, funcname, hosts):
-        return ('bsub '
-            + '%s ' % PAR.LSFARGS
+        stdout = check_output(
+            'bsub %s ' % PAR.LSFARGS
             + '-n %d ' % PAR.NPROC
             + '-R "span[ptile=%d]" ' % PAR.NODESIZE
             + '-W %d:00 ' % PAR.TASKTIME
             + '-J "%s' %PAR.TITLE
-            + self.launch_args(hosts)
-            + findpath('seisflows.system') +'/'+ 'wrapper/run '
-            + PATH.OUTPUT + ' '
-            + classname + ' '
-            + funcname + ' '
-            + PAR.ENVIRONS)
+            + '[%d-%d]' % (1, 1)
+            + '-o %s ' % (PATH.WORKDIR+'/'+'output.lsf/'+'%J')
+            + '%s ' % findpath('seisflows.system') +'/'+ 'wrapper/run '
+            + '%s ' % PATH.OUTPUT
+            + '%s ' % classname
+            + '%s ' % method
+            + '%s ' % PAR.ENVIRONS,
+            shell=True)
+
+        # keep track of job ids
+        jobs = self.job_id_list(stdout, ntask=1)
+
+        while True:
+            # wait 30 seconds before checking status again
+            time.sleep(30)
+
+            self.timestamp()
+            isdone, jobs = self.job_status(classname, method, jobs)
+            if isdone:
+                return
 
 
-    def job_array_args(self, hosts):
-        if hosts == 'all':
-            args = ''
-            args += '[%d-%d] %% %d' % (1, PAR.NSRC, PAR.NTASK)
-            args += '-o %s ' % (PATH.WORKDIR+'/'+'output.lsf/'+'%J_%I')
-
-        elif hosts == 'head':
-            args = ''
-            args += '[%d-%d]' % (1, 1)
-            args += '-o %s ' % (PATH.WORKDIR+'/'+'output.lsf/'+'%J')
-
-        return args
+    def job_id_list(self, stdout):
+        job = stdout.split()[1].strip()[1:-1]
+        if ntask==1:
+            return [job]
+        else:
+            nn = range(1,PAR.NSRC+1)
+            return [job+'['+str(ii)+']' for ii in nn]
 
 
-    def job_status(self, classname, funcname, jobs):
+    def job_status(self, classname, method, jobs):
         # query lsf database
+        states = []
         for job in jobs:
             state = self._query(job)
-            states = []
             if state in ['DONE']:
                 states += [1]
             else:
                 states += [0]
             if state in ['EXIT']:
                 print 'LSF job failed: %s ' %job
-                print msg.TaskError_LSF % (classname, funcname, job)
+                print msg.TaskError_LSF % (classname, method, job)
                 sys.exit(-1)
         isdone = all(states)
 
@@ -205,7 +226,7 @@ class lsf_lg(custom_import('system', 'base')):
 
 
     def mpiexec(self):
-        """ Specifies MPI exectuable; used to invoke solver
+        """ Specifies MPI executable used to invoke solver
         """
         return PAR.MPIEXEC
 
@@ -222,7 +243,7 @@ class lsf_lg(custom_import('system', 'base')):
 
 
     def taskid(self):
-        """ Gets number of running task
+        """ Provides a unique identifier for each running task
         """
         return int(os.getenv('LSB_JOBINDEX'))-1
 
@@ -233,9 +254,9 @@ class lsf_lg(custom_import('system', 'base')):
             f.write(line)
 
 
-    def save_kwargs(self, classname, funcname, kwargs):
+    def save_kwargs(self, classname, method, kwargs):
         kwargspath = join(PATH.OUTPUT, 'kwargs')
-        kwargsfile = join(kwargspath, classname+'_'+funcname+'.p')
+        kwargsfile = join(kwargspath, classname+'_'+method+'.p')
         unix.mkdir(kwargspath)
         saveobj(kwargsfile, kwargs)
 

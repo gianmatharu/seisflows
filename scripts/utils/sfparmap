@@ -9,7 +9,7 @@ import argparse
 from os.path import join
 
 import seisflows.plugins.material as material
-from seisflows.plugins.io.pewf2d import mread, mwrite
+from seisflows.plugins.solver_io.pewf2d import mread, mwrite
 
 
 def parse_args():

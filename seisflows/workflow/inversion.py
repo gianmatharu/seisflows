@@ -4,10 +4,12 @@ import numpy as np
 
 from glob import glob
 from os.path import join
+
 from seisflows.tools import msg
 from seisflows.tools import unix
 from seisflows.tools.tools import divides, exists
-from seisflows.config import ParameterError
+from seisflows.config import ParameterError, save
+from seisflows.workflow.base import base
 
 PAR = sys.modules['seisflows_parameters']
 PATH = sys.modules['seisflows_paths']
@@ -19,8 +21,8 @@ preprocess = sys.modules['seisflows_preprocess']
 postprocess = sys.modules['seisflows_postprocess']
 
 
-class inversion(object):
-    """ Waveform inversion base class.
+class inversion(base):
+    """ Waveform inversion base class
 
       Peforms iterative nonlinear inversion and provides a base class on top
       of which specialized strategies can be implemented.
@@ -41,17 +43,14 @@ class inversion(object):
         """ Checks parameters and paths
         """
 
-        # specify parameters
+        # starting and stopping iterations
         if 'BEGIN' not in PAR:
             raise ParameterError(PAR, 'BEGIN')
 
         if 'END' not in PAR:
             raise ParameterError(PAR, 'END')
 
-        if 'VERBOSE' not in PAR:
-            setattr(PAR, 'VERBOSE', 1)
-
-        # specify scratch paths
+        # scratch paths
         if 'SCRATCH' not in PATH:
             raise ParameterError(PATH, 'SCRATCH')
 
@@ -70,14 +69,14 @@ class inversion(object):
         if 'OPTIMIZE' not in PATH:
             setattr(PATH, 'OPTIMIZE', join(PATH.SCRATCH, 'optimize'))
 
-        # specify input paths
+        # input paths
         if 'DATA' not in PATH:
             setattr(PATH, 'DATA', None)
 
         if 'MODEL_INIT' not in PATH:
             raise ParameterError(PATH, 'MODEL_INIT')
 
-        # specify output paths
+        # output paths
         if 'OUTPUT' not in PATH:
             raise ParameterError(PATH, 'OUTPUT')
 
@@ -150,8 +149,7 @@ class inversion(object):
             else:
                 print 'Generating data' 
 
-            system.run('solver', 'setup',
-                hosts='all')
+            system.run('solver', 'setup')
 
 
     def initialize(self):
@@ -161,7 +159,6 @@ class inversion(object):
 
         print 'Generating synthetics'
         system.run('solver', 'eval_func',
-                   hosts='all',
                    path=PATH.GRAD)
 
         self.write_misfit(path=PATH.GRAD, suffix='new')
@@ -175,21 +172,28 @@ class inversion(object):
 
     def line_search(self):
         """ Conducts line search in given search direction
+
+          Status codes
+              status > 0  : finished
+              status == 0 : not finished
+              status < 0  : failed
         """
         optimize.initialize_search()
 
         while True:
-            self.iterate_search()
+            print " trial step", optimize.line_search.step_count + 1
+            self.evaluate_function()
+            status = optimize.update_search()
 
-            if optimize.isdone:
+            if status > 0:
                 optimize.finalize_search()
                 break
-            elif optimize.step_count < PAR.STEPMAX:
-                optimize.compute_step()
+
+            elif status == 0:
                 continue
-            else:
-                retry = optimize.retry_status()
-                if retry:
+
+            elif status < 0:
+                if optimize.retry_status():
                     print ' Line search failed\n\n Retrying...'
                     optimize.restart()
                     self.line_search()
@@ -199,26 +203,12 @@ class inversion(object):
                     sys.exit(-1)
 
 
-    def iterate_search(self):
-        """ First, calls self.evaluate_function, which carries out a forward 
-          simulation given the current trial model. Then calls
-          optimize.update_status, which maintains search history and checks
-          stopping conditions.
-        """
-        if PAR.VERBOSE > 0:
-            print " trial step", optimize.step_count+1
-
-        self.evaluate_function()
-        optimize.update_status()
-
-
     def evaluate_function(self):
         """ Performs forward simulation to evaluate objective function
         """
         self.write_model(path=PATH.FUNC, suffix='try')
 
         system.run('solver', 'eval_func',
-                   hosts='all',
                    path=PATH.FUNC)
 
         self.write_misfit(path=PATH.FUNC, suffix='try')
@@ -228,7 +218,6 @@ class inversion(object):
         """ Performs adjoint simulation to evaluate gradient
         """
         system.run('solver', 'eval_grad',
-                   hosts='all',
                    path=PATH.GRAD,
                    export_traces=divides(optimize.iter, PAR.SAVETRACES))
 
@@ -238,7 +227,7 @@ class inversion(object):
     def finalize(self):
         """ Saves results from current model update iteration
         """
-        system.checkpoint()
+        self.checkpoint()
 
         if divides(optimize.iter, PAR.SAVEMODEL):
             self.save_model()
@@ -266,43 +255,38 @@ class inversion(object):
         unix.mkdir(PATH.FUNC)
 
 
+    def checkpoint(self):
+        """ Writes information to disk so workflow can be resumed following a
+          break
+        """
+        save()
+
+
     def write_model(self, path='', suffix=''):
         """ Writes model in format expected by solver
         """
         src = 'm_'+suffix
         dst = path +'/'+ 'model'
-        parts = solver.split(optimize.load(src))
-        solver.save(parts, dst)
+        solver.save(solver.split(optimize.load(src)), dst)
 
 
     def write_gradient(self, path='', suffix=''):
-        """ Writes gradient in form expected by nonlinear optimization library
+        """ Writes gradient in format expected by nonlinear optimization library
         """
         src = join(path, 'gradient')
         dst = 'g_'+suffix
         postprocess.write_gradient(path)
-        parts = solver.load(src, parameters=solver.parameters, suffix='_kernel')
+        parts = solver.load(src, suffix='_kernel')
         optimize.save(dst, solver.merge(parts))
 
 
     def write_misfit(self, path='', suffix=''):
-        """ Writes misfit in form expected by nonlinear optimization library
+        """ Writes misfit in format expected by nonlinear optimization library
         """
         src = glob(path +'/'+ 'residuals/*')
         dst = 'f_'+suffix
         total_misfit = preprocess.sum_residuals(src)
-        optimize.savetxt(dst, [total_misfit])
-
-
-    def write_minmax(self, path, dict):
-        """ Updates minmax log with latest values
-        """
-        with open(PATH.OUTPUT+'/'+'minmax', 'a') as file:
-            file.write(abspath(path)+'\n')
-            for key in dict:
-                minmax = dict.minmax(key)
-                file.write('%-15s %10.3e %10.3e\n' % (key, minmax[0], minmax[1]))
-            file.write('\n')
+        optimize.savetxt(dst, total_misfit)
 
 
     def save_gradient(self):

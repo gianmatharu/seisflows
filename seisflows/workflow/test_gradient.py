@@ -5,6 +5,7 @@ from seisflows.tools import unix
 from seisflows.tools.tools import exists
 from seisflows.tools.array import savenpy
 from seisflows.config import ParameterError
+from seisflows.workflow.base import base
 
 
 PAR = sys.modules['seisflows_parameters']
@@ -17,7 +18,7 @@ preprocess = sys.modules['seisflows_preprocess']
 postprocess = sys.modules['seisflows_postprocess']
 
 
-class test_gradient(object):
+class test_gradient(base):
     """ Test gradient computation.
     """
 
@@ -59,9 +60,11 @@ class test_gradient(object):
         if PAR.SOLVER != 'pewf2d':
             raise ValueError('Use solver class "pewf2d" here.')
 
+
     def main(self):
-        """ Generates data
+        """ Compute gradient
         """
+
         # clean directories
         self.clean_directory(PATH.OUTPUT)
         self.clean_directory(PATH.SCRATCH)
@@ -73,32 +76,29 @@ class test_gradient(object):
         self.generate_data()
         self.evaluate_gradient()
         self.store_gradient()
-        print('Finished')
+        print('Finished\n')
 
     def generate_data(self):
-        system.run('solver', 'setup',
-                   hosts='all')
+
+        system.run('solver', 'setup')
 
         if PATH.DATA:
             print('Copying data')
         else:
             print('Generating data...')
-            system.run('solver', 'generate_data',
-                        hosts='head')
+            system.run_single('solver', 'generate_data')
 
     def evaluate_gradient(self):
+
         print('Generating synthetics...')
-        system.run('solver', 'generate_synthetics',
-                    mode=1,
-                    hosts='head')
+        system.run_single('solver', 'generate_synthetics',
+                          mode=1)
 
         print('Prepare adjoint sources...')
-        system.run('solver', 'prepare_eval_grad',
-                   hosts='all')
+        system.run('solver', 'prepare_eval_grad')
 
         print('Computing gradient...')
-        system.run('solver', 'compute_gradient',
-                    hosts='head')
+        system.run_single('solver', 'compute_gradient')
 
         postprocess.write_gradient(PATH.GRAD)
 
@@ -111,9 +111,8 @@ class test_gradient(object):
         """ Store individual gradients
         """
         self.clean_directory(PATH.STORE)
-        system.run('solver', 'export_gradient',
-                    path=PATH.STORE,
-                    hosts='head')
+        system.run_single('solver', 'export_gradient',
+                          path=PATH.STORE)
 
     def clean_directory(self, path):
         """ If dir exists clean otherwise make

@@ -24,6 +24,12 @@ def readgrid(file, nx, ny, **kwargs):
     x = x.reshape((ny, nx))
     return x
 
+def count_zeros(a):
+    """ Counts number of zeros in a list or array
+    """
+    return sum(np.array(a)==0)
+
+
 def sortrows(a, return_index=False, return_inverse=False):
     """ Sorts rows of numpy array
     """
@@ -110,6 +116,21 @@ def savenpy(filename, v):
     """Saves numpy binary file."""
     np.save(filename, v)
     os.rename(filename + '.npy', filename)
+
+
+### array input/output
+
+def loadnpy(filename):
+    """Loads numpy binary file."""
+    return np.load(filename)
+
+
+def savenpy(filename, v):
+    """Saves numpy binary file."""
+    np.save(filename, v)
+    os.rename(filename + '.npy', filename)
+
+
 
 
 # in the function and variable names, we use 'grid' to describe a set of

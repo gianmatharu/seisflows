@@ -96,7 +96,7 @@ class slurm_sm(custom_import('system', 'base')):
         # create output directories
         unix.mkdir(PATH.OUTPUT)
 
-        self.checkpoint()
+        workflow.checkpoint()
 
         # submit workflow
         call('sbatch '
@@ -106,52 +106,49 @@ class slurm_sm(custom_import('system', 'base')):
                 + '--cpus-per-task=%d '%PAR.NPROC
                 + '--ntasks=%d '%PAR.NTASK
                 + '--time=%d '%PAR.WALLTIME
-                + findpath('seisflows.system') +'/'+ 'wrappers/submit '
-                + PATH.OUTPUT)
+                + '%s ' % findpath('seisflows.system') +'/'+ 'wrappers/submit'
+                + '%s ' % PATH.OUTPUT)
 
 
-    def run(self, classname, funcname, hosts='all', **kwargs):
-        """  Runs tasks in serial or parallel on specified hosts
+    def run(self, classname, method, *args, **kwargs):
+        """ Runs task multiple times in embarrassingly parallel fasion
         """
-        self.checkpoint()
-        self.save_kwargs(classname, funcname, kwargs)
+        self.checkpoint(PATH.OUTPUT, classname, method, args, kwargs)
 
-        if hosts == 'all':
-            # run on all available nodes
-            call('srun '
-                    + '--wait=0 '
-                    + join(findpath('seisflows.system'), 'wrappers/run ')
-                    + PATH.OUTPUT + ' '
-                    + classname + ' '
-                    + funcname + ' '
-                    + PAR.ENVIRONS)
+        call('srun '
+                + '--wait=0 '
+                + '%s ' % join(findpath('seisflows.system'), 'wrappers/run ')
+                + '%s ' % PATH.OUTPUT
+                + '%s ' % classname
+                + '%s ' % method
+                + '%s ' % PAR.ENVIRONS)
 
-        elif hosts == 'head':
-            # run on head node
-            call('srun '
-                    + '--wait=0 '
-                    + '--ntasks=1 '
-                    + '--nodes=1 ' 
-                    + join(findpath('seisflows.system'), 'wrappers/run ')
-                    + PATH.OUTPUT + ' '
-                    + classname + ' '
-                    + funcname + ' '
-                    + PAR.ENVIRONS)
 
-        else:
-            raise KeyError('Bad keyword argument: system.run: hosts')
+    def run_single(self, classname, method, *args, **kwargs):
+        """ Runs task a single time
+        """
+        self.checkpoint(PATH.OUTPUT, classname, method, args, kwargs)
+
+        call('srun '
+                + '--wait=0 '
+                + '--ntasks=1 '
+                + '--nodes=1 ' 
+                + '%s ' % join(findpath('seisflows.system'), 'wrappers/run ')
+                + '%s ' % PATH.OUTPUT
+                + '%s ' % classname
+                + '%s ' % method
+                + '%s ' % PAR.ENVIRONS)
 
 
     def hostlist(self):
-        with open(PATH.SYSTEM+'/'+'hostlist', 'w') as f:
-            call('scontrol show hostname $SLURM_JOB_NODEFILE', stdout=f)
-
-        with open(PATH.SYSTEM+'/'+'hostlist', 'r') as f:
-            return [line.strip() for line in f.readlines()]
+        """ Generates list of allocated cores
+        """
+        stdout = check_output('scontrol show hostname $SLURM_JOB_NODEFILE')
+        return [line.strip() for line in stdout]
 
 
     def taskid(self):
-        """ Gets number of running task
+        """ Provides a unique identifier for each running task
         """
         gid = os.getenv('SLURM_GTIDS').split(',')
         lid = int(os.getenv('SLURM_LOCALID'))
@@ -159,14 +156,14 @@ class slurm_sm(custom_import('system', 'base')):
 
 
     def mpiexec(self):
-        """ Specifies MPI exectuable; used to invoke solver
+        """ Specifies MPI executable used to invoke solver
         """
         return PAR.MPIEXEC
 
 
-    def save_kwargs(self, classname, funcname, kwargs):
+    def save_kwargs(self, classname, method, kwargs):
         kwargspath = join(PATH.OUTPUT, 'kwargs')
-        kwargsfile = join(kwargspath, classname+'_'+funcname+'.p')
+        kwargsfile = join(kwargspath, classname+'_'+method+'.p')
         unix.mkdir(kwargspath)
         saveobj(kwargsfile, kwargs)
 

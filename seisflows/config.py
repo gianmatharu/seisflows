@@ -32,16 +32,15 @@ def config():
     """ Instantiates SeisFlows objects and makes them globally accessible by
       registering them in sys.modules
    """
-    # check if objects exist on disk
+    # parameters and paths must already be loaded
+    # (normally this is done by sfsubmit)
+    assert 'seisflows_parameters' in sys.modules
+    assert 'seisflows_paths' in sys.modules
+
+    # check if objects already exist on disk
     if exists(_output()):
         print msg.WarningOverwrite
         sys.exit()
-
-    if 'seisflows_parameters' not in sys.modules:
-        raise Exception
-
-    if 'seisflows_paths' not in sys.modules:
-        raise Exception
 
     # instantiate and register objects
     for name in names:
@@ -157,12 +156,6 @@ def custom_import(*args):
 
     # generate package list
     packages = ['seisflows']
-    if os.getenv('SEISFLOWS_PACKAGES'):
-        for name in os.getenv('SEISFLOWS_PACKAGES').split(','):
-            if name in packages:
-                continue
-            if package_exists(name):
-                packages += [name]
 
     # does module exist?
     _exists = False

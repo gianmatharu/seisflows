@@ -11,7 +11,7 @@ from os.path import join
 import numpy as np
 import matplotlib.pyplot as plt
 
-from seisflows.plugins.io.pewf2d import mread
+from seisflows.plugins.solver_io.pewf2d import mread
 from seisflows.plugins.misc.pca import pca
 from seisflows.plugins.solver.pewf2d import Par, reshape_model_dict
 from seisflows.tools.graphics import _cscale

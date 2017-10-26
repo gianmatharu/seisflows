@@ -11,7 +11,8 @@ import traceback
 from imp import load_source
 from importlib import import_module
 from pkgutil import find_loader
-from os.path import basename
+from os.path import basename, exists
+from subprocess import check_output
 
 import numpy as np
 
@@ -28,28 +29,6 @@ def call(*args, **kwargs):
     if 'shell' not in kwargs:
         kwargs['shell'] = True
     subprocess.check_call(*args, **kwargs)
-
-
-def call_solver(mpiexec, executable, output='solver.log'):
-    """ Calls MPI solver executable
-
-      A less complicated version, without error catching, would be
-      subprocess.call(mpiexec +' '+ executable, shell=True)
-    """
-    try:
-        f = open(output,'w')
-        subprocess.check_call(
-            mpiexec +' '+ executable,
-            shell=True,
-            stdout=f)
-    except subprocess.CalledProcessError, err:
-        print msg.SolverError % (mpiexec +' '+ executable)
-        sys.exit(-1)
-    except OSError:
-        print msg.SolverError % (mpiexec +' '+ executable)
-        sys.exit(-1)
-    finally:
-        f.close()
 
 
 def diff(list1, list2):
@@ -109,6 +88,12 @@ def module_exists(name):
 
 def package_exists(name):
     return find_loader(name)
+
+
+def pkgpath(name):
+    for path in import_module('seisflows').__path__:
+        if name+'/seisflows' in path:
+            return path
 
 
 def timestamp():
@@ -200,4 +185,29 @@ def savetxt(filename, v):
     """Save scalar to text file"""
     np.savetxt(filename, [v], '%11.6e')
 
+
+def nproc():
+    try:
+        return _nproc1()
+    except:
+        return _nproc2()
+
+
+def _nproc1():
+    # get number of processors using nproc
+    if not which('nproc'):
+        raise EnvironmentError
+    stdout = check_output('nproc --all', shell=True)
+    nproc = int(stdout.strip())
+    return nproc
+
+
+def _nproc2():
+    # get number of processors using /proc/cpuinfo
+    if not exists('/proc/cpuinfo'):
+        raise EnvironmentError
+    stdout = check_output("cat /proc/cpuinfo | awk '/^processor/{print $3}'", 
+                shell=True)
+    nproc = len(stdout.split('\n'))
+    return nproc
 

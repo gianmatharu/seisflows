@@ -6,11 +6,12 @@ from os.path import join
 import numpy as np
 
 import seisflows.plugins.solver.specfem3d_globe as solvertools
-from seisflows.tools.shared import getpar, setpar, Model, Minmax
+from seisflows.tools.seismic import getpar, setpar, Model, Minmax
 from seisflows.plugins.io import loadbypar, copybin, loadbin, savebin
 
 from seisflows.tools import unix
-from seisflows.tools.tools import Struct, exists, call_solver
+from seisflows.tools.seismic import call_solver
+from seisflows.tools.tools import Struct, exists
 from seisflows.config import ParameterError, custom_import
 
 PAR = sys.modules['seisflows_parameters']
@@ -86,7 +87,9 @@ class specfem3d_globe(custom_import('solver', 'base')):
             unix.cp(glob(model_path +'/'+ '*'), self.model_databases)
 
             call_solver(system.mpiexec(), 'bin/xmeshfem3D')
-            self.export_model(PATH.OUTPUT +'/'+ model_name)
+
+            if self.taskid == 0:
+                self.export_model(PATH.OUTPUT +'/'+ model_name)
 
         else:
             raise NotImplementedError

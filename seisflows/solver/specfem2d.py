@@ -6,11 +6,12 @@ from glob import glob
 import numpy as np
 
 from seisflows.plugins.solver.specfem2d import smooth_legacy
-from seisflows.tools.shared import getpar, setpar
+from seisflows.tools.seismic import getpar, setpar
 
 from seisflows.tools import msg
 from seisflows.tools import unix
-from seisflows.tools.tools import exists, call_solver
+from seisflows.tools.seismic import call_solver
+from seisflows.tools.tools import exists
 from seisflows.config import ParameterError, custom_import
 
 PAR = sys.modules['seisflows_parameters']
@@ -140,7 +141,8 @@ class specfem2d(custom_import('solver', 'base')):
         dst = join(self.cwd, 'DATA')
         unix.cp(src, dst)
 
-        self.export_model(PATH.OUTPUT +'/'+ model_name)
+        if self.taskid == 0:
+            self.export_model(PATH.OUTPUT +'/'+ model_name)
 
 
     ### low-level solver interface
@@ -185,11 +187,10 @@ class specfem2d(custom_import('solver', 'base')):
         unix.cp(src, dst)
 
     def export_model(self, path):
-        if self.taskid == 0:
-            unix.mkdir(path)
-            src = glob(join(self.cwd, 'DATA/*.bin'))
-            dst = path
-            unix.cp(src, dst)
+        unix.mkdir(path)
+        src = glob(join(self.cwd, 'DATA/*.bin'))
+        dst = path
+        unix.cp(src, dst)
 
 
     @property

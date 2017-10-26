@@ -25,7 +25,6 @@ class p_inversion(custom_import('workflow', 'inversion')):
     """ Seismic inversion base class.
 
       Compute iterative non-linear inversion. Designed to fit PEWF2D solver.
-      Follows a more generic design to base class.
 
       To allow customization, the inversion workflow is divided into generic
       methods such as 'initialize', 'finalize', 'evaluate_function',
@@ -46,6 +45,9 @@ class p_inversion(custom_import('workflow', 'inversion')):
         super(p_inversion, self).check()
 
         # check parameters
+        if 'STOPCRITERIA' not in PAR:
+            setattr(PAR, 'STOPCRITERIA', None)
+
         if PAR.SOLVER not in ['pewf2d', 'ssewf2d', 'spewf2d', 'saga_pewf2d']:
             raise ValueError('Use solver class "pewf2d" here.')
 
@@ -54,9 +56,6 @@ class p_inversion(custom_import('workflow', 'inversion')):
         else:
             if not exists(join(PATH.SOLVER_INPUT, PAR.STF_FILE)):
                 raise IOError('Source time function file not found.')
-
-        if 'STOPCRITERIA' not in PAR:
-            setattr(PAR, 'STOPCRITERIA', None)
 
         # check paths
         if 'MODELS' not in PATH:
@@ -105,16 +104,14 @@ class p_inversion(custom_import('workflow', 'inversion')):
             optimize.setup()
 
         # initialize directories
-        system.run('solver', 'setup',
-                   hosts='all')
+        system.run('solver', 'setup')
 
         # copy/generate data
         if PATH.DATA:
             print('Copying data...')
         else:
             print('Generating data...')
-            system.run('solver', 'generate_data',
-                        hosts='head')
+            system.run_single('solver', 'generate_data')
 
 
     def compute_gradient(self):
@@ -126,23 +123,18 @@ class p_inversion(custom_import('workflow', 'inversion')):
         unix.mkdir(join(PATH.OUTPUT, iter_dirname(optimize.iter)))
 
         print('Generating synthetics...')
-        system.run('solver', 'generate_synthetics',
-                    mode=1,
-                    hosts='head')
+        system.run_single('solver', 'generate_synthetics', mode=1)
 
         print('Prepare adjoint sources...')
-        system.run('solver', 'prepare_eval_grad',
-                   hosts='all')
+        system.run('solver', 'prepare_eval_grad')
 
         print('Computing gradient...')
-        system.run('solver', 'compute_gradient',
-                    hosts='head')
+        system.run_single('solver', 'compute_gradient')
 
         postprocess.write_gradient(PATH.GRAD)
 
         dst = join(PATH.OPTIMIZE, 'g_new')
-        savenpy(dst, solver.merge(solver.load(PATH.GRAD,
-                                              suffix='_kernel')))
+        savenpy(dst, solver.merge(solver.load(PATH.GRAD, suffix='_kernel')))
 
         # evaluate misfit function
         self.sum_residuals(path=PATH.SOLVER, suffix='new')
@@ -156,41 +148,35 @@ class p_inversion(custom_import('workflow', 'inversion')):
 
     def line_search(self):
         """ Conducts line search in given search direction
-        """
+
+            Status codes
+                status > 0  : finished
+                status == 0 : not finished
+                status < 0  : failed
+          """
         optimize.initialize_search()
 
         while True:
-            self.iterate_search()
+            print " trial step", optimize.line_search.step_count + 1
+            self.evaluate_function()
+            status = optimize.update_search()
 
-            if optimize.isdone:
+            if status > 0:
                 optimize.finalize_search()
                 break
-            elif optimize.step_count < PAR.STEPMAX:
-                optimize.compute_step()
+
+            elif status == 0:
                 continue
-            else:
-                retry = optimize.retry_status()
-                if retry:
-                    print ' Line search failed...\n\n Retrying...'
+
+            elif status < 0:
+                if optimize.retry_status():
+                    print ' Line search failed\n\n Retrying...'
                     optimize.restart()
                     self.line_search()
                     break
                 else:
-                    print ' Line search failed...\n\n Aborting...'
+                    print ' Line search failed\n\n Aborting...'
                     sys.exit(-1)
-
-
-    def iterate_search(self):
-        """ First, calls self.evaluate_function, which carries out a forward
-          simulation given the current trial model. Then calls
-          optimize.update_status, which maintains search history and checks
-          stopping conditions.
-        """
-        if PAR.VERBOSE > 1:
-            print " trial step", optimize.step_count+1
-
-        self.evaluate_function()
-        optimize.update_status()
 
 
     def evaluate_function(self):
@@ -198,10 +184,8 @@ class p_inversion(custom_import('workflow', 'inversion')):
         """
         self.write_model(path=PATH.FUNC, suffix='try')
 
-        system.run('solver', 'evaluate_function',
-                   hosts='head')
-        system.run('solver', 'process_trial_step',
-                   hosts='all')
+        system.run_single('solver', 'evaluate_function')
+        system.run('solver', 'process_trial_step')
 
         self.sum_residuals(path=PATH.FUNC, suffix='try')
 
@@ -209,7 +193,7 @@ class p_inversion(custom_import('workflow', 'inversion')):
     def finalize(self):
         """ Saves results from current model update iteration
         """
-        system.checkpoint()
+        self.checkpoint()
 
         # save new model to working dir
         src = join(PATH.OPTIMIZE, 'm_new')

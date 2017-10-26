@@ -7,8 +7,8 @@ import numpy as np
 
 from seisflows.tools import unix
 from seisflows.plugins import material
-from seisflows.plugins.io.pewf2d import read, write
-from seisflows.tools.tools import exists, call_solver
+from seisflows.plugins.solver_io.pewf2d import read, write
+from seisflows.tools.seismic import exists, call_solver
 from seisflows.tools.array import gridsmooth, loadnpy
 from seisflows.config import ParameterError, custom_import
 from seisflows.plugins.solver.pewf2d import  Par, read_cfg_file, write_cfg_file, event_dirname

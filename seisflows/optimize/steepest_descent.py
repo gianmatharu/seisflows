@@ -16,7 +16,7 @@ class steepest_descent(custom_import('optimize', 'base')):
     def check(self):
         """ Checks parameters, paths, and dependencies
         """
-        # line search algorithm
+
         if 'LINESEARCH' not in PAR:
             setattr(PAR, 'LINESEARCH', 'Bracket')
 
@@ -28,21 +28,10 @@ class steepest_descent(custom_import('optimize', 'base')):
 
 
     def compute_direction(self):
-        g_new = self.load('g_new')
-
-        precond=self.precond()
-
-        if precond:
-            p_new = -precond(g_new)
-        else:
-            p_new = -g_new
-
-        self.save('p_new', p_new)
-        self.savetxt('s_new', self.dot(g_new, p_new))
-
-        return p_new
+        super(steepest_descent, self).compute_direction()
 
 
     def restart(self):
+        # steepest descent never requires restarts
         pass
 

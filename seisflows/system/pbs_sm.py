@@ -104,7 +104,7 @@ class pbs_lg(custom_import('system', 'base')):
         # create output directories
         unix.mkdir(PATH.OUTPUT)
 
-        self.checkpoint()
+        workflow.checkpoint()
 
         hours = PAR.WALLTIME/60
         minutes = PAR.WALLTIME%60
@@ -126,10 +126,15 @@ class pbs_lg(custom_import('system', 'base')):
                 + PATH.OUTPUT)
 
 
-    def run(self, classname, funcname, hosts='all', **kwargs):
-        """ Runs task(s) on specified hosts
+    def run(self, classname, method, hosts='all', **kwargs):
+        """ Runs embarrassingly parallel tasks
+
+          Executes the following multiple times:
+              classname.method(*args, **kwargs)
+
+          system.taskid serves to provide each running task a unique identifier
         """
-        self.checkpoint()
+        self.checkpoint(PATH.OUTPUT, classname, method, args, kwargs)
 
         if hosts == 'all':
             # run all tasks
@@ -138,7 +143,7 @@ class pbs_lg(custom_import('system', 'base')):
                     + findpath('seisflows.system')  +'/'+'wrappers/run '
                     + PATH.OUTPUT + ' '
                     + classname + ' '
-                    + funcname + ' '
+                    + method + ' '
                     + 'PYTHONPATH='+findpath('seisflows'),+','
                     + PAR.ENVIRONS)
 
@@ -150,7 +155,7 @@ class pbs_lg(custom_import('system', 'base')):
                     + join(findpath('seisflows.system'), 'wrappers/run ')
                     + PATH.OUTPUT + ' '
                     + classname + ' '
-                    + funcname + ' '
+                    + method + ' '
                     + 'PYTHONPATH='+findpath('seisflows'),+','
                     + PAR.ENVIRONS
                     +'"')
@@ -161,13 +166,13 @@ class pbs_lg(custom_import('system', 'base')):
 
 
     def mpiexec(self):
-        """ Specifies MPI exectuable; used to invoke solver
+        """ Specifies MPI executable used to invoke solver
         """
         return PAR.MPIEXEC
 
 
     def taskid(self):
-        """ Gets number of running task
+        """ Provides a unique identifier for each running task
         """
         try:
             return os.getenv('PBS_NODENUM')
@@ -176,13 +181,15 @@ class pbs_lg(custom_import('system', 'base')):
 
 
     def hostlist(self):
+        """ Generates list of allocated cores
+        """
         with open(os.environ['PBS_NODEFILE'], 'r') as f:
             return [line.strip() for line in f.readlines()]
 
 
-    def save_kwargs(self, classname, funcname, kwargs):
+    def save_kwargs(self, classname, method, kwargs):
         kwargspath = join(PATH.OUTPUT, 'kwargs')
-        kwargsfile = join(kwargspath, classname+'_'+funcname+'.p')
+        kwargsfile = join(kwargspath, classname+'_'+method+'.p')
         unix.mkdir(kwargspath)
         saveobj(kwargsfile, kwargs)
 

@@ -7,7 +7,7 @@ import numpy as np
 
 from seisflows.tools import unix
 from seisflows.config import custom_import
-from seisflows.plugins.io.pewf2d import read
+from seisflows.plugins.solver_io.pewf2d import read
 from seisflows.plugins.encode import SourceArray
 from seisflows.plugins.solver.pewf2d import Par, event_dirname
 

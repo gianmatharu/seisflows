@@ -40,6 +40,9 @@ class serial(custom_import('system', 'base')):
         if 'VERBOSE' not in PAR:
             setattr(PAR, 'VERBOSE', 1)
 
+        if 'MPIEXEC' not in PAR:
+            setattr(PAR, 'MPIEXEC', 'mpiexec -np {}'.format(PAR.NPROC))
+
         # where job was submitted
         if 'WORKDIR' not in PATH:
             setattr(PATH, 'WORKDIR', abspath('.'))
@@ -71,54 +74,48 @@ class serial(custom_import('system', 'base')):
         # create output directories
         unix.mkdir(PATH.OUTPUT)
 
-        self.checkpoint()
+        workflow.checkpoint()
 
         # execute workflow
         workflow.main()
 
 
-    def run(self, classname, funcname, hosts='all', **kwargs):
-        """ Runs tasks in serial or parallel on specified hosts
+    def run(self, classname, method, hosts='all', **kwargs):
+        """ Executes task multiple times in serial
         """
         unix.mkdir(PATH.SYSTEM)
 
-        if hosts == 'all':
-            for itask in range(PAR.NTASK):
-                self.setnode(itask)
-                self.progress(itask)
-                func = getattr(__import__('seisflows_'+classname), funcname)
-                func(**kwargs)
-            print ''
-
-        elif hosts == 'head':
-            self.setnode(0)
-            func = getattr(__import__('seisflows_'+classname), funcname)
+        for taskid in range(PAR.NTASK):
+            os.environ['SEISFLOWS_TASKID'] = str(taskid)
+            if PAR.VERBOSE > 0:
+                self.progress(taskid)
+            func = getattr(__import__('seisflows_'+classname), method)
             func(**kwargs)
+        print ''
 
-        else:
-            task(**kwargs)
+
+    def run_single(self, classname, method, *args, **kwargs):
+        """ Runs task a single time
+        """
+        os.environ['SEISFLOWS_TASKID'] = str(0)
+        func = getattr(__import__('seisflows_'+classname), method)
+        func(**kwargs)
 
 
     def taskid(self):
-        """ Gets number of running task
+        """ Provides a unique identifier for each running task
         """
         return int(os.environ['SEISFLOWS_TASKID'])
 
-    def setnode(self, itask):
-        """ Sets number of running task
-        """
-        os.environ['SEISFLOWS_TASKID'] = str(itask)
 
     def mpiexec(self):
-        """ Specifies MPI exectuable; used to invoke solver
+        """ Specifies MPI executable used to invoke solver
         """
-        if PAR.NPROC > 1:
-            return 'mpiexec -np %d ' % PAR.NPROC
-        else:
-            return ''
+        return PAR.MPIEXEC
 
-    def progress(self, itask=None):
-        """ Provides status updates
+
+    def progress(self, taskid):
+        """ Provides status update
         """
-        if PAR.VERBOSE and PAR.NTASK > 1:
-            print ' task ' + '%02d'%(itask + 1) + ' of ' + '%02d'%PAR.NTASK
+        if PAR.NTASK > 1:
+            print ' task ' + '%02d of %02d' % (taskid+1, PAR.NTASK)

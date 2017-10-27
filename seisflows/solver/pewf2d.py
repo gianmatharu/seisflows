@@ -66,8 +66,11 @@ class pewf2d(object):
         if 'FORMAT' not in PAR:
             raise ParameterError(PAR, 'FORMAT')
 
-        if PAR.FORMAT != 'su':
+        if PAR.FORMAT not in ['SU', 'su']:
             raise ValueError('Format must be SU')
+
+        if 'CHANNELS' not in PAR:
+            setattr(PAR, 'CHANNELS', ['x', 'z'])
 
         if 'CLIP' not in PAR:
             setattr(PAR, 'CLIP', 0)
@@ -223,7 +226,7 @@ class pewf2d(object):
         if not (mode == 0 or mode == 1):
             raise ValueError('Mode must be set to forward (0) or save wavefield mode (1)')
 
-        output_dir = join(PATH.FUNC)
+        output_dir = PATH.FUNC
         model_dir = join(PATH.FUNC, 'model')
         unix.mkdir(output_dir)
 
@@ -234,18 +237,41 @@ class pewf2d(object):
                          stf_file='stf_f.txt')
         self.forward()
 
+    def apply_hess(self, adjoint=False):
+        """ Used to compute action of the Hessian on a model perturbation.
+        """
+        output_dir = PATH.HESS
+        model_dir = join(PATH.HESS, 'model')
+
+        if not adjoint:
+            mode=1
+            run_solver = self.forward
+        else:
+            mode = 2
+            run_solver = self.adjoint
+
+        self.set_par_cfg(external_model_dir=model_dir,
+                         output_dir=output_dir,
+                         mode=mode,
+                         use_stf_file=PAR.USE_STF_FILE,
+                         stf_file='stf_f.txt')
+        run_solver()
+
+
+    def prepare_apply_hess(self):
+        """ Prepare adjoint sources
+        """
+        preprocess.prepare_apply_hess(self.getpath, self.get_altpath(PATH.HESS))
+
+
     def process_trial_step(self):
         """ Process line search data
         """
-        itask = system.taskid()
-        trial_dir = join(PATH.FUNC, event_dirname(itask + 1))
-
         # delete old file
-        rfile = join(trial_dir, 'residuals')
-        if exists(rfile):
-            unix.rm(rfile)
-
-        preprocess.evaluate_trial_step(self.getpath, trial_dir)
+        residuals = join(self.get_altpath(PATH.FUNC), 'residuals')
+        if exists(residuals):
+            unix.rm(residuals)
+        preprocess.evaluate_trial_step(self.getpath, self.get_altpath(PATH.FUNC))
 
     def export_trial_solution(self, path=''):
         """ Save trial solution for frugal inversion.
@@ -257,16 +283,19 @@ class pewf2d(object):
 
    # serial/reduction function
 
-    def combine(self, path='', parameters=[]):
+    def combine(self, path='', solver_path='', parameters=[]):
         """ sum event gradients to compute misfit gradient
         """
         grad = {}
+
+        if not solver_path:
+            solver_path = PATH.SOLVER
 
         # sum gradient
         for key in parameters or self.parameters:
             gradp = np.zeros(p.nx * p.nz, dtype='float32')
             for itask in range(PAR.NTASK):
-                fpath = join(PATH.SOLVER, event_dirname(itask + 1), 'traces', 'syn')
+                fpath = join(solver_path, event_dirname(itask + 1), 'traces', 'syn')
                 gradp += read(fpath, key, suffix='_kernel')
 
             grad[key] = gradp
@@ -295,7 +324,7 @@ class pewf2d(object):
         """
         for itask in range(PAR.NTASK):
             path = join(PATH.SOLVER, event_dirname(itask + 1))
-            src = self.data_filenames(join(path, 'traces/syn'))
+            src = glob(join(path, 'traces/syn/*'))
             dst = join(path, 'traces/obs')
             unix.mv(src, dst)
 
@@ -467,11 +496,17 @@ class pewf2d(object):
         itask = system.taskid()
         return join(PATH.SOLVER, event_dirname(itask + 1))
 
-    def data_filenames(self, path):
-
-        filenames = []
-        filenames += glob(join(path, '*.su'))
-        filenames += glob(join(path, '*.txt'))
-        filenames += glob(join(path, '*.bin'))
+    @property
+    def data_filenames(self):
+        if PAR.CHANNELS == ['p']:
+            filenames = ['p_data.su']
+        else:
+            filenames = []
+            for channel in PAR.CHANNELS:
+                filenames += ['U{}_data.su'.format(channel)]
 
         return filenames
+
+    def get_altpath(self, path=''):
+        itask = system.taskid()
+        return join(path, event_dirname(itask + 1))

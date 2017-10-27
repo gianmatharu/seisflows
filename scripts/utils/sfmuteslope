@@ -94,7 +94,7 @@ if __name__ == "__main__":
             nt = len(stream[0].data)
             s_coords, r_coords = get_coords(stream)
 
-            if args.eearly:
+            if args.early:
                 stream = mute_early_arrivals(stream,
                                             1/args.slope,
                                             args.tshift,

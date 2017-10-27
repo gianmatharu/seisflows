@@ -55,27 +55,27 @@ class pewf2d(custom_import('postprocess', 'base')):
 
         unix.cp(src, dst)
 
-    def write_gradient(self, path):
+    def write_gradient(self, path, solver_path=''):
         """ Reads kernels and writes gradient of objective function
         """
         if not exists(path):
             unix.mkdir(path)
 
-        system.run('postprocess', 'process_kernels',
-                   hosts='head',
-                   path=path,
-                   parameters=solver.parameters)
+        system.run_single('postprocess', 'process_kernels',
+                          path=path,
+                          parameters=solver.parameters,
+                          solver_path=solver_path)
 
-        g = solver.merge(solver.load(path,
-                                     suffix='_kernel'))
+        g = solver.merge(solver.load(path, suffix='_kernel'))
 
         if PATH.MASK:
             # apply mask
             g *= solver.merge(solver.load(PATH.MASK))
             self.save(path, g, backup='nomask')
 
-    def process_kernels(self, path, parameters):
+    def process_kernels(self, path, parameters, solver_path=''):
         solver.combine(path=path,
+                       solver_path=solver_path,
                        parameters=parameters)
 
         if PAR.SMOOTH > 0.:

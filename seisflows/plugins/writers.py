@@ -12,15 +12,15 @@ def su(d, path, filename):
         t.data = t.data.astype(np.float32)
 
 
-    max_delta = 0.065535
-    dummy_delta = max_delta
+    #max_delta = 0.065535
+    #dummy_delta = max_delta
 
-    if d[0].stats.delta > max_delta:
-        for t in d:
-            t.stats.delta = dummy_delta
+    #if d[0].stats.delta > max_delta:
+    #    for t in d:
+    #        t.stats.delta = dummy_delta
 
     # write data to file
-    d.write(path+'/'+filename, format='SU')
+    d.write(path+'/'+filename, format='SU', byteorder='<')
 
 
 def ascii(stream, path, filenames):
@@ -37,25 +37,3 @@ def ascii(stream, path, filenames):
         print times.shape, tr.data.shape
         np.savetxt(path +'/'+ tr.stats.filename,
                    np.column_stack((t, w)))
-
-
-def su_pewf2d(d, prefix='', channel=None, tag='data'):
-    """ Write Seismic Unix file
-    """
-
-    if channel in ['x']:
-        file = '%s/Ux_%s.su' % (prefix, tag)
-    elif channel in ['z']:
-        file = '%s/Uz_%s.su' % (prefix, tag)
-    elif channel in ['p']:
-        file = '%s/p_%s.su' % (prefix, tag)
-    else:
-        raise ValueError('CHANNEL must be one of the following: x z or p')
-
-    # enforce float data convention
-    for tr in d:
-        tr.data = tr.data.astype(np.float32)
-
-    # write data to file
-    d.write(file, format='SU', byteorder='<')
-

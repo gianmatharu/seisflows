@@ -108,7 +108,7 @@ class ss_inversion(custom_import('workflow', 'p_inversion')):
         savenpy(dst, solver.merge(solver.load(PATH.GRAD, suffix='_kernel')))
 
         # evaluate misfit function
-        self.sum_residuals(path=PATH.SOLVER, suffix='new')
+        self.write_misfit(path=PATH.SOLVER, suffix='new')
 
     def finalize(self):
         """ Saves results from current model update iteration

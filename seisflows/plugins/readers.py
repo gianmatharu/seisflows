@@ -43,20 +43,3 @@ def ascii(path, filenames):
         stream.append(Trace(data=data[:,1], header=stats))
 
     return stream
-
-
-def su_pewf2d(prefix='', channel=None):
-    from obspy import read
-
-    if channel in ['x']:
-        filename = '%s/Ux_data.su' % (prefix)
-    elif channel in ['z']:
-        filename = '%s/Uz_data.su' % (prefix)
-    elif channel in ['p']:
-        filename = '%s/p_data.su' % (prefix)
-    else:
-        raise ValueError('CHANNEL must be one of the following: x z')
-
-    streamobj = read(filename, format='SU', byteorder='<')
-    return streamobj
-

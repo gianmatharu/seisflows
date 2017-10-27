@@ -137,7 +137,7 @@ class p_inversion(custom_import('workflow', 'inversion')):
         savenpy(dst, solver.merge(solver.load(PATH.GRAD, suffix='_kernel')))
 
         # evaluate misfit function
-        self.sum_residuals(path=PATH.SOLVER, suffix='new')
+        self.write_misfit(path=PATH.SOLVER, suffix='new')
 
 
     def compute_direction(self):
@@ -187,7 +187,7 @@ class p_inversion(custom_import('workflow', 'inversion')):
         system.run_single('solver', 'evaluate_function')
         system.run('solver', 'process_trial_step')
 
-        self.sum_residuals(path=PATH.FUNC, suffix='try')
+        self.write_misfit(path=PATH.FUNC, suffix='try')
 
 
     def finalize(self):
@@ -251,27 +251,17 @@ class p_inversion(custom_import('workflow', 'inversion')):
         unix.mkdir(dst)
         self.save_vector(src, dst)
 
-
-    def sum_residuals(self, path='', suffix=''):
-        """ Returns sum of squares of residuals
+    def write_misfit(self, path='', suffix=''):
+        """ Writes the misfit in format used by optimization
         """
-        dst = PATH.OPTIMIZE +'/'+ 'f_' + suffix
-        residuals = []
+        src = []
+        dst = 'f_' + suffix
 
         for itask in range(PAR.NTASK):
-            src = path +'/'+ event_dirname(itask + 1) +'/'+ 'residuals'
-            fromfile = np.loadtxt(src)
+            src += [join(path, event_dirname(itask + 1), 'residuals')]
 
-            if PAR.MISFIT == 'Correlation1':
-                residuals.append(fromfile)
-            else:
-                residuals.append(fromfile**2.)
+        data_misfit = preprocess.sum_residuals(src)
 
-        data_misfit = np.sum(residuals)
-        total_misfit = data_misfit
-        np.savetxt(dst, [total_misfit])
-
-        # add regularization term
         if PAR.POSTPROCESS in ['tikhonov0', 'tikhonov1']:
             if suffix == 'new':
                 path = PATH.MODELS +'/'+ 'model_est'
@@ -279,21 +269,17 @@ class p_inversion(custom_import('workflow', 'inversion')):
                 path = PATH.FUNC +'/' + 'model'
 
             reg_misfit = postprocess.sum_residuals(path)
-
-            #total_misfit = data_misfit
             total_misfit = data_misfit + PAR.HYPERPAR * reg_misfit
             np.savetxt(dst, [total_misfit])
-
-            # write data and regularization misfit
-            dst = PATH.OPTIMIZE +'/'+ 'fr_' + suffix
-            np.savetxt(dst, [reg_misfit])
-
-            dst = PATH.OPTIMIZE +'/'+ 'fd_' + suffix
-            np.savetxt(dst, [data_misfit])
             print 'Misfit - {} |--------------------'.format(suffix)
             print 'Total misfit: {:.3e}'.format(total_misfit)
             print 'Data misfit: {:.3e}'.format(data_misfit)
             print 'Regr misfit: {:.3e}'.format(reg_misfit)
+        else:
+            total_misfit = data_misfit
+
+        optimize.savetxt(dst, total_misfit)
+
 
     def save_gradient(self):
         src = glob(join(PATH.GRAD, '*_kernel.bin'))

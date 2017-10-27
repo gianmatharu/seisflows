@@ -108,7 +108,7 @@ class wg_inversion(custom_import('workflow', 'p_inversion')):
         savenpy(dst, solver.merge(solver.load(PATH.GRAD, suffix='_kernel')))
 
         # evaluate misfit function
-        self.sum_residuals(path=PATH.SOLVER, suffix='new')
+        self.write_misfit(path=PATH.SOLVER, suffix='new')
 
 
     def evaluate_function(self):
@@ -121,6 +121,6 @@ class wg_inversion(custom_import('workflow', 'p_inversion')):
 
         system.run_parallel('solver', 'evaluate_function')
         system.run('solver', 'process_trial_step')
-        self.sum_residuals(path=PATH.FUNC, suffix='try')
+        self.write_misfit(path=PATH.FUNC, suffix='try')
 
 

@@ -23,74 +23,10 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
     """ Data preprocessing class
     """
 
-    def check(self):
-        # check parameters
-        if 'MISFIT' not in PAR:
-            setattr(PAR, 'MISFIT', 'Waveform')
-
-        if 'CHANNELS' not in PAR:
-            raise ParameterError(PAR, 'CHANNELS')
-
-        if 'READER' not in PAR:
-          raise ParameterError(PAR, 'READER')
-
-        if 'WRITER' not in PAR:
-          setattr(PAR, 'WRITER', PAR.READER)
-
-        if 'NORMALIZE' not in PAR:
-          setattr(PAR, 'NORMALIZE', True)
-
-        # filter settings
-        if 'PREFILTER' not in PAR:
-            setattr(PAR, 'PREFILTER', False)
-
-        if 'ZEROPHASE' not in PAR:
-            setattr(PAR, 'ZEROPHASE', False)
-
-        if 'CORNERS' not in PAR:
-            setattr(PAR, 'CORNERS', 4)
-
-        if 'BANDPASS' not in PAR:
-          setattr(PAR, 'BANDPASS', False)
-
-        if 'FREQLO' not in PAR:
-          setattr(PAR, 'FREQLO', 0.)
-
-        if 'FREQHI' not in PAR:
-          setattr(PAR, 'FREQHI', 0.)
-
-        # assertions
-        if PAR.READER != 'su_pewf2d':
-            raise ValueError('Must use su reader.')
-
-        if PAR.WRITER != 'su_pewf2d':
-            raise ValueError('Must use SU writer.')
-
-        if PAR.READER != PAR.WRITER:
-            print msg.DataFormatWarning % (PAR.READER, PAR.WRITER)
-
-        if 'STF_FILE' not in PAR:
-            raise ParameterError(PAR, 'STF_FILE')
-
-
     def setup(self):
-
-        # define misfit function and adjoint trace generator
-        self.misfit = getattr(misfit, PAR.MISFIT)
-        self.adjoint = getattr(adjoint, PAR.MISFIT)
-
-        # define seismic data reader and writer
-        self.reader = getattr(readers, PAR.READER)
-        self.writer = getattr(writers, PAR.WRITER)
-
-        # prepare channels list
-        self.channels = []
-        for char in PAR.CHANNELS:
-            self.channels += [char]
-
-        # filter source wavelet
-        stf_file = join(PATH.SOLVER_INPUT, PAR.STF_FILE)
-        self.filter_stf(stf_file)
+        """" Setup
+        """
+        super(ssewf2d, self).setup()
 
         # create directories
         unix.rm(PATH.SOURCE)
@@ -100,6 +36,8 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
     def encode_input(self, itask=0, path='', source_array=[], encoding=[]):
         """ Perform source encoding to generate 'supershot'
         """
+        solver = sys.modules['seisflows_solver']
+
         if not isinstance(source_array, SourceArray):
             raise TypeError('Expected SourceArray object.')
 
@@ -107,13 +45,12 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
         self.encode_sources(source_array, encoding, itask)
 
         # encode data
-        for channel in self.channels:
+        for filename in solver.data_filenames:
             data_list = []
             for source, code in zip(source_array, encoding):
 
                 # read data and process
-                dpath = join(PATH.DATA, event_dirname(int(source.index)))
-                obs = self.reader(dpath, channel)
+                obs = self.reader(join(PATH.DATA, event_dirname(int(source.index))), filename)
                 obs = self.process_traces(obs, filter=not PAR.PREFILTER)
                 obs = self.encode_traces(obs, code)
 
@@ -122,39 +59,43 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
 
             # sum and write data
             data = sum(data_list)
-            self.writer(data, path + '/' + 'traces/obs', channel)
+            self.writer(data, path + '/' + 'traces/obs', filename)
 
 
     def prepare_eval_grad(self, path='.'):
         """ Prepares solver for gradient evaluation by writing residuals and
           adjoint traces
         """
+        solver = sys.modules['seisflows_solver']
+
         if exists(path + '/residuals'):
             unix.rm(path + '/residuals')
 
-        for channel in self.channels:
-            obs = self.reader(path+'/'+'traces/obs', channel)
-            syn = self.reader(path+'/'+'traces/syn', channel)
+        for filename in solver.data_filenames:
+            obs = self.reader(path+'/'+'traces/obs', filename)
+            syn = self.reader(path+'/'+'traces/syn', filename)
 
             self.write_residuals(path, syn, obs)
-            self.store_residuals(path, channel, syn, obs)
-            self.write_adjoint_traces(path+'/'+'traces/adj', syn, obs, channel)
+            self.store_residuals(path, filename, syn, obs)
+            self.write_adjoint_traces(path+'/'+'traces/adj', syn, obs, filename)
 
 
     def evaluate_trial_step(self, path='.', path_try=''):
         """ Evaluates trial step during line search.
         """
+        solver = sys.modules['seisflows_solver']
+
         if exists(path + '/residuals'):
             unix.rm(path + '/residuals')
 
-        for channel in self.channels:
-            obs = self.reader(path+'/'+'traces/obs', channel)
-            syn = self.reader(path_try+'/'+'traces/syn', channel)
+        for filename in solver.data_filenames:
+            obs = self.reader(path + '/' + 'traces/obs', filename)
+            syn = self.reader(path_try + '/' + 'traces/syn', filename)
 
             self.write_residuals(path_try, syn, obs)
 
 
-    ### utility functions
+    ### source encoding functions
 
     def encode_sources(self, source_array, encoding, itask):
         """ Encode source wavelet.
@@ -163,28 +104,25 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
             raise ValueError('Dimensions of group do not match encoding')
 
         # load processed source wavelet
-        ntask = len(source_array)
         _, stf, dt = self._get_trace_from_ascii(join(PATH.SOLVER_INPUT, 'stf_f.txt'))
 
         # initialize stream
         stream = Stream()
 
         # set headers
-        for i in xrange(ntask):
+        for i in xrange(len(source_array)):
             stream.append(self.get_source_trace(stf, dt, source_array[i].x, source_array[i].z))
 
         # encode source time functions
         if PAR.ENCODER == 'random':
-            for i in xrange(ntask):
+            for i in xrange(len(source_array)):
                 stream[i].data = stream[i].data * encoding[i]
         elif PAR.ENCODER in {'shift', 'plane_wave'}:
-            for i in xrange(ntask):
+            for i in xrange(len(source_array)):
                 stream[i] = self.shift_trace(stream[i], encoding[i], PAR.MAX_SHIFT)
 
         # write encoded sources
-        stream = self.convert_to_float(stream)
-        stream.write(join(PATH.SOURCE, 'source_{:03d}.su'.format(itask + 1)), format='SU', byteorder='<')
-
+        self.writer(stream, PATH.SOURCE, 'source_{:03d}.su'.format(itask + 1))
         return stream
 
 
@@ -210,50 +148,11 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
 
         # Filtering
         if filter:
-            for trace in stream:
-                self.filter_trace(trace)
+            self.apply_filter(stream)
 
         return stream
 
-
-    def filter_trace(self, trace):
-        """ Filter obspy trace
-        """
-        if PAR.FREQLO and PAR.FREQHI:
-            trace.filter('bandpass', freqmin=PAR.FREQLO, freqmax=PAR.FREQHI, corners=PAR.CORNERS, zerophase=PAR.ZEROPHASE)
-        elif PAR.FREQHI:
-            trace.filter('lowpass', freq=PAR.FREQHI, corners=PAR.CORNERS, zerophase=PAR.ZEROPHASE)
-        else:
-            pass
-
-        return trace
-
-
-    def filter_stf(self, file):
-        """ Load and filter source wavelet.
-        """
-        t, stf, dt = self._get_trace_from_ascii(file)
-        tr = Trace(stf)
-        tr.stats.delta = dt
-
-        stf = self.filter_trace(tr)
-
-        # write as ascii time series
-        with open(join(PATH.SOLVER_INPUT, 'stf_f.txt'), 'w') as f:
-            for i in range(len(stf.data)):
-                f.write('{:f} {:f}\n'.format(t[i], stf.data[i]))
-
-
-    def _get_trace_from_ascii(self, file):
-        """ Read ascii time series and return trace.
-        """
-        ts = np.loadtxt(file)
-        t = ts[:, 0]
-        d = ts[:, 1]
-        dt = t[1] - t[0]
-
-        return t, d, dt
-
+    # utility functions
 
     def get_source_trace(self, d, dt, sx, sz):
         """ Set source position in trace header.
@@ -268,6 +167,7 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
 
         return tr
 
+
     def shift_trace(self, trace, shift, max_shift):
         """ Adds time shift to a trace. Extends trace 
         """
@@ -276,9 +176,6 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
 
         nshift = int(shift / dt)
         npad = int(max_shift / dt)
-
-        #if shift % dt != 0:
-        #    print('Warning: Shift not divisible by dt')
 
         if max_shift < shift:
             max_shift = shift

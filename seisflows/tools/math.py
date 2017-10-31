@@ -6,6 +6,7 @@ import os
 import numpy as np
 import scipy.signal as _signal
 import scipy.interpolate as _interp
+from functools import wraps
 
 from scipy.signal import hilbert as analytic
 
@@ -231,4 +232,22 @@ def tv(Z, h=[], epsilon=1.e-6):
 
     return top/(bot + epsilon*bot.max())**0.5
 
+# normalization decorator
+def normalize_dec(func, n):
+    """ Normalization decorator for any function that outputs
+        a numerical type.
+    """
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs) / float(n)
+    return wrapper
 
+class Normalize(object):
+    """ Normalization decorator class
+    """
+    def __init__(self, func, n):
+        self.func = func
+        self.n = n
+
+    def __call__(self, *args, **kwargs):
+        return (1.0/self.n) * self.func(*args, **kwargs)

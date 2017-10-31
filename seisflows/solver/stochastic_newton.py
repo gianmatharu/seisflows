@@ -154,7 +154,7 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
         if solver_path == PATH.HESS:
             ntask = PAR.NSUBSET
         else:
-            ntask = PAR.NTASK
+            ntask = PAR.NSOURCES
         print 'Dividing by: {}'.format(ntask)
 
 

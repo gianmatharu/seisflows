@@ -277,8 +277,8 @@ class pewf2d(object):
         """ Save trial solution for frugal inversion.
         """
         # transfer synthetic data
-        src = glob(join(path, basename(self.getpath), 'traces', 'syn', '*'))
-        dst = join(self.getpath, 'traces', 'syn')
+        src = glob(join(path, basename(self.getpath), 'traces/syn/*'))
+        dst = join(self.getpath, 'traces/syn')
         unix.mv(src, dst)
 
    # serial/reduction function
@@ -295,7 +295,7 @@ class pewf2d(object):
         for key in parameters or self.parameters:
             gradp = np.zeros(p.nx * p.nz, dtype='float32')
             for itask in range(PAR.NTASK):
-                fpath = join(solver_path, event_dirname(itask + 1), 'traces', 'syn')
+                fpath = join(solver_path, event_dirname(itask + 1), 'traces/syn')
                 gradp += read(fpath, key, suffix='_kernel')
 
             grad[key] = gradp

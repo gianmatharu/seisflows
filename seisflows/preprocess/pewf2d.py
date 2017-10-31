@@ -196,7 +196,7 @@ class pewf2d(object):
 
         r = s.copy()
         for i in range(n):
-            r[i].data[:] -= d[i].data[:]
+            r[i].data[:] = s[i].data[:] - d[i].data[:]
 
         self.writer(r, path, self._swap_tag(filename, 'res'))
 

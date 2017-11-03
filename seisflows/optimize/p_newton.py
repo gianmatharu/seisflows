@@ -40,6 +40,7 @@ class p_newton(custom_import('optimize', 'newton')):
             status, flag = self.LCG.update(Hdm)
 
             if status > 0:
+                self.writer('step_count_CG', self.ilcg)
                 # finalize model update
                 dm = self.load('LCG/x')
                 if self.dot(g,dm) >= 0:

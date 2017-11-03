@@ -64,10 +64,13 @@ class LCG(object):
         # check status
         if self.check_status(ap) == 0:
             isdone = True
+            flag = True
         elif self.ilcg >= self.maxiter:
             isdone = True
+            flag = False
         else:
             isdone = False
+            flag = False
 
         if not isdone:
             y = self.apply_precond(r)
@@ -80,7 +83,7 @@ class LCG(object):
             self.save('LCG/p', p)
             savetxt('LCG/ry', np.dot(r, y))
 
-        return isdone
+        return isdone, flag
 
 
     ### dummy methods, can be overloaded

@@ -41,4 +41,4 @@ class finite_sum(custom_import('preprocess', 'pewf2d')):
         """
         total_misfit = super(finite_sum, self).sum_residuals(files)
 
-        return (1.0/PAR.NSOURCES) * total_misfit
+        return (0.5/PAR.NSOURCES) * total_misfit

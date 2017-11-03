@@ -37,7 +37,7 @@ class p_newton(custom_import('optimize', 'newton')):
             self.save('Hdm', Hdm)
 
             # perform LCG iteration
-            status = self.LCG.update(Hdm)
+            status, flag = self.LCG.update(Hdm)
 
             if status > 0:
                 # finalize model update
@@ -47,7 +47,8 @@ class p_newton(custom_import('optimize', 'newton')):
                     dm = -g
                     self.restarted = True
                 else:
-                    self.LCG.finalize()
+                    if flag:
+                        self.LCG.finalize()
                 self.save('p_new', dm)
                 break
 

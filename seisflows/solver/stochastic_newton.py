@@ -8,6 +8,7 @@ import numpy as np
 from seisflows.tools import unix
 from seisflows.plugins.solver_io.pewf2d import read, write
 from seisflows.plugins.encode import SourceArray, decimate_source_array
+from seisflows.tools.seismic import call_solver
 from seisflows.config import ParameterError, custom_import
 from seisflows.plugins.solver.pewf2d import  Par, read_cfg_file, write_cfg_file, event_dirname
 
@@ -62,13 +63,34 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
         if PAR.NSUBSET > PAR.NSOURCES:
             raise ValueError('Subset must be smaller than set.')
 
-        if PAR.NSUBSET % PAR.NPROC != 0:
-            raise NotImplementedError('Subset size must be a multiple of nproc.')
-
         if PAR.PREPROCESS != 'finite_sum':
             raise ValueError('Use preprocessing class "finite_sum"')
 
+    # low level interface
+    def forward_hess(self):
+        """ Perform forward simulation. Must launch from /bin.
+        """
+        unix.cd(PATH.SOLVER_BIN)
+        script = './xewf2d'
+        call_solver('mpiexec -np {}'.format(PAR.NSUBSET),
+                    script,
+                    PATH.WORKDIR + '/dump_fwd')
 
+        unix.cd(PATH.WORKDIR)
+
+    def adjoint_hess(self):
+        """ Perform adjoint simulation. Must launch from /bin
+        """
+        unix.cd(PATH.SOLVER_BIN)
+        script = './xewf2d'
+        call_solver('mpiexec -np {}'.format(PAR.NSUBSET),
+                    script,
+                    PATH.WORKDIR + '/dump_adj')
+
+        unix.cd(PATH.WORKDIR)
+
+
+    # higher level interface
     def apply_hess(self, adjoint=False):
         """ Used to compute action of the Hessian on a model perturbation.
         """
@@ -77,10 +99,10 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
 
         if not adjoint:
             mode=1
-            run_solver = self.forward
+            run_solver = self.forward_hess
         else:
             mode = 2
-            run_solver = self.adjoint
+            run_solver = self.adjoint_hess
 
         self.set_par_cfg(external_model_dir=model_dir,
                          output_dir=output_dir,

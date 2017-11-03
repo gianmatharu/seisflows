@@ -82,7 +82,7 @@ class newton(custom_import('optimize', 'base')):
             Hdm = self.apply_hessian(m, dm, h)
 
             # perform LCG iteration
-            status = self.LCG.update(Hdm)
+            status, flag = self.LCG.update(Hdm)
 
             if status > 0:
                 # finalize model update
@@ -92,7 +92,8 @@ class newton(custom_import('optimize', 'base')):
                     dm = -g
                     self.restarted = True
                 else:
-                    self.LCG.finalize()
+                    if flag:
+                        self.LCG.finalize()
                 self.save('p_new', dm)
                 break
 

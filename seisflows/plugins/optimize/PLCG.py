@@ -25,6 +25,7 @@ class PLCG(LCG):
     """
     def __init__(self, path, eta=1., **kwargs):
         self.eta = eta
+        self.eta_init = eta
 
         super(PLCG, self).__init__(path, **kwargs)
 
@@ -154,6 +155,8 @@ class PLCG(LCG):
 
         if eta_k < 1:
             self.eta = eta_k
+        elif eta_k >= 1:
+            self.eta = self.eta_init
 
 ### utility functions
 

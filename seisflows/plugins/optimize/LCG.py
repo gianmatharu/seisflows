@@ -53,7 +53,8 @@ class LCG(object):
         if pap < 0:
             print ' Stopping LCG [negative curvature]'
             isdone = True
-            return isdone
+            flag = False
+            return isdone, flag
                        
         alpha = ry/pap
         x += alpha*p

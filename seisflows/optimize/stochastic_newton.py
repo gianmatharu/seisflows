@@ -61,6 +61,12 @@ class stochastic_newton(custom_import('optimize', 'p_newton')):
         self.save('g_sub', solver.merge(solver.load(
                 PATH.HESS+'/'+'gradient_sub', suffix='_kernel')))
 
+        if PATH.MASK:
+            # apply mask
+            g_sub = self.load('g_sub')
+            g_sub *= solver.merge(solver.load(PATH.MASK))
+            self.save('g_sub', g_sub)
+
         return (self.load('g_lcg') - self.load('g_sub'))/h
 
 

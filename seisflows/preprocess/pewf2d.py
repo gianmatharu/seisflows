@@ -382,6 +382,7 @@ class pewf2d(object):
         tr = Trace(stf)
         tr.stats.delta = dt
 
+        tr.taper(0.05, type='hann')
         self.apply_filter([tr])
 
         # write as ascii time series

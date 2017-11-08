@@ -99,6 +99,9 @@ if __name__ == "__main__":
             # read data file
             stream = read(infile, format='SU', byteorder='<')
 
+            for tr in stream:
+                tr.taper(0.05, type='hann')
+
             if args.freqlo and args.freqhi:
                 stream = sbandpass(stream, freqmin=args.freqlo, freqmax=args.freqhi,
                                    corners=args.c, zerophase=args.zp)

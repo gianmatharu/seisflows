@@ -81,6 +81,9 @@ class pewf2d(object):
         if 'RESCALE' not in PAR:
             setattr(PAR, 'RESCALE', False)
 
+        if 'SMOOTH_CLIP' not in PAR:
+            setattr(PAR, 'SMOOTH_CLIP', None)
+
         # check scratch paths
         if 'SCRATCH' not in PATH:
             raise ParameterError(PATH, 'SCRATCH')
@@ -313,7 +316,11 @@ class pewf2d(object):
 
         for key in parameters or self.parameters:
             grad[key] = grad[key].reshape((p.nz, p.nx))
-            grad[key] = gridsmooth(grad[key], span)
+
+            if PAR.SMOOTH_CLIP:
+                grad[key][PAR.SMOOTH_CLIP:, :] = gridsmooth(grad[key][PAR.SMOOTH_CLIP:, :], span)
+            else:
+                grad[key] = gridsmooth(grad[key], span)
 
         self.save(grad, path, suffix='_kernel')
 

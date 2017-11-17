@@ -11,48 +11,11 @@ PATH = sys.modules['seisflows_paths']
 
 
 class p_newton(custom_import('optimize', 'newton')):
-    """ Implements Newton-CG algorithm
+    """ Implements Newton-CG algorithm.
+        Computes Hessian-vector products using finite-difference
+        approximation of the form:
+            H(m)dm = (1/h) * (g(m+h*dm) - g(m))
     """
-
-    def compute_direction(self):
-        self.restarted = False
-
-        m = self.load('m_new')
-        g = self.load('g_new')
-
-        self.LCG.initialize()
-
-        # loop over LCG iterations
-        for self.ilcg in range(1, PAR.LCGMAX+1):
-            if PAR.VERBOSE:
-                print " LCG iteration", self.ilcg
-
-            dm = self.load('LCG/p')
-
-            # finite difference pertubation
-            h = PAR.EPSILON/(max(abs(dm)))
-
-            # compute Hessian-vector product by finite differences
-            Hdm = self.apply_hessian(m, dm, h)
-            self.save('Hdm', Hdm)
-
-            # perform LCG iteration
-            status, flag = self.LCG.update(Hdm)
-
-            if status > 0:
-                self.writer('step_count_CG', self.ilcg)
-                # finalize model update
-                dm = self.load('LCG/x')
-                if self.dot(g,dm) >= 0:
-                    print ' Newton direction rejected [not descent direction]'
-                    dm = -g
-                    self.restarted = True
-                else:
-                    if flag:
-                        self.LCG.finalize()
-                self.save('p_new', dm)
-                break
-
 
     def apply_hessian(self, m, dm, h):
         """ Computes the action of the Hessian on a given vector through
@@ -89,17 +52,51 @@ class p_newton(custom_import('optimize', 'newton')):
         return (self.load('g_lcg') - self.load('g_new'))/h
 
 
-    def restart(self):
-        # not required for this subclass since restarts are handled by 
-        # compute_direction
-        pass
-
-
     def apply_hess(self, path=''):
         """ Computes action of Hessian on a given model vector.
         """
         system = sys.modules['seisflows_system']
 
-        system.run_single('solver', 'apply_hess')
-        system.run('solver', 'prepare_apply_hess')
-        system.run_single('solver', 'apply_hess', adjoint=True)
+        system.run_single('optimize', 'call_solver_hess')
+        system.run('optimize', 'prepare_apply_hess')
+        system.run_single('optimize', 'call_solver_hess', adjoint=True)
+
+
+    def call_solver_hess(self, adjoint=False):
+        """ Used to compute action of the Hessian on a model perturbation.
+        """
+        solver = sys.modules['seisflows_solver']
+
+        if not adjoint:
+            mode=1
+            run_solver = solver.forward
+        else:
+            mode = 2
+            run_solver = solver.adjoint
+
+        solver.set_par_cfg(external_model_dir=PATH.HESS+'/model',
+                         output_dir=PATH.HESS,
+                         mode=mode,
+                         use_stf_file=PAR.USE_STF_FILE,
+                         stf_file='stf_f.txt')
+        run_solver()
+
+
+    def prepare_apply_hess(self):
+        """ Prepares solver to compute action of Hessian by writing adjoint traces.
+            f = u(m+dm) - d
+        """
+        solver = sys.modules['seisflows_solver']
+        preprocess = sys.modules['seisflows_preprocess']
+
+        path1 = solver.getpath
+        path2 = solver.get_altpath(PATH.HESS)
+
+        for filename in solver.data_filenames:
+            obs = preprocess.reader(path1+'/'+'traces/obs', filename)
+            syn = preprocess.reader(path2+'/'+'traces/syn', filename)
+
+            obs = preprocess.process_traces(obs, filter=not PAR.PREFILTER)
+            syn = preprocess.process_traces(syn, filter=False)
+
+            preprocess.write_adjoint_traces(path2+'/'+'traces/adj', syn, obs, filename)

@@ -221,7 +221,7 @@ class pewf2d(object):
                          stf_file='stf_f.txt')
 
         self.adjoint()
-        self.clean_boundary_storage()
+        #self.clean_boundary_storage()
 
     def evaluate_function(self, mode=0):
         """ Evaluate test function for a trial model
@@ -239,33 +239,6 @@ class pewf2d(object):
                          use_stf_file=PAR.USE_STF_FILE,
                          stf_file='stf_f.txt')
         self.forward()
-
-    def apply_hess(self, adjoint=False):
-        """ Used to compute action of the Hessian on a model perturbation.
-        """
-        output_dir = PATH.HESS
-        model_dir = join(PATH.HESS, 'model')
-
-        if not adjoint:
-            mode=1
-            run_solver = self.forward
-        else:
-            mode = 2
-            run_solver = self.adjoint
-
-        self.set_par_cfg(external_model_dir=model_dir,
-                         output_dir=output_dir,
-                         mode=mode,
-                         use_stf_file=PAR.USE_STF_FILE,
-                         stf_file='stf_f.txt')
-        run_solver()
-
-
-    def prepare_apply_hess(self):
-        """ Prepare adjoint sources
-        """
-        preprocess.prepare_apply_hess(self.getpath, self.get_altpath(PATH.HESS))
-
 
     def process_trial_step(self):
         """ Process line search data

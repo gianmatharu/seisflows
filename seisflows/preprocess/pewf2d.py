@@ -116,25 +116,6 @@ class pewf2d(object):
             self.write_adjoint_traces(path+'/'+'traces/adj', syn, obs, filename)
 
 
-    def prepare_apply_hess(self, path='.', path_try=''):
-        """ Prepares solver for gradient evaluation by writing residuals and
-          adjoint traces
-        """
-        solver = sys.modules['seisflows_solver']
-
-        if exists(path + '/residuals'):
-            unix.rm(path + '/residuals')
-
-        for filename in solver.data_filenames:
-            obs = self.reader(path+'/'+'traces/obs', filename)
-            syn = self.reader(path_try+'/'+'traces/syn', filename)
-
-            obs = self.process_traces(obs, filter=not PAR.PREFILTER)
-            syn = self.process_traces(syn, filter=False)
-
-            self.write_adjoint_traces(path_try+'/'+'traces/adj', syn, obs, filename)
-
-
     def evaluate_trial_step(self, path='.', path_try=''):
         """ Prepares solver for gradient evaluation by writing residuals and
             adjoint traces

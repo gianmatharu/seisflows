@@ -80,11 +80,15 @@ class newton(custom_import('optimize', 'base')):
 
             # compute Hessian-vector product by finite differences
             Hdm = self.apply_hessian(m, dm, h)
+            self.save('Hdm', Hdm)
 
             # perform LCG iteration
             status, flag = self.LCG.update(Hdm)
 
             if status > 0:
+                # store inner iteration cost
+                self.writer('step_count_CG', self.ilcg)
+
                 # finalize model update
                 dm = self.load('LCG/x')
                 if self.dot(g,dm) >= 0:
@@ -108,7 +112,7 @@ class newton(custom_import('optimize', 'base')):
 
         self.save('m_lcg', m + h*dm)
 
-        solver.save(solver.split(m + h*dm), 
+        solver.save(solver.split(m + h*dm),
                 PATH.HESS+'/'+'model')
 
         system.run('optimize', 'apply_hess',

@@ -26,8 +26,8 @@ class regularize(custom_import('postprocess', 'pewf2d')):
         if 'HYPERPAR' not in PAR:
             setattr(PAR, 'HYPERPAR', 0.)
 
-    def write_gradient(self, path):
-        super(regularize, self).write_gradient(path)
+    def write_gradient(self, path, solver_path=''):
+        super(regularize, self).write_gradient(path, solver_path=solver_path)
 
         if not PAR.HYPERPAR:
             return
@@ -36,13 +36,16 @@ class regularize(custom_import('postprocess', 'pewf2d')):
         g = solver.load(path, suffix='_kernel')
         m = solver.load(PATH.MODELS + '/model_est', rescale=PAR.RESCALE)
 
+        reg = {}
         print 'Max of gradient: {}'.format(abs(solver.merge(g)).max())
 
         for key in solver.parameters:
                 d = self.nabla(m[key], key)
                 print 'Max of {} gradient: {}'.format(key, abs(d).max())
+                reg[key] = self.nabla(m[key], key)
                 g[key] += PAR.HYPERPAR * self.nabla(m[key], key)
 
+        self.save(path, solver.merge(reg), backup='reg_cont')
         self.save(path, solver.merge(g), backup='noregularize')
 
     def process_kernels(self, path, parameters, solver_path=''):

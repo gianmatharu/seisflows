@@ -93,7 +93,12 @@ def Correlation1(syn, obs, nt, dt):
     nfac = np.sqrt(np.sum(obs*obs*dt)) * np.sqrt(np.sum(syn*syn*dt))
     xcorr = np.sum(syn*obs*dt)
 
-    return -xcorr / nfac
+    return _div0(-xcorr, nfac, nt)
+
+def WaveformL1(syn, obs, nt, dt):
+    # L1 waveform
+    wrsd = abs(syn-obs)
+    return np.sqrt(np.sum(wrsd*wrsd*dt))
 
 
 def Displacement(syn, obs, nt, dt):
@@ -105,3 +110,8 @@ def Velocity(syn, obs, nt, dt):
 def Acceleration(syn, obs, nt, dt):
     return Exception('This function can only used for migration.')
 
+def _div0(num, den, n):
+    if den == 0:
+        return 0
+    else:
+        return num / den

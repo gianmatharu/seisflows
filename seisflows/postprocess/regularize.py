@@ -45,11 +45,12 @@ class regularize(custom_import('postprocess', 'pewf2d')):
 
         self.save(path, solver.merge(g), backup='noregularize')
 
-    def process_kernels(self, path, parameters):
+    def process_kernels(self, path, parameters, solver_path=''):
         """ Processes kernels in accordance with parameter settings
         """
         solver.combine(path=path,
-                       parameters=parameters)
+                       parameters=parameters,
+                       solver_path=solver_path)
 
     def sum_residuals(self):
         raise NotImplementedError("Must be implemented by subclass.")

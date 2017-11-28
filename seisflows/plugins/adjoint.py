@@ -121,9 +121,14 @@ def InstantaneousPhase2(syn, obs, nt, dt, eps=0.):
 def Correlation1(syn, obs, nt, dt):
     # normalized zero-lag cross-correlation
     nfac = _np.sqrt(_np.sum(obs * obs * dt)) * _np.sqrt(_np.sum(syn * syn * dt))
-    cfac = _np.sum(obs*syn*dt)/_np.sum(syn*syn*dt)
+    cfac = _div0(_np.sum(obs*syn*dt),_np.sum(syn*syn*dt), nt)
 
-    wadj = (cfac*syn - obs) / nfac
+    wadj = _div0((cfac*syn - obs), nfac, nt)
+    return wadj
+
+def WaveformL1(syn, obs, nt, dt):
+    # L1 waveform misfit
+    wadj = _np.sign((syn-obs))
     return wadj
 
 ### migration
@@ -139,3 +144,8 @@ def Acceleration(syn, obs, nt, dt):
     adj[1:-1] = (-obs[2:] + 2.*obs[1:-1] - obs[0:-2])/(2.*dt)
     return adj
 
+def _div0(num, den, n):
+    if den == 0:
+        return _np.zeros((n))
+    else:
+        return num / den

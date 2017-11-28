@@ -190,7 +190,8 @@ class pewf2d(object):
         """
         total_misfit = 0.
         for file in files:
-            if PAR.MISFIT == 'Correlation1':
+            if PAR.MISFIT in ['Correlation1', 'WaveformL1']:
+                print 'Summing'
                 total_misfit += np.sum(np.loadtxt(file))
             else:
                 total_misfit += np.sum(np.loadtxt(file)**2.)

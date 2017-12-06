@@ -190,7 +190,7 @@ class pewf2d(object):
         """
         total_misfit = 0.
         for file in files:
-            if PAR.MISFIT in ['Correlation1', 'WaveformL1']:
+            if PAR.MISFIT in ['Correlation', 'Correlation1', 'WaveformL1']:
                 print 'Summing'
                 total_misfit += np.sum(np.loadtxt(file))
             else:
@@ -205,15 +205,33 @@ class pewf2d(object):
         n, _ = self.get_network_size(s)
 
         for i in range(n):
-            s[i].data = self.adjoint(s[i].data, d[i].data, nt, dt)
-
             if PAR.CHANNELS == ['p']:
                 #print 'Use second derivative'
                 s[i].data[1:-1] = (s[i].data[2:] - s[i].data[0:-2])/(2.*dt)
                 s[i].data[0] = 0.
                 s[i].data[-1] = 0.
 
+                d[i].data[1:-1] = (d[i].data[2:] - d[i].data[0:-2])/(2.*dt)
+                d[i].data[0] = 0.
+                d[i].data[-1] = 0.
+
+            s[i].data = self.adjoint(s[i].data, d[i].data, nt, dt)
+
+            #if PAR.CHANNELS == ['p']:
+            #    #print 'Use second derivative'
+            #    s[i].data[1:-1] = (s[i].data[2:] - s[i].data[0:-2])/(2.*dt)
+            #    s[i].data[0] = 0.
+            #    s[i].data[-1] = 0.
+
         self.writer(s, path, self._swap_tag(channel, 'adj'))
+
+        print PAR.CHANNELS
+        if 'x' not in PAR.CHANNELS:
+            print 'Zero x'
+            self.write_zero_traces(s, path, self._swap_tag('Ux_data.su', 'adj'))
+        if 'z' not in PAR.CHANNELS:
+            print 'Zero z'
+            self.write_zero_traces(s, path, self._swap_tag('Uz_data.su', 'adj'))
 
 
     # signal process
@@ -372,6 +390,17 @@ class pewf2d(object):
         with open(join(PATH.SOLVER_INPUT, 'stf_f.txt'), 'w') as f:
             for i in range(len(tr.data)):
                 f.write('{:f} {:f}\n'.format(t[i], tr.data[i]))
+
+
+    def write_zero_traces(self, stream, path, filename):
+        """ Write zero traces.
+            Required for single channel inversion with x/z components.
+        """
+        nt, dt, _ = self.get_time_scheme(stream)
+        traces = stream.copy()
+        for tr in traces:
+            tr.data = np.zeros(nt)
+        self.writer(traces, path, filename)
 
 
     # parameter checking

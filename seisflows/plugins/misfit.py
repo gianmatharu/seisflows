@@ -95,6 +95,7 @@ def Correlation1(syn, obs, nt, dt):
 
     return _div0(-xcorr, nfac, nt)
 
+
 def WaveformL1(syn, obs, nt, dt):
     # L1 waveform
     wrsd = abs(syn-obs)

@@ -126,6 +126,7 @@ def Correlation1(syn, obs, nt, dt):
     wadj = _div0((cfac*syn - obs), nfac, nt)
     return wadj
 
+
 def WaveformL1(syn, obs, nt, dt):
     # L1 waveform misfit
     wadj = _np.sign((syn-obs))

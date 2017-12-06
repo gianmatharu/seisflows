@@ -133,6 +133,21 @@ def reshape_model_dict(model, nx, nz, inverse=False):
 
     return model
 
+def add_water_layer(model, nx, nz, nlayers):
+    # reference values
+    dict_ref = {'vp': 1500., 'vs': 0.0, 'rho': 1050}
+    nz_w = nz + nlayers
+
+    for key in model.keys():
+        model[key] = model[key].reshape((nz, nx))
+        m = np.zeros((nz_w, nx))
+        print m.shape
+        m[:nlayers, :] = dict_ref[key]
+        m[nlayers:, :] = model[key][:, :]
+        model[key] = m
+
+    return model
+
 
 def model_diagnosis(p, vp, vs, f, dx, dr):
     """ Inspect a Vp model and return characteristics about the model.

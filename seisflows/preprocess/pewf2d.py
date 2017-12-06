@@ -225,12 +225,9 @@ class pewf2d(object):
 
         self.writer(s, path, self._swap_tag(channel, 'adj'))
 
-        print PAR.CHANNELS
         if 'x' not in PAR.CHANNELS:
-            print 'Zero x'
             self.write_zero_traces(s, path, self._swap_tag('Ux_data.su', 'adj'))
         if 'z' not in PAR.CHANNELS:
-            print 'Zero z'
             self.write_zero_traces(s, path, self._swap_tag('Uz_data.su', 'adj'))
 
 

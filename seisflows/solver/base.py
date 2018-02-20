@@ -10,7 +10,7 @@ from os.path import basename, join
 from seisflows.config import ParameterError, custom_import
 from seisflows.plugins import solver_io
 from seisflows.tools import msg, unix
-from seisflows.tools.seismic import ModelDict, call_solver
+from seisflows.tools.seismic import Container, call_solver
 from seisflows.tools.tools import Struct, diff, exists
 
 
@@ -34,10 +34,10 @@ class base(object):
       eval_func, eval_grad, apply_hess
         These methods deal with evaluation of the misfit function or its
         derivatives.  Together, they provide the primary interface through which
-        SeisFlows interacts with SPECFEM
+        SeisFlows interacts with SPECFEM2D/3D
 
       forward, adjoint
-        These methods allow direct access to low-level SPECFEM components,
+        These methods allow direct access to low-level SPECFEM2D/3D components,
         providing an alternative interface through which to interact with the 
         solver
 
@@ -46,12 +46,12 @@ class base(object):
         migration
 
      initialize_solver_directories, initialize_adjoint_traces
-        SPECFEM requires a particular directory structure in which to run and
+        SPECFEM2D/3D requires a particular directory structure in which to run and
         particular file formats for models, data, and parameter files. These
         methods help put in place all these prerequisites
 
       load, save
-        For reading and writing SPECFEM models and kernels. On the disk,
+        For reading and writing SPECFEM2D/3D models and kernels. On the disk,
         models and kernels are stored as binary files, and in memory, as
         dictionaries with different keys corresponding to different material
         parameters
@@ -123,8 +123,8 @@ class base(object):
 
 
     def setup(self):
-        """ Prepares solver for inversion or migration
-
+        """ 
+          Prepares solver for inversion or migration
           Sets up directory structure expected by SPECFEM and copies or 
           generates seismic data to be inverted or migrated
         """
@@ -184,11 +184,11 @@ class base(object):
     ### high-level solver interface
 
     def eval_func(self, path='', export_traces=False, write_residuals=True):
-        """ Performs forward simulations needed for misfit function evaluation
+        """
+          Performs forward simulations needed for misfit function evaluation
 
-          INPUT
-            PATH - the directory from which model is imported
-            EXPORT_TRACES - save or discard traces?
+          :input path :: directory from which model is imported
+          :input export_traces :: save or discard traces?
         """
         unix.cd(self.cwd)
         self.import_model(path)
@@ -200,14 +200,12 @@ class base(object):
 
 
     def eval_grad(self, path='', export_traces=False):
-        """ Evaluates gradient by carrying out adjoint simulations
+        """ 
+          Evaluates gradient by carrying out adjoint simulations.
+          (A function evaluation must already have been carried out.)
 
-          (A function evaluation must already have been carried out and adjoint
-          traces must already be in place.) 
-
-         INPUT
-            PATH - the directory to which output files are exported
-            EXPORT_TRACES - save or discard traces?
+          :input path :: directory from which model is imported
+          :input export_traces :: save or discard traces?
         """
         unix.cd(self.cwd)
         self.adjoint()
@@ -218,12 +216,11 @@ class base(object):
 
 
     def apply_hess(self, path=''):
-        """ Computes action of Hessian on a given model vector.
-
+        """
+          Computes action of Hessian on a given model vector.
           (A gradient evaluation must have already been carried out.)
-
-          INPUT
-            PATH - the directory to which output files are exported
+ 
+          :input path :: directory to which output files are exported
         """
         unix.cd(self.cwd)
         self.import_model(path)
@@ -261,15 +258,18 @@ class base(object):
 
 
     def load(self, path, parameters=[], prefix='', suffix=''):
-        """ Reads SPECFEM model or kernels
+        """ 
+          Loads SPECFEM2D/3D models or kernels
 
-          INPUT
-              PATH - the directory from which model is loaded
-              PARAMETERS - list of material parameters to be loaded
-              PREFIX - optional filename prefix
-              SUFFIX - optional filename suffix, eg '_kernel'
+          :input path :: directory from which model is read
+          :input parameters :: list of material parameters to be read
+              (if empty, defaults to self.parameters)
+          :input prefix :: optional filename prefix
+          :input suffix :: optional filename suffix, eg '_kernel'
+          :output dict :: model or kernels indexed by material parameter
+              and processor rank, ie dict[parameter][iproc]
         """
-        dict = ModelDict()
+        dict = Container()
         for iproc in range(self.mesh_properties.nproc):
             for key in parameters or self.parameters:
                 dict[key] += self.io.read_slice(
@@ -277,15 +277,16 @@ class base(object):
         return dict
 
 
-    def save(self, dict, path, parameters=['vp','vs','rho'], prefix='', suffix=''):
-        """ Writes SPECFEM model or kernels
+    def save(self, dict, path, parameters=['vp','vs','rho'],
+             prefix='', suffix=''):
+        """ 
+          Saves SPECFEM2D/3D models or kernels
 
-          INPUT
-              DICT - ModelDict object containing model
-              PATH - the directory to which model is saved
-              PARAMETERS - list of material parameters to be loaded
-              PREFIX - optional filename prefix
-              SUFFIX - optional filename suffix, eg '_kernel'
+          :input dict :: model stored as a dictionary or Container
+          :input path :: directory to which model is written
+          :input parameters :: list of material parameters to be written
+          :input prefix :: optional filename prefix
+          :input suffix :: optional filename suffix, eg '_kernel'
         """
         unix.mkdir(path)
 
@@ -318,7 +319,7 @@ class base(object):
         """
         nproc = self.mesh_properties.nproc
         ngll = self.mesh_properties.ngll
-        model = ModelDict()
+        model = Container()
         for idim, key in enumerate(parameters or self.parameters):
             model[key] = []
             for iproc in range(nproc):
@@ -543,7 +544,7 @@ class base(object):
 
     def check_source_names(self):
         """ Determines names of sources by applying wildcard rule to user-
-          supplied input files
+            supplied input files
         """
         path = PATH.SPECFEM_DATA
         if not exists(path):

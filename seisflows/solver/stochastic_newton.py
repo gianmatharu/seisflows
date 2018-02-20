@@ -66,6 +66,7 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
         if PAR.PREPROCESS != 'finite_sum':
             raise ValueError('Use preprocessing class "finite_sum"')
 
+
     # low level interface
     def forward_hess(self):
         """ Perform forward simulation. Must launch from /bin.
@@ -91,12 +92,9 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
 
 
     # higher level interface
-    def apply_hess(self, adjoint=False):
+    def apply_hess(self, model_dir='', adjoint=False):
         """ Used to compute action of the Hessian on a model perturbation.
         """
-        output_dir = PATH.HESS
-        model_dir = join(PATH.HESS, 'model')
-
         if not adjoint:
             mode=1
             run_solver = self.forward_hess
@@ -104,8 +102,9 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
             mode = 2
             run_solver = self.adjoint_hess
 
+        print model_dir
         self.set_par_cfg(external_model_dir=model_dir,
-                         output_dir=output_dir,
+                         output_dir=PATH.HESS,
                          mode=mode,
                          use_stf_file=PAR.USE_STF_FILE,
                          stf_file='stf_f.txt',
@@ -118,18 +117,34 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
     def prepare_apply_hess(self):
         """ Prepare adjoint sources
         """
+        # moves data to working Hessian directory.
         self.fetch_data()
+
+        # filter data or not
+        if PAR.OPTIMIZE == 'stochastic_newton':
+            filter_obs = not PAR.PREFILTER
+        elif PAR.OPTIMIZE == 'stochastic_gauss_newton':
+            filter_obs = False
+
         for itask in xrange(PAR.NSUBSET):
+            ishot = self.source_array_subset[itask].index
             path = join(PATH.HESS, event_dirname(itask+1))
 
             for filename in self.data_filenames:
                 obs = preprocess.reader(path +'/'+'traces/obs', filename)
                 syn = preprocess.reader(path +'/'+'traces/syn', filename)
 
-                obs = preprocess.process_traces(obs, filter=not PAR.PREFILTER)
+                obs = preprocess.process_traces(obs, filter=filter_obs)
                 syn = preprocess.process_traces(syn, filter=False)
 
                 preprocess.write_adjoint_traces(path+'/'+'traces/adj', syn, obs, filename)
+
+            # copy saved synthetic wavefields
+            if PAR.OPTIMIZE == 'stochastic_gauss_newton':
+                print 'Copying synthetic wavefield'
+                src = glob(join(PATH.SOLVER, event_dirname(ishot), 'traces/syn/*'))
+                dst = join(path, 'traces/syn')
+                unix.cp(src, dst)
 
 
     # source sampling functions
@@ -143,7 +158,6 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
         # check input
         if len(self.source_array) != PAR.NSOURCES:
             raise ValueError('NSOURCES in parameter file does not match length of input source file.')
-
 
     def select_sources(self):
         """ Sample subset from source array.
@@ -229,9 +243,18 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
 
     def fetch_data(self):
         """ Copy data to working directory.
+            Copies true data for TN and synthetic data for TGN.
         """
         for itask in xrange(PAR.NSUBSET):
             ishot = self.source_array_subset[itask].index
-            src = glob(PATH.DATA + '/' + event_dirname(ishot) + '/' + '*')
+            path = join(PATH.SOLVER, event_dirname(ishot))
+
+            if PAR.OPTIMIZE == 'stochastic_newton':
+                src = glob(path+'/traces/obs/*')
+            elif PAR.OPTIMIZE == 'stochastic_gauss_newton':
+                src = glob(path+'/traces/syn/*')
+            else:
+                raise ValueError('PAR.OPTIMIZE not recognized.')
+
             dst = join(PATH.HESS, event_dirname(itask + 1), 'traces/obs/')
             unix.cp(src, dst)

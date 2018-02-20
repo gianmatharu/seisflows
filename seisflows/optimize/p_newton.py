@@ -16,6 +16,10 @@ class p_newton(custom_import('optimize', 'newton')):
         approximation of the form:
             H(m)dm = (1/h) * (g(m+h*dm) - g(m))
     """
+    def check(cls):
+        """ Checks parameters and paths
+        """
+        super(p_newton, cls).check()
 
     def apply_hessian(self, m, dm, h):
         """ Computes the action of the Hessian on a given vector through

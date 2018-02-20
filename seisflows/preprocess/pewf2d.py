@@ -17,33 +17,39 @@ PATH = sys.modules['seisflows_paths']
 
 
 class pewf2d(object):
-    """ Data preprocessing class
+    """ Data preprocessing class for PEWF2D solver
+
+        Provides data processing functions for seismic traces, with options for
+        data misfit, filtering, normalization and muting. Data is read as
+        Obspy stream objects.
     """
 
     def check(self):
-
+        """ Checks parameters and paths
+        """
+        # used for inversion
         if 'MISFIT' not in PAR:
             setattr(PAR, 'MISFIT', 'Waveform')
 
+        # components for inversion
         if 'CHANNELS' not in PAR:
             raise ParameterError(PAR, 'CHANNELS')
 
+        # input seismic data format
         if 'FORMAT' not in PAR:
-            setattr(PAR, 'FORMAT', 'su_pewf2d')
+            setattr(PAR, 'FORMAT', 'su')
 
-        if 'NORMALIZE' not in PAR:
-          setattr(PAR, 'NORMALIZE', True)
-
-        # data mute option
-        if 'MUTE' not in PAR:
-          setattr(PAR, 'MUTE', None)
+        # set to true if data is prefiltered
+        if 'PREFILTER' not in PAR:
+                setattr(PAR, 'PREFILTER', False)
 
         # data filtering option
         if 'FILTER' not in PAR:
           setattr(PAR, 'FILTER', False)
 
-        if 'PREFILTER' not in PAR:
-            setattr(PAR, 'PREFILTER', False)
+        # data mute option
+        if 'MUTE' not in PAR:
+          setattr(PAR, 'MUTE', None)
 
         # time damping option
         if 'DAMPING' not in PAR:
@@ -60,6 +66,7 @@ class pewf2d(object):
         if 'STF_FILE' not in PAR:
             setattr(PAR, 'STF_FILE', 'stf.txt')
 
+        # check input parameters
         self.check_mute()
         self.check_filter()
         self.check_damping()
@@ -91,13 +98,14 @@ class pewf2d(object):
         for char in PAR.CHANNELS:
             self.channels += [char]
 
+        # filter source wavelet
         if PAR.USE_STF_FILE:
             self.filter_stf(join(PATH.SOLVER_INPUT, PAR.STF_FILE))
 
 
     def prepare_eval_grad(self, path='.'):
         """ Prepares solver for gradient evaluation by writing residuals and
-          adjoint traces
+            adjoint traces
         """
         solver = sys.modules['seisflows_solver']
 
@@ -117,8 +125,8 @@ class pewf2d(object):
 
 
     def evaluate_trial_step(self, path='.', path_try=''):
-        """ Prepares solver for gradient evaluation by writing residuals and
-            adjoint traces
+        """ Performs data processing and residual computation for trial
+            steps evaluated during line search iterations
         """
         solver = sys.modules['seisflows_solver']
 
@@ -171,6 +179,8 @@ class pewf2d(object):
 
 
     def store_residuals(self, path, filename, s, d):
+        """ Stores a copy of data residuals
+        """
 
         nt, dt, _ = self.get_time_scheme(s)
         n, _ = self.get_network_size(s)
@@ -183,15 +193,11 @@ class pewf2d(object):
 
 
     def sum_residuals(self, files):
-        """ Sums squares of residuals
-
-          INPUT
-            FILES - files containing residuals
+        """ Sum residuals
         """
         total_misfit = 0.
         for file in files:
             if PAR.MISFIT in ['Correlation', 'Correlation1', 'WaveformL1']:
-                print 'Summing'
                 total_misfit += np.sum(np.loadtxt(file))
             else:
                 total_misfit += np.sum(np.loadtxt(file)**2.)
@@ -204,9 +210,9 @@ class pewf2d(object):
         nt, dt, _ = self.get_time_scheme(s)
         n, _ = self.get_network_size(s)
 
-        for i in range(n):
+        for i in xrange(n):
+            # apply time derivative for pressure component
             if PAR.CHANNELS == ['p']:
-                #print 'Use second derivative'
                 s[i].data[1:-1] = (s[i].data[2:] - s[i].data[0:-2])/(2.*dt)
                 s[i].data[0] = 0.
                 s[i].data[-1] = 0.
@@ -217,21 +223,16 @@ class pewf2d(object):
 
             s[i].data = self.adjoint(s[i].data, d[i].data, nt, dt)
 
-            #if PAR.CHANNELS == ['p']:
-            #    #print 'Use second derivative'
-            #    s[i].data[1:-1] = (s[i].data[2:] - s[i].data[0:-2])/(2.*dt)
-            #    s[i].data[0] = 0.
-            #    s[i].data[-1] = 0.
-
         self.writer(s, path, self._swap_tag(channel, 'adj'))
 
+        # fill zero traces if channels not in use
         if 'x' not in PAR.CHANNELS:
             self.write_zero_traces(s, path, self._swap_tag('Ux_data.su', 'adj'))
         if 'z' not in PAR.CHANNELS:
             self.write_zero_traces(s, path, self._swap_tag('Uz_data.su', 'adj'))
 
 
-    # signal process
+    # signal processing
 
     def apply_gain(self, traces):
         if not PAR.GAIN:
@@ -350,7 +351,6 @@ class pewf2d(object):
                 ry += [trace.stats.su.trace_header.group_coordinate_y
                        / scalco]
             return rx, ry
-
         else:
              raise NotImplementedError
 
@@ -367,7 +367,6 @@ class pewf2d(object):
                 sy += [trace.stats.su.trace_header.source_coordinate_y
                        / scalco]
             return sx, sy
-
         else:
              raise NotImplementedError
 

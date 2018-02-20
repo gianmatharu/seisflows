@@ -25,11 +25,11 @@ p.read_par_file(join(PATH.SOLVER_INPUT, 'par_template.cfg'))
 
 
 class pewf2d(object):
-    """ Python interface for PEWF2D
+    """ Python interface for PEWF2D solver
 
-      See base class for method descriptions.
-      PEWF2D class differs in that the solver incorporates shot
-      parallelism into the source code.
+        See base class for method descriptions.
+        PEWF2D implements shot parallelism into the solver source code unlike
+        specfem solver classes.
     """
 
     assert 'MATERIALS' in PAR
@@ -37,7 +37,9 @@ class pewf2d(object):
 
     parameters = []
 
-    # parametrization definition & maps
+    # specify model parametrization.
+    # forward and inverse mappings between default parameters (rho, vp, vs)
+    # must be defined in seisflows.plugins.material
     try:
         parClass = getattr(material, PAR.MATERIALS.lower())
     except:
@@ -47,6 +49,7 @@ class pewf2d(object):
     par_map_forward = parClass.par_map_forward
     par_map_inverse = parClass.par_map_inverse
 
+    # select between empirical or gradient density updates
     if PAR.DENSITY == 'Variable':
         density_scaling = None
         parameters += ['rho']
@@ -84,6 +87,9 @@ class pewf2d(object):
         if 'SMOOTH_CLIP' not in PAR:
             setattr(PAR, 'SMOOTH_CLIP', None)
 
+        if 'SAFEUPDATE' not in PAR:
+            setattr(PAR, 'SAFEUPDATE', False)
+
         # check scratch paths
         if 'SCRATCH' not in PATH:
             raise ParameterError(PATH, 'SCRATCH')
@@ -107,14 +113,15 @@ class pewf2d(object):
         # assertions
         assert self.parameters != []
 
-        # reparametrization (allows inverse mapping if needed)
+        # reparametrization required
         if PAR.MATERIALS not in ['Acoustic', 'Shear', 'Elastic']:
             self.reparam = True
         else:
             self.reparam = False
 
+        # parameter rescaling
         if PAR.RESCALE:
-            # self.scale holds a dict of rescaling values
+            # Normalize parameters by mean values
             self.scale = material.ParRescaler.mean_scaling(self.load(PATH.MODEL_INIT)).scale
         else:
             self.scale = None

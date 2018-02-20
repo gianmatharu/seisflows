@@ -42,7 +42,7 @@ class tikhonov1(custom_import('postprocess', 'regularize')):
 
     def sum_residuals(self, path):
         """ Evaluate regularization term.
-           1/2 (|| m' Lm||)
+           1/2 (|| m'Lm||)
         """
         residuals = 0.
         m = solver.load(path, rescale=PAR.RESCALE)

@@ -20,6 +20,9 @@ class tikhonov0(custom_import('postprocess', 'regularize')):
 
         So far, can only be used for 2D inversion, because the required spatial
         derivative operator "nabla" is not yet available for 3D grids.
+
+        Tikhonov regularization is applied to ||m - m0|| where m0 is a prior
+        model.
     """
 
     def check(self):
@@ -35,8 +38,7 @@ class tikhonov0(custom_import('postprocess', 'regularize')):
         m0 = solver.load(PATH.MODEL_INIT, rescale=PAR.RESCALE)
 
         for key in solver.parameters:
-            print m[key].max(), m0[key].max()
-            #residuals += 0.5 * PAR.HYPERPAR * np.sum(m[key]*m[key])
+            #print m[key].max(), m0[key].max()
             residuals += 0.5 * np.sum((m[key]-m0[key])**2)
 
         return residuals

@@ -16,7 +16,10 @@ solver = sys.modules['seisflows_solver']
 
 
 class pewf2d(custom_import('postprocess', 'base')):
-    """ Gradient postprocessing class
+    """ Postprocessing class for pewf2d
+
+        Postprocesing refers to image processing and regularization operations on
+        models or gradients
     """
 
     def check(self):
@@ -74,6 +77,8 @@ class pewf2d(custom_import('postprocess', 'base')):
             self.save(path, g, backup='nomask')
 
     def process_kernels(self, path, parameters, solver_path=''):
+        """ Process kernels
+        """
         solver.combine(path=path,
                        solver_path=solver_path,
                        parameters=parameters)

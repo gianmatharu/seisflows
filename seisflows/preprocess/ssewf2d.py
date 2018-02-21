@@ -139,7 +139,7 @@ class ssewf2d(custom_import('preprocess', 'pewf2d')):
         return stream
 
 
-    def process_traces(self, stream, filter=True):
+    def process_traces(self, stream, filter=False):
         """ Performs data processing operations on traces
         """
         nt, dt, _ = self.get_time_scheme(stream)

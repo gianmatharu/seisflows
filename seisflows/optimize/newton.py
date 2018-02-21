@@ -10,10 +10,6 @@ PAR = sys.modules['seisflows_parameters']
 PATH = sys.modules['seisflows_paths']
 
 
-#print " WARNING: Truncated Newton routines were extensively refactored, and the new version has not been thoroughly tested"
-
-
-
 class newton(custom_import('optimize', 'base')):
     """ Implements Newton-CG algorithm
     """
@@ -83,11 +79,14 @@ class newton(custom_import('optimize', 'base')):
             self.save('Hdm', Hdm)
 
             # perform LCG iteration
+            # status = 1 when TC met or negative curvature detected
+            # flag = 1 when Eisenstat-Walker condition is met
             status, flag = self.LCG.update(Hdm)
 
             if status > 0:
-                # store inner iteration cost
+                # store inner iteration information
                 self.writer('step_count_CG', self.ilcg)
+                self.writer('eta_CG', self.LCG.eta)
 
                 # finalize model update
                 dm = self.load('LCG/x')
@@ -97,6 +96,7 @@ class newton(custom_import('optimize', 'base')):
                     self.restarted = True
                 else:
                     if flag:
+                        # update eta
                         self.LCG.finalize()
                 self.save('p_new', dm)
                 break

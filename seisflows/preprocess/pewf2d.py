@@ -45,7 +45,7 @@ class pewf2d(object):
 
         # data filtering option
         if 'FILTER' not in PAR:
-          setattr(PAR, 'FILTER', False)
+          setattr(PAR, 'FILTER', None)
 
         # data mute option
         if 'MUTE' not in PAR:
@@ -117,7 +117,7 @@ class pewf2d(object):
             syn = self.reader(path+'/'+'traces/syn', filename)
 
             obs = self.process_traces(obs, filter=not PAR.PREFILTER)
-            syn = self.process_traces(syn, filter=False)
+            syn = self.process_traces(syn)
 
             self.write_residuals(path, syn, obs)
             self.store_residuals(path, filename, syn, obs)
@@ -138,12 +138,12 @@ class pewf2d(object):
             syn = self.reader(path_try+'/'+'traces/syn', filename)
 
             obs = self.process_traces(obs, filter=not PAR.PREFILTER)
-            syn = self.process_traces(syn, filter=False)
+            syn = self.process_traces(syn)
 
             self.write_residuals(path_try, syn, obs)
 
 
-    def process_traces(self, stream, filter=True):
+    def process_traces(self, stream, filter=False):
         """ Performs data processing operations on traces
         """
         nt, dt, _ = self.get_time_scheme(stream)

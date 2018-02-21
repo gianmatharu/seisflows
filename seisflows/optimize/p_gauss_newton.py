@@ -53,10 +53,10 @@ class p_gauss_newton(custom_import('optimize', 'p_newton')):
             run_solver = solver.adjoint
 
         solver.set_par_cfg(external_model_dir=model_dir,
-                         output_dir=PATH.HESS,
-                         mode=mode,
-                         use_stf_file=PAR.USE_STF_FILE,
-                         stf_file='stf_f.txt')
+                           output_dir=PATH.HESS,
+                           mode=mode,
+                           use_stf_file=PAR.USE_STF_FILE,
+                           stf_file='stf_f.txt')
         run_solver()
 
 
@@ -75,11 +75,11 @@ class p_gauss_newton(custom_import('optimize', 'p_newton')):
             syn = preprocess.reader(path2+'/'+'traces/syn', filename)
 
             obs = preprocess.process_traces(obs, filter=not PAR.PREFILTER)
-            syn = preprocess.process_traces(syn, filter=False)
+            syn = preprocess.process_traces(syn)
 
             preprocess.write_adjoint_traces(path2+'/'+'traces/adj', syn, obs, filename)
 
         # copy boundary files for reconstruction of synthetic wavefield
-        src = glob(join(path1, 'traces/syn/*'))
+        src = glob(join(path1, 'traces/syn/proc*'))
         dst = join(path2, 'traces/syn')
         unix.cp(src, dst)

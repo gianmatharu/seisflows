@@ -52,8 +52,7 @@ class LCG(object):
         pap = np.dot(p, ap)
         if pap < 0:
             print ' Stopping LCG [negative curvature]'
-            isdone = True
-            flag = False
+            isdone, flag = (True, False)
             return isdone, flag
                        
         alpha = ry/pap
@@ -64,14 +63,12 @@ class LCG(object):
 
         # check status
         if self.check_status(ap) == 0:
-            isdone = True
-            flag = True
+            isdone, flag = (True, True)
         elif self.ilcg >= self.maxiter:
-            isdone = True
+            isdone, flag = (True, False)
             flag = False
         else:
-            isdone = False
-            flag = False
+            isdone, flag = (False, False)
 
         if not isdone:
             y = self.apply_precond(r)

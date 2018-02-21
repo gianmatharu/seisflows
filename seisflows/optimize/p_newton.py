@@ -15,11 +15,19 @@ class p_newton(custom_import('optimize', 'newton')):
         Computes Hessian-vector products using finite-difference
         approximation of the form:
             H(m)dm = (1/h) * (g(m+h*dm) - g(m))
+
+        Regularization is not yet implemented with TN methods.
+        Gradient smoothing is applicable. Hessians that are not
+        positive definite are neglected by testing for negative
+        curvature.
     """
     def check(cls):
         """ Checks parameters and paths
         """
         super(p_newton, cls).check()
+
+        if PAR.POSTPROCESS in ['regularize', 'tikhonov0', 'tikhonov1']:
+            raise NotImplementedError('Newton methods not implemented with regularization.')
 
     def apply_hessian(self, m, dm, h):
         """ Computes the action of the Hessian on a given vector through
@@ -79,10 +87,10 @@ class p_newton(custom_import('optimize', 'newton')):
             run_solver = solver.adjoint
 
         solver.set_par_cfg(external_model_dir=PATH.HESS+'/model',
-                         output_dir=PATH.HESS,
-                         mode=mode,
-                         use_stf_file=PAR.USE_STF_FILE,
-                         stf_file='stf_f.txt')
+                           output_dir=PATH.HESS,
+                           mode=mode,
+                           use_stf_file=PAR.USE_STF_FILE,
+                           stf_file='stf_f.txt')
         run_solver()
 
 
@@ -101,6 +109,6 @@ class p_newton(custom_import('optimize', 'newton')):
             syn = preprocess.reader(path2+'/'+'traces/syn', filename)
 
             obs = preprocess.process_traces(obs, filter=not PAR.PREFILTER)
-            syn = preprocess.process_traces(syn, filter=False)
+            syn = preprocess.process_traces(syn)
 
             preprocess.write_adjoint_traces(path2+'/'+'traces/adj', syn, obs, filename)

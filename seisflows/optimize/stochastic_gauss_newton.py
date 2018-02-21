@@ -2,9 +2,7 @@
 import sys
 import numpy as np
 
-from seisflows.tools import unix
 from seisflows.config import ParameterError, custom_import
-from seisflows.plugins import optimize
 
 PAR = sys.modules['seisflows_parameters']
 PATH = sys.modules['seisflows_paths']
@@ -29,7 +27,6 @@ class stochastic_gauss_newton(custom_import('optimize', 'stochastic_newton')):
         system.run_single('solver', 'apply_hess',
                           model_dir=PATH.HESS+'/model')
         solver.prepare_apply_hess()
-        print ('Check now')
         system.run_single('solver', 'apply_hess',
                           model_dir=PATH.MODEL_EST,
                           adjoint=True)

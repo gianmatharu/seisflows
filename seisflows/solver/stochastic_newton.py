@@ -5,12 +5,13 @@ from glob import glob
 
 import numpy as np
 
-from seisflows.tools import unix
+from seisflows.tools import unix, sampling
+from seisflows.tools.array import loadnpy
 from seisflows.plugins.solver_io.pewf2d import read, write
-from seisflows.plugins.encode import SourceArray, decimate_source_array
+from seisflows.plugins.stochastic import SourceArray, subsample
 from seisflows.tools.seismic import call_solver
 from seisflows.config import ParameterError, custom_import
-from seisflows.plugins.solver.pewf2d import  Par, read_cfg_file, write_cfg_file, event_dirname
+from seisflows.plugins.solver.pewf2d import Par, event_dirname
 
 PAR = sys.modules['seisflows_parameters']
 PATH = sys.modules['seisflows_paths']
@@ -24,7 +25,7 @@ p.read_par_file(join(PATH.SOLVER_INPUT, 'par_template.cfg'))
 
 
 class stochastic_newton(custom_import('solver', 'pewf2d')):
-    """ Python interface for subsampled truncated Newton method
+    """ Python interface for subsampled truncated Newton method (PEWF2D)
 
       See base class for method descriptions.
       PEWF2D class differs in that the solver incorporates shot
@@ -40,17 +41,17 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
         if 'SOURCE_FILE' not in PAR:
             raise ParameterError(PAR, 'SOURCE_FILE')
 
+        # no. sources for gradient evaluation (currently uses full data)
         if 'NSOURCES' not in PAR:
             raise ParameterError(PAR, 'NSOURCES')
 
+        # no. sources for inner CG iteration
         if 'NSUBSET' not in PAR:
             raise ParameterError(PAR, 'NSUBSET')
 
-        if 'STOCHASTIC' not in PAR:
-            setattr(PAR, 'STOCHASTIC', True)
-
-        if 'BATCH' not in PAR:
-            setattr(PAR, 'BATCH', False)
+        # subsampling scheme
+        if 'SUBSAMPLING' not in PAR:
+            raise ParameterError(PAR, 'SUBSAMPLING')
 
         if 'VERBOSE' not in PAR:
             setattr(PAR, 'VERBOSE', False)
@@ -66,6 +67,18 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
         if PAR.PREPROCESS != 'finite_sum':
             raise ValueError('Use preprocessing class "finite_sum"')
 
+        if PAR.SUBSAMPLING not in dir(sampling):
+            raise AttributeError('Sampling scheme not implemented')
+
+        if PAR.SUBSAMPLING == 'non_uniform':
+            if 'PROB_DIST_FILE' not in PAR:
+                setattr(PAR, 'PROB_DIST_FILE', 'PROB_DIST')
+
+        # set up sources
+        self.setup_sources()
+
+        # set up sampling probabilities
+        self.setup_prob_dist()
 
     # low level interface
     def forward_hess(self):
@@ -90,7 +103,6 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
 
         unix.cd(PATH.WORKDIR)
 
-
     # higher level interface
     def apply_hess(self, model_dir='', adjoint=False):
         """ Used to compute action of the Hessian on a model perturbation.
@@ -102,7 +114,6 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
             mode = 2
             run_solver = self.adjoint_hess
 
-        print model_dir
         self.set_par_cfg(external_model_dir=model_dir,
                          output_dir=PATH.HESS,
                          mode=mode,
@@ -112,7 +123,6 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
                          src_file=join(PATH.SOURCE, 'SOURCES'))
 
         run_solver()
-
 
     def prepare_apply_hess(self):
         """ Prepare adjoint sources
@@ -127,7 +137,6 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
             filter_obs = False
 
         for itask in xrange(PAR.NSUBSET):
-            ishot = self.source_array_subset[itask].index
             path = join(PATH.HESS, event_dirname(itask+1))
 
             for filename in self.data_filenames:
@@ -135,17 +144,9 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
                 syn = preprocess.reader(path +'/'+'traces/syn', filename)
 
                 obs = preprocess.process_traces(obs, filter=filter_obs)
-                syn = preprocess.process_traces(syn, filter=False)
+                syn = preprocess.process_traces(syn)
 
                 preprocess.write_adjoint_traces(path+'/'+'traces/adj', syn, obs, filename)
-
-            # copy saved synthetic wavefields
-            if PAR.OPTIMIZE == 'stochastic_gauss_newton':
-                print 'Copying synthetic wavefield'
-                src = glob(join(PATH.SOLVER, event_dirname(ishot), 'traces/syn/*'))
-                dst = join(path, 'traces/syn')
-                unix.cp(src, dst)
-
 
     # source sampling functions
 
@@ -157,21 +158,38 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
 
         # check input
         if len(self.source_array) != PAR.NSOURCES:
-            raise ValueError('NSOURCES in parameter file does not match length of input source file.')
+            raise ValueError('NSOURCES in parameter file does not match length of '
+                             'input source file.')
+
+        if PAR.VERBOSE:
+            self.source_array.print_positions()
+
+    def setup_prob_dist(self):
+        """ Read in non uniform probability distribution
+        """
+        if PAR.SUBSAMPLING == 'non_uniform':
+            self.p_dist = loadnpy(join(PATH.DATA, PAR.PROB_DIST_FILE))
+            if np.any(self.p_dist == 0):
+                print 'Warning: 0 probability detected for some sources.\n'
+
+            if PAR.VERBOSE:
+                print 'Non-uniform sampling probabilities'
+                for i in xrange(PAR.NSOURCES):
+                    print '{:03d}: {:.4f}'.format(self.source_array[i].index, self.p_dist[i])
+                print '\n'
+        else:
+            self.p_dist = None
 
     def select_sources(self):
         """ Sample subset from source array.
         """
-        self.setup_sources()
         # generate working source array
-        self.source_array_subset = decimate_source_array(self.source_array,
-                                                         PAR.NSUBSET,
-                                                         random=PAR.STOCHASTIC,
-                                                         batch=PAR.BATCH)
+        self.source_array_subset = subsample(self.source_array, PAR.NSUBSET,
+                                             scheme=PAR.SUBSAMPLING,
+                                             p=self.p_dist)
         self._write_source_file()
 
         if PAR.VERBOSE:
-            self.source_array.print_positions()
             print 'Current subset...'
             self.source_array_subset.print_positions()
 
@@ -192,7 +210,6 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
         else:
             ntask = PAR.NSOURCES
         print 'Dividing by: {}'.format(ntask)
-
 
         # sum gradient
         for key in parameters or self.parameters:
@@ -237,7 +254,8 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
         filename = join(PATH.SOURCE, 'SOURCES')
         with open(filename, 'w') as f:
             for i in xrange(len(self.source_array_subset)):
-                f.write('{:.6f} {:.6f}\n'.format(self.source_array_subset[i].x, self.source_array_subset[i].z))
+                f.write('{:.6f} {:.6f}\n'.format(self.source_array_subset[i].x,
+                                                 self.source_array_subset[i].z))
 
         return
 
@@ -250,9 +268,10 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
             path = join(PATH.SOLVER, event_dirname(ishot))
 
             if PAR.OPTIMIZE == 'stochastic_newton':
-                src = glob(path+'/traces/obs/*')
+                src = glob(path+'/traces/obs/*.su')
             elif PAR.OPTIMIZE == 'stochastic_gauss_newton':
-                src = glob(path+'/traces/syn/*')
+                src = [glob(path+'/traces/syn/*.su'),
+                       glob(path+'/traces/syn/proc*')]
             else:
                 raise ValueError('PAR.OPTIMIZE not recognized.')
 

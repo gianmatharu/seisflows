@@ -155,6 +155,7 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
         """
         # construct source array (all sources)
         self.source_array = SourceArray.fromfile(join(PATH.DATA, PAR.SOURCE_FILE))
+        self.count = np.zeros(len(self.source_array))
 
         # check input
         if len(self.source_array) != PAR.NSOURCES:
@@ -174,8 +175,10 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
 
             if PAR.VERBOSE:
                 print 'Non-uniform sampling probabilities'
-                for i in xrange(PAR.NSOURCES):
-                    print '{:03d}: {:.4f}'.format(self.source_array[i].index, self.p_dist[i])
+                for source in self.source_array:
+                    print "Source {:02d}: ".format(source.index) + \
+                          "{0:<30} ".format(int(self.p_dist[source.index-1]*(30/np.max(self.p_dist)))*'|') + \
+                          "({:.4f})".format(self.p_dist[source.index-1])
                 print '\n'
         else:
             self.p_dist = None
@@ -188,11 +191,13 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
                                              scheme=PAR.SUBSAMPLING,
                                              p=self.p_dist)
         self._write_source_file()
+        for source in self.source_array_subset:
+            self.count[source.index-1] += 1
 
         if PAR.VERBOSE:
             print 'Current subset...'
             self.source_array_subset.print_positions()
-
+            self.print_count()
 
    # serial/reduction function
 
@@ -277,3 +282,14 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
 
             dst = join(PATH.HESS, event_dirname(itask + 1), 'traces/obs/')
             unix.cp(src, dst)
+
+    # monitor tools
+    def print_count(self):
+        """ Print running tally for frequency of source.
+        """
+        for source in self.source_array:
+            print "Source {:02d}: ".format(source.index) + \
+                  "{0:<50} ".format(int(self.count[source.index-1])*'|') + \
+                  "({})".format(self.count[source.index-1])
+        print('\n')
+

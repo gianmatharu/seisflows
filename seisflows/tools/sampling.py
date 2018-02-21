@@ -34,7 +34,6 @@ def _random_batch_choice(n, nsubset):
     ninterval = int(n / nsubset)
 
     for i in xrange(nsubset):
-        print np.arange(i*ninterval, (i+1)*ninterval)
         index_list.append(np.random.choice(np.arange(i*ninterval, (i+1)*ninterval)))
 
     return index_list

@@ -29,6 +29,10 @@ class newton(custom_import('optimize', 'base')):
         if 'LCGFORCE' not in PAR:
             setattr(PAR, 'LCGFORCE', .9)
 
+        # Eisenstat-Walker forcing term update
+        if 'LCGFORCECOND' not in PAR:
+            setattr(PAR, 'LCGFORCECOND', 1)
+
         # maximum number of LCG iterations
         if 'LCGMAX' not in PAR:
             setattr(PAR, 'LCGMAX', 2)
@@ -40,6 +44,10 @@ class newton(custom_import('optimize', 'base')):
         # finite difference pertubation
         if 'EPSILON' not in PAR:
             setattr(PAR, 'EPSILON', 1.)
+
+        if PAR.LCGFORCECOND not in [1, 2, 3]:
+            raise ParameterError(PAR, 'LCGFORCECOND',
+                                      'LCGFORCECOND must be = 1, 2, or 3')
 
         super(newton, self).check()
 
@@ -53,7 +61,8 @@ class newton(custom_import('optimize', 'base')):
             thresh=PAR.LCGTHRESH, 
             maxiter=PAR.LCGMAX, 
             precond=PAR.LCGPRECOND,
-            eta=PAR.LCGFORCE)
+            eta=PAR.LCGFORCE,
+            cond=PAR.LCGFORCECOND)
 
 
     def compute_direction(self):

@@ -23,9 +23,10 @@ class PLCG(LCG):
 
       Adds preconditioning and adaptive stopping to LCG base class
     """
-    def __init__(self, path, eta=1., **kwargs):
+    def __init__(self, path, eta=0.9, cond=1, **kwargs):
         self.eta = eta
         self.eta_init = eta
+        self.cond = cond
 
         super(PLCG, self).__init__(path, **kwargs)
 
@@ -76,8 +77,6 @@ class PLCG(LCG):
         else:
             raise ValueError
 
-
-
     def check_status(self, ap, verbose=True):
         """ Checks Eisenstat-Walker termination status
         """
@@ -90,6 +89,7 @@ class PLCG(LCG):
         if verbose:
             print ' ETA:', self.eta
             print ' RATIO:', LHS/RHS
+            print ' NORM RESIDUAL:', LHS
             print ''
 
         # check termination condition
@@ -99,50 +99,64 @@ class PLCG(LCG):
             return not _done
 
     def finalize(self, verbose=True):
-        """ Update the forcing term in Eisenstat-Walker condition
-            using condition 3.
-            eta = a * (norm(g_new)/norm(g_old))**b
-            a - [0, 1]
-            b - [1, 2]
+        """ Update the forcing term in Eisenstat-Walker condition.
         """
-        # for comparison, calculates forcing term proposed by
-        # Eisenstat & Walker 1996
+        # Store previous residual
+        unix.cp('LCG/r', 'LCG/r_old')
+
+        # Calculates forcing term proposed by Eisenstat & Walker 1996
+        if self.cond == 1:
+            update_forcing_term = self.forcing_term_1
+        elif self.cond == 2:
+            update_forcing_term = self.forcing_term_2
+        elif self.cond == 3:
+            update_forcing_term = self.forcing_term_3
+        else:
+            raise ValueError('Cond must be one of 1, 2, or 3.')
+
         try:
-            self.forcing_term_3(verbose=verbose)
+            update_forcing_term(verbose=verbose)
         except IOError:
             print('Eta not updated')
 
     def forcing_term_1(self, verbose=True):
         """ Implements forcing term 1 in Eisenstat & Walker 1996
         """
-        g_new = _norm(self.load('g_new'))
-        g_old = _norm(self.load('g_old'))
+        print 'Using 1'
+        res = self.load('LCG/r_old')
+        g_new = self.load('g_new')
+        g_old = self.load('g_old')
 
-        alpha = self.load('alpha')
-        Hdm_old = self.load('LCG/r_old') - g_old
+        eisenvect = g_new - res
 
-        if verbose:
-            print alpha
+        # eta update and safeguard
+        eta_k = _norm(eisenvect) / _norm(g_old)
+        eta_s = self.eta**((1.+np.sqrt(5))/2.)
 
-        # eta_update and safeguard
-        eta_k = _norm(g_new - g_old - alpha*Hdm_old)/_norm(g_old)
-        eta_s = self.eta**(0.5*(1 + np.sqrt(5)))
-
-        eta_k = _safeguard(eta_k, eta_s, verbose=verbose)
-
-        if eta_k < 1:
-            self.eta = eta_k
+        self.eta = self._safeguard(eta_k, eta_s, verbose=verbose)
 
     def forcing_term_2(self, verbose=True):
         """ Implements forcing term 2 in Eisenstat & Walker 1996
         """
-        raise NotImplementedError
+        print 'Using 2'
+
+        res = self.load('LCG/r_old')
+        g_new = self.load('g_new')
+        g_old = self.load('g_old')
+
+        # eta update and safeguard
+        eta_k = abs(_norm(g_new) - _norm(res)) / _norm(g_old)
+        eta_s = self.eta**((1.+np.sqrt(5))/2.)
+
+        self.eta = self._safeguard(eta_k, eta_s, verbose=verbose)
 
     def forcing_term_3(self, verbose=True):
-        """ Implements forcing term 3 in Eisenstat & Walker 1996
+        """ Implements forcing term 3 in Eisenstat & Walker 1996.
         """
-        a1 = 1
-        a2 = 0.5*(1 + np.sqrt(5))
+        print 'Using 3'
+
+        a1 = 0.95
+        a2 = 1
 
         g_new = _norm(self.load('g_new'))
         g_old = _norm(self.load('g_old'))
@@ -151,12 +165,24 @@ class PLCG(LCG):
         eta_k = a1*(g_new/g_old)**a2
         eta_s = a1*self.eta**a2
 
-        eta_k = _safeguard(eta_k, eta_s, verbose=verbose)
+        self.eta = self._safeguard(eta_k, eta_s, verbose=verbose)
 
-        if eta_k < 1:
-            self.eta = eta_k
-        elif eta_k >= 1:
-            self.eta = self.eta_init
+    def _safeguard(self, eta_k, eta_s, verbose=True):
+        """ Forcing term safeguard. Takes max value
+            between trial (eta_k) and safeguard (eta_s).
+        """
+        if eta_s > 0.1:
+            if verbose:
+                print ' ETA trial:', eta_k
+                print ' ETA safeguard:', eta_s
+                print ''
+                eta_k = max(eta_s, eta_k)
+
+        # avoid large eta
+        if eta_k >= 1.0:
+            eta_k = self.eta_init
+
+        return eta_k
 
 ### utility functions
 
@@ -165,13 +191,3 @@ _done = 0
 def _norm(v):
     return float(np.linalg.norm(v))
 
-def _safeguard(eta_k, eta_s, verbose=True):
-    if eta_s > 0.1:
-        if verbose:
-            print ' ETA trial:', eta_k
-            print ' ETA safeguard:', eta_s
-            print ''
-            eta_k = max(eta_s, eta_k)
-        else:
-            pass
-    return eta_k

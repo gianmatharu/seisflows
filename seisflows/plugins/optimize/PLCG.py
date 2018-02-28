@@ -39,7 +39,8 @@ class PLCG(LCG):
         if not self.precond:
             return r
         elif self.precond in dir(preconds):
-            return self.precond(r)
+            fprecond = getattr(preconds, self.precond)()
+            return fprecond(r)
 
         elif self.precond in ['LBFGS_3']:
             if self.iter == 1:

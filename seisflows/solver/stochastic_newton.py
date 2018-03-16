@@ -1,6 +1,6 @@
 
 import sys
-from os.path import join, basename
+from os.path import join, exists
 from glob import glob
 
 import numpy as np
@@ -221,9 +221,18 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
             gradp = np.zeros(p.nx * p.nz, dtype='float32')
             for itask in range(ntask):
                 fpath = join(solver_path, event_dirname(itask + 1), 'traces/syn')
-                gradp += read(fpath, key, suffix='_kernel')
 
-            grad[key] = (1.0/ntask) * gradp
+                if solver_path == PATH.HESS:
+                    if PAR.SUBSAMPLING == 'non_uniform':
+                        scale = PAR.NSUBSET * PAR.NSOURCES * self.p_dist[itask]
+                        gradp += (1.0/scale) * read(fpath, key, suffix='_kernel')
+                    else:
+                        gradp += (1.0/ntask) * read(fpath, key, suffix='_kernel')
+                else:
+                    gradp += (1.0/ntask) * read(fpath, key, suffix='_kernel')
+
+            #grad[key] = (1.0/ntask) * gradp
+            grad[key] = gradp
 
             if PAR.RESCALE:
                 grad[key] *= self.scale[key]
@@ -232,7 +241,8 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
         self.save(grad, path, suffix='_kernel')
 
     def combine_subset(self, path='', parameters=[]):
-        """ sum event gradients over a subset of sources
+        """ sum event gradients over a subset of sources.
+            Used for Full Newton.
         """
         grad = {}
 
@@ -242,9 +252,15 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
             for itask in range(PAR.NSUBSET):
                 ishot = self.source_array_subset[itask].index
                 fpath = join(PATH.SOLVER, event_dirname(ishot), 'traces/syn')
-                gradp += read(fpath, key, suffix='_kernel')
 
-            grad[key] = (1.0/PAR.NSUBSET) * gradp
+                if PAR.SUBSAMPLING == 'non_uniform':
+                    scale = PAR.NSUBSET * PAR.NSOURCES * self.p_dist[itask]
+                    gradp += (1.0/scale) * read(fpath, key, suffix='_kernel')
+                else:
+                    gradp += (1.0/PAR.NSUBSET) * read(fpath, key, suffix='_kernel')
+
+            #grad[key] = (1.0/PAR.NSUBSET) * gradp
+            grad[key] = gradp
 
             if PAR.RESCALE:
                 grad[key] *= self.scale[key]
@@ -256,6 +272,9 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
     def _write_source_file(self):
         """ Write solver suitable source file.
         """
+        if not exists(PATH.SOURCE):
+            unix.mkdir(PATH.SOURCE)
+
         filename = join(PATH.SOURCE, 'SOURCES')
         with open(filename, 'w') as f:
             for i in xrange(len(self.source_array_subset)):

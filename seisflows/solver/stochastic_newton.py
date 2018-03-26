@@ -6,7 +6,7 @@ from glob import glob
 import numpy as np
 
 from seisflows.tools import unix, sampling
-from seisflows.tools.array import loadnpy
+from seisflows.tools.array import loadnpy, savenpy
 from seisflows.plugins.solver_io.pewf2d import read, write
 from seisflows.plugins.stochastic import SourceArray, subsample
 from seisflows.tools.seismic import call_solver
@@ -56,6 +56,10 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
         if 'VERBOSE' not in PAR:
             setattr(PAR, 'VERBOSE', False)
 
+        # Fixed or variable probability distribution
+        if 'UPDATE_PROB_DIST' not in PAR:
+            setattr(PAR, 'UPDATE_PROB_DIST', False)
+
         # check paths
         if 'SOURCE' not in PATH:
             setattr(PATH, 'SOURCE', join(PATH.WORKDIR, 'sources'))
@@ -70,15 +74,12 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
         if PAR.SUBSAMPLING not in dir(sampling):
             raise AttributeError('Sampling scheme not implemented')
 
-        if PAR.SUBSAMPLING == 'non_uniform':
+        if PAR.SUBSAMPLING == 'non_uniform' and not PAR.UPDATE_PROB_DIST:
             if 'PROB_DIST_FILE' not in PAR:
                 setattr(PAR, 'PROB_DIST_FILE', 'PROB_DIST')
 
         # set up sources
         self.setup_sources()
-
-        # set up sampling probabilities
-        self.setup_prob_dist()
 
     # low level interface
     def forward_hess(self):
@@ -169,9 +170,15 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
         """ Read in non uniform probability distribution
         """
         if PAR.SUBSAMPLING == 'non_uniform':
-            self.p_dist = loadnpy(join(PATH.DATA, PAR.PROB_DIST_FILE))
-            if np.any(self.p_dist == 0):
-                print 'Warning: 0 probability detected for some sources.\n'
+
+            if PAR.UPDATE_PROB_DIST:
+                self.build_non_uniform_distribution()
+                savenpy(join(PATH.SOURCE, 'PROB_DIST'), self.p_dist)
+            else:
+                if not hasattr(self, 'p_dist'):
+                    self.p_dist = loadnpy(join(PATH.DATA, PAR.PROB_DIST_FILE))
+                    if np.any(self.p_dist == 0):
+                        print 'Warning: 0 probability detected for some sources.\n'
 
             if PAR.VERBOSE:
                 print 'Non-uniform sampling probabilities'
@@ -186,6 +193,9 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
     def select_sources(self):
         """ Sample subset from source array.
         """
+        # set up sampling probabilities
+        self.setup_prob_dist()
+
         # generate working source array
         self.source_array_subset = subsample(self.source_array, PAR.NSUBSET,
                                              scheme=PAR.SUBSAMPLING,
@@ -301,6 +311,25 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
 
             dst = join(PATH.HESS, event_dirname(itask + 1), 'traces/obs/')
             unix.cp(src, dst)
+
+    def build_non_uniform_distribution(self):
+        """ Assumes a block diagonal preconditioner
+        """
+        # constants
+        _precond_list = ['H11', 'H22', 'H33']
+        _npad = 4
+
+        self.p_dist = np.zeros(PAR.NSOURCES)
+
+        # sum over sources
+        for item in _precond_list:
+            precond = np.zeros(p.nz * p.nx)
+
+            for itask in range(PAR.NSOURCES):
+                precondl = read(join(PATH.SOLVER, event_dirname(itask+1), 'traces/syn'), item)
+                self.p_dist[itask] += np.sum(precondl)
+
+        self.p_dist /= np.sum(self.p_dist)
 
     # monitor tools
     def print_count(self):

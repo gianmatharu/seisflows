@@ -74,7 +74,7 @@ class p_gauss_newton(custom_import('optimize', 'p_newton')):
             obs = preprocess.reader(path1+'/'+'traces/syn', filename)
             syn = preprocess.reader(path2+'/'+'traces/syn', filename)
 
-            obs = preprocess.process_traces(obs, filter=not PAR.PREFILTER)
+            obs = preprocess.process_traces(obs)
             syn = preprocess.process_traces(syn)
 
             preprocess.write_adjoint_traces(path2+'/'+'traces/adj', syn, obs, filename)
@@ -82,4 +82,8 @@ class p_gauss_newton(custom_import('optimize', 'p_newton')):
         # copy boundary files for reconstruction of synthetic wavefield
         src = glob(join(path1, 'traces/syn/proc*'))
         dst = join(path2, 'traces/syn')
+        unix.cp(src, dst)
+
+        src = glob(join(path1, 'traces/syn/*.su'))
+        dst = join(path2, 'traces/obs')
         unix.cp(src, dst)

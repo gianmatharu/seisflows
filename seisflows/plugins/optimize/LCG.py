@@ -65,8 +65,7 @@ class LCG(object):
         if self.check_status(ap) == 0:
             isdone, flag = (True, True)
         elif self.ilcg >= self.maxiter:
-            isdone, flag = (True, False)
-            flag = False
+            isdone, flag = (True, True)
         else:
             isdone, flag = (False, False)
 

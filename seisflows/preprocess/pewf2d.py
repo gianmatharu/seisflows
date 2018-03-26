@@ -93,11 +93,6 @@ class pewf2d(object):
         self.reader = getattr(readers, PAR.FORMAT)
         self.writer = getattr(writers, PAR.FORMAT)
 
-        # prepare channels list
-        self.channels = []
-        for char in PAR.CHANNELS:
-            self.channels += [char]
-
         # filter source wavelet
         if PAR.USE_STF_FILE:
             self.filter_stf(join(PATH.SOLVER_INPUT, PAR.STF_FILE))

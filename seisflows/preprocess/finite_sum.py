@@ -33,6 +33,10 @@ class finite_sum(custom_import('preprocess', 'pewf2d')):
         self.reader = getattr(readers, PAR.FORMAT)
         self.writer = getattr(writers, PAR.FORMAT)
 
+        # filter source wavelet
+        if PAR.USE_STF_FILE:
+            self.filter_stf(join(PATH.SOLVER_INPUT, PAR.STF_FILE))
+
     def sum_residuals(self, files):
         """ Sums squares of residuals
 

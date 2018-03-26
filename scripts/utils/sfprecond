@@ -9,11 +9,13 @@ import argparse
 from os.path import join
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 from seisflows.tools.math import normalize
 from seisflows.plugins.solver_io.pewf2d import read, write
 from seisflows.plugins.solver.pewf2d import Par, event_dirname
-from seisflows.tools.array import gridsmooth
+from seisflows.tools.array import gridsmooth, savenpy
+from seisflows.tools.graphics import _cscale
 
 
 def parse_args():
@@ -26,7 +28,7 @@ def parse_args():
                         help='solver parameter file')
 
     parser.add_argument('-p', '--path',
-                        default='./data',
+                        default='./scratch/solver/',
                         help='gradient path')
 
     parser.add_argument('-o', '--opath',
@@ -43,11 +45,17 @@ def parse_args():
 
     parser.add_argument('-n', '--nsrc', type=int,
                         help='No. shots')
+    
+    parser.add_argument('--precond',
+                        type=int, choices=[0, 1],
+                        default=0,
+                        help='Type of preconditioner')
 
     return parser.parse_args()
 
 
 if __name__ == "__main__":
+
 
     args = parse_args()
     p = Par()
@@ -56,21 +64,55 @@ if __name__ == "__main__":
     if args.nsrc is None:
         raise ValueError('No. events not specified')
 
-    precond = np.zeros(p.nz * p.nx)
+    if args.precond == 0:
+        precond_list = ['precond']
+        npad = 2
+    elif args.precond == 1:
+        precond_list = ['H11', 'H22', 'H33']
+        npad = 4
+
+    plot_list = []
+    prob_dist = np.zeros(args.nsrc)
 
     # sum over sources
-    for itask in range(args.nsrc):
-        path = join(args.path, event_dirname(itask + 1))
-        precond += read(path, 'precond')
+    for item in precond_list:
+        precond = np.zeros(p.nz * p.nx)
 
-    # smooth and write
-    precond = precond.reshape((p.nz, p.nx))
-    if args.smooth > 0.0:
-        precond = gridsmooth(precond, args.smooth)
+        for itask in range(args.nsrc):
+            path = join(args.path, event_dirname(itask + 1), 'traces/syn')
+            precondl = read(path, item)
+            prob_dist[itask] += np.sum(precondl)
 
-    precond = normalize(1 / precond)
-    write(precond, args.opath, 'precond')
+            precond += precondl
 
-    import matplotlib.pyplot as plt
-    plt.imshow(precond)
-    plt.show()
+        # smooth and write
+        precond = precond.reshape((p.nz, p.nx))
+        if args.smooth > 0.0:
+            precond[npad:p.nz-npad,npad:p.nx-npad] = gridsmooth(precond[npad:p.nz-npad,npad:p.nx-npad] , args.smooth)
+
+        precond[npad:p.nz-npad,npad:p.nx-npad] = normalize(1.0 / precond[npad:p.nz-npad,npad:p.nx-npad])
+        plot_list += [precond]
+        write(precond, args.opath, item)
+
+prob_dist /= np.sum(prob_dist)
+print prob_dist, sum(prob_dist)
+plt.bar(range(args.nsrc), prob_dist)
+savenpy('PROB_DIST', prob_dist)
+
+plt.set_cmap('RdBu')
+fig, ax = plt.subplots(ncols=len(plot_list), nrows=1, figsize=(10, 10))
+
+if len(plot_list) == 1:
+    ax.imshow(plot_list[0], clim=(0, np.max(plot_list[0])))
+else:
+    for i in xrange(len(plot_list)):
+        clim = np.max(plot_list)
+        if np.any(plot_list[i] < 0):
+            ax[i].imshow(plot_list[i])
+        else:
+            ax[i].imshow(plot_list[i], clim=(0, np.max(plot_list[i])))
+            
+        ax[i].set_title(precond_list[i])
+
+
+plt.show()

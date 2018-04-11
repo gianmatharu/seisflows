@@ -154,6 +154,10 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
     def setup_sources(self):
         """ Select samples for stochastic optimization
         """
+        # make source directory
+        if not exists(PATH.SOURCE):
+            unix.mkdir(PATH.SOURCE)
+
         # construct source array (all sources)
         self.source_array = SourceArray.fromfile(join(PATH.DATA, PAR.SOURCE_FILE))
         self.count = np.zeros(len(self.source_array))
@@ -182,13 +186,11 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
 
             if PAR.VERBOSE:
                 print 'Non-uniform sampling probabilities'
-                for source in self.source_array:
-                    print "Source {:02d}: ".format(source.index) + \
-                          "{0:<30} ".format(int(self.p_dist[source.index-1]*(30/np.max(self.p_dist)))*'|') + \
-                          "({:.4f})".format(self.p_dist[source.index-1])
-                print '\n'
+                self.print_probabilities()
         elif PAR.SUBSAMPLING == 'uniform':
             self.p_dist = np.ones(PAR.NSOURCES) / PAR.NSOURCES
+            print 'Uniform sampling probabilities'
+            self.print_probabilities()
         else:
             self.p_dist = None
 
@@ -343,3 +345,11 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
                   "({})".format(self.count[source.index-1])
         print('\n')
 
+    def print_probabilities(self):
+        """ Print probability distribution
+        """
+        for source in self.source_array:
+            print "Source {:02d}: ".format(source.index) + \
+                  "{0:<30} ".format(int(self.p_dist[source.index - 1] * (30 / np.max(self.p_dist))) * '|') + \
+                  "({:.4f})".format(self.p_dist[source.index - 1])
+        print('\n')

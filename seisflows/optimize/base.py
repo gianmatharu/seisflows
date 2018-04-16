@@ -122,12 +122,12 @@ class base(object):
 
         # prepare scratch directory
         unix.mkdir(PATH.OPTIMIZE)
-        if 'MODEL_INIT' in PATH:
+        if 'MODEL_EST' in PATH:
             solver = sys.modules['seisflows_solver']
-            if PAR.SOLVER not in ['pewf2d', 'ssewf2d', 'spewf2d', 'saga_pewf2d']:
-                self.save('m_new', solver.merge(solver.load(PATH.MODEL_INIT)))
-            else:
-                self.save('m_new', solver.merge(solver.load(PATH.MODEL_INIT, rescale=PAR.RESCALE)))
+            self.save('m_new', solver.merge(solver.rload(PATH.MODEL_EST)))
+        elif 'MODEL_INIT' in PATH:
+            solver = sys.modules['seisflows_solver']
+            self.save('m_new', solver.merge(solver.load(PATH.MODEL_INIT)))
 
 
     def compute_direction(self):

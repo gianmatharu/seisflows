@@ -33,31 +33,18 @@ class pewf2d(object):
     """
 
     assert 'MATERIALS' in PAR
-    assert 'DENSITY' in PAR
-
-    parameters = []
 
     # specify model parametrization.
     # forward and inverse mappings between default parameters (rho, vp, vs)
     # must be defined in seisflows.plugins.material
     try:
-        parClass = getattr(material, PAR.MATERIALS.lower())
+        parClass = getattr(material, PAR.MATERIALS)
     except:
         raise AttributeError('{} not found in module material'.format(PAR.MATERIALS))
 
-    parameters = parClass.parameters
+    parset = parClass.parameters
     par_map_forward = parClass.par_map_forward
     par_map_inverse = parClass.par_map_inverse
-
-    # select between empirical or gradient density updates
-    if PAR.DENSITY == 'Variable':
-        density_scaling = None
-        parameters += ['rho']
-    elif PAR.DENSITY == 'Scaling':
-        # scale using gardener's relation
-        density_scaling = True
-    elif PAR.DENSITY == 'Constant':
-        density_scaling = None
 
     def check(self):
         """ Checks parameters and paths
@@ -71,6 +58,12 @@ class pewf2d(object):
 
         if PAR.FORMAT not in ['SU', 'su']:
             raise ValueError('Format must be SU')
+
+        if 'PARAMS' not in PAR:
+            setattr(PAR, 'PARAMS', None)
+
+        if 'DENSITY' not in PAR:
+            setattr(PAR, 'DENSITY', 'Constant')
 
         if 'CHANNELS' not in PAR:
             setattr(PAR, 'CHANNELS', ['x', 'z'])
@@ -111,26 +104,56 @@ class pewf2d(object):
             raise ParameterError(PATH, 'SOLVER_INPUT')
 
         # assertions
-        assert self.parameters != []
+        assert self.parset != {}
 
-        # reparametrization required
-        if PAR.MATERIALS not in ['Acoustic', 'Shear', 'Elastic']:
-            self.reparam = True
-        else:
-            self.reparam = False
-
-        # parameter rescaling
-        if PAR.RESCALE:
-            # Normalize parameters by mean values
-            self.scale = material.ParRescaler.mean_scaling(self.load(PATH.MODEL_INIT)).scale
-        else:
-            self.scale = None
+        # model parametrization
+        self.setup_model_parameters()
 
     def check_solver_parameters(self):
         """ Check solver specific parameters
         """
         if PAR.NTASK != p.ntask:
             raise ValueError('PAR.NTASK != nsrc in cfg')
+
+        if PAR.MATERIALS.lower() != p.param:
+            raise ValueError('PAR.MATERIALS does not match param in solver cfg')
+
+    def setup_model_parameters(self):
+        """ Establish inversion parameters
+        """
+        # Establish inversion parameters
+        if PAR.PARAMS:
+            if set(PAR.PARAMS) <= set(self.parset):
+                self.parameters = PAR.PARAMS
+            else:
+                raise ValueError('Inversion parameters are not a subset '
+                                 'of requested parametrization')
+        else:
+            self.parameters = list(self.parset)
+
+        # select between empirical or gradient density updates
+        if PAR.DENSITY == 'Variable':
+            if 'rho' not in set(self.parameters):
+                self.parameters += ['rho']
+        elif PAR.DENSITY == 'Scaling' or 'Constant':
+            if 'rho' in set(self.parameters):
+                self.parameters.remove('rho')
+
+        # reparametrization required
+        if PAR.MATERIALS == 'Elastic':
+            self.reparam = False
+        else:
+            self.reparam = True
+
+        # parameter rescaling
+        if PAR.RESCALE:
+            # Normalize parameters by mean values
+            self.scale = material.ParRescaler.mean_scaling(self.load(PATH.MODEL_INIT)).scale
+            for key in self.scale:
+                print 'Rescale value for parameter {}: {:.6e}'.format(key, self.scale[key])
+        else:
+            self.scale = None
+
 
     ### low level interface
 
@@ -283,9 +306,6 @@ class pewf2d(object):
 
             grad[key] = gradp
 
-            if PAR.RESCALE:
-                grad[key] *= self.scale[key]
-
         # backup raw kernel
         self.save(grad, path, suffix='_kernel')
 
@@ -333,78 +353,73 @@ class pewf2d(object):
             path = join(PATH.SOLVER, event_dirname(itask + 1), 'traces/syn')
             unix.rm(glob(join(path, 'proc*')))
 
-    def load(self, path, prefix='', suffix='', rescale=False):
+    def load(self, path, prefix='', suffix='', parameters=[]):
         """ Loads a model dictionary
         """
         model = {}
-        for key in self.parameters:
+        for key in parameters or self.parameters:
             model[key] = read(path, key, prefix, suffix)
-
-            if rescale:
-                # rescale model files (warning, precond + masks use no prefix/suffix, ensure rescale=False)
-                if not prefix and not suffix:
-                    model[key] /= self.scale[key]
-                elif suffix == '_kernel':
-                    model[key] *= self.scale[key]
 
         return model
 
-    def save(self, model, path, prefix='', suffix='', rescale=False):
+    def save(self, model, path, prefix='', suffix='', parameters=[]):
         """ Saves model dictionary as solver binaries
         """
-        # undo parameter scaling
-        if rescale:
-            if not prefix and not suffix:
-                print('Fixing parameter scaling...')
-                for key in self.parameters:
-                    model[key] *= self.scale[key]
-
-        # determine gradient call
-        unix.mkdir(path)
-        if suffix == '_kernel':
-            grad_call = True
-        else:
-            grad_call = False
-
         # save inversion parameters
-        for key in self.parameters:
-            if PAR.SAFEUPDATE and not grad_call:
-                model[key] = self.check_model(model[key], key)
-
+        for key in parameters or self.parameters:
             write(model[key], path, key, prefix, suffix)
 
-        # skip reparametrization for kernels
-        if grad_call:
-            return
+    def rload(self, path):
+        """ Load model with reparametrization.
+        """
+        model = self.load(path, parameters=['vp', 'vs', 'rho'])
 
-        # if using a non-velocity parametrization
         if self.reparam:
-            # handle density
-            if 'rho' not in self.parameters:
-                # load current density model
-                model['rho'] = read(PATH.MODEL_EST, 'rho')
+            model = self.par_map_forward(model)
 
-            # overwrite model
+        if PAR.RESCALE:
+            # Applies non-dimsionalization
+            for key in self.parameters:
+                model[key] /= self.scale[key]
+
+        return {key: model[key] for key in self.parameters}
+
+    def rsave(self, v, path):
+        """ Revert model parametrization to solver parametrization.
+            Read from optimization machinery.
+            Important: This routine converts the inversion parameters
+                    used by the optimization, to the model parameters
+                    used by the solver.
+        """
+        model = self.split(loadnpy(v))
+
+        # Undo normalization
+        if PAR.RESCALE:
+            for key in self.parameters:
+                model[key] *= self.scale[key]
+
+        # apply box constraints
+        if PAR.SAFEUPDATE:
+            for key in self.parameters:
+                model[key] = self.check_model(model[key], key)
+
+        # include non-updated model parameters (copy from working dir)
+        fixed_pars = set(self.parset)-set(self.parameters)
+        if fixed_pars:
+            model.update(self.load(PATH.MODEL_EST, parameters=fixed_pars))
+
+        # map model parameters to rho, vp, vs
+        if self.reparam:
             model = self.par_map_inverse(model)
 
-        # Assigning solver parameters
-        for key in ['vp', 'vs']:
-            if key not in model.keys():
-                src = join(PATH.MODEL_INIT, key + '.bin')
-                dst = path
-                unix.cp(src, dst)
-            else:
-                write(model[key], path, key, prefix, suffix)
-
+        # optional density scaling
         if 'rho' not in self.parameters:
-            if self.density_scaling:
-                rho = getattr(material, 'gardeners')(model)
-                write(rho, path, 'rho', prefix, suffix)
-            else:
-                # copy density from initial model
-                src = join(PATH.MODEL_INIT, 'rho.bin')
-                dst = join(path, 'rho.bin')
-                unix.cp(src, dst)
+            if PAR.DENSITY == 'Scaling':
+                model['rho'] = self.density_scaling(model)
+
+        # save model
+        unix.mkdir(path)
+        self.save(model, path, parameters=model.keys())
 
     def merge(self, model):
         """ Merge vectors, used to merge model/gradient binary files into a single vector
@@ -497,3 +512,8 @@ class pewf2d(object):
     def get_altpath(self, path=''):
         itask = system.taskid()
         return join(path, event_dirname(itask + 1))
+
+    def density_scaling(self, model):
+        """ Apply density scaling
+        """
+        return getattr(material, 'gardeners')(model)

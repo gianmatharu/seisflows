@@ -174,7 +174,6 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
         """ Read in non uniform probability distribution
         """
         if PAR.SUBSAMPLING == 'non_uniform':
-
             if PAR.UPDATE_PROB_DIST:
                 self.build_non_uniform_distribution()
                 savenpy(join(PATH.SOURCE, 'PROB_DIST'), self.p_dist)
@@ -240,16 +239,10 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
                     if PAR.SUBSAMPLING in ['uniform', 'non_uniform']:
                         scale = PAR.NSUBSET * PAR.NSOURCES * self.p_dist[itask]
                         gradp += (1.0/scale) * read(fpath, key, suffix='_kernel')
-                    else:
-                        gradp += (1.0/ntask) * read(fpath, key, suffix='_kernel')
                 else:
                     gradp += (1.0/ntask) * read(fpath, key, suffix='_kernel')
 
-            #grad[key] = (1.0/ntask) * gradp
             grad[key] = gradp
-
-            if PAR.RESCALE:
-                grad[key] *= self.scale[key]
 
         # backup raw kernel
         self.save(grad, path, suffix='_kernel')
@@ -273,11 +266,7 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
                 else:
                     gradp += (1.0/PAR.NSUBSET) * read(fpath, key, suffix='_kernel')
 
-            #grad[key] = (1.0/PAR.NSUBSET) * gradp
             grad[key] = gradp
-
-            if PAR.RESCALE:
-                grad[key] *= self.scale[key]
 
         # backup raw kernel
         self.save(grad, path, suffix='_kernel')

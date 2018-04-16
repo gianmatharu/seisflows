@@ -34,11 +34,12 @@ class tikhonov0(custom_import('postprocess', 'regularize')):
         """ Evaluate regularization term
         """
         residuals = 0.
-        m = solver.load(path, rescale=PAR.RESCALE)
-        m0 = solver.load(PATH.MODEL_INIT, rescale=PAR.RESCALE)
+        m = solver.rload(path)
+        m0 = solver.rload(PATH.MODEL_INIT)
 
         for key in solver.parameters:
-            #print m[key].max(), m0[key].max()
+            if PAR.DEBUG:
+                print m[key].max(), m0[key].max()
             residuals += 0.5 * np.sum((m[key]-m0[key])**2)
 
         return residuals
@@ -46,5 +47,5 @@ class tikhonov0(custom_import('postprocess', 'regularize')):
     def nabla(self, m, key):
         """ Evaluate regularization gradient term
         """
-        m0 = solver.load(PATH.MODEL_INIT, rescale=PAR.RESCALE)
+        m0 = solver.rload(PATH.MODEL_INIT)
         return m - m0[key]

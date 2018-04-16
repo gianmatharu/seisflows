@@ -37,19 +37,24 @@ class regularize(custom_import('postprocess', 'pewf2d')):
 
         # load current model and data objective gradient
         g = solver.load(path, suffix='_kernel')
-        m = solver.load(PATH.MODELS + '/model_est', rescale=PAR.RESCALE)
+        m = solver.rload(PATH.MODEL_EST)
+
+        if PAR.DEBUG:
+            print 'Max of gradient: {:6e}'.format(abs(solver.merge(g)).max())
 
         reg = {}
-        #print 'Max of gradient: {}'.format(abs(solver.merge(g)).max())
-
         for key in solver.parameters:
-                #print 'Max of {} gradient: {}'.format(key, abs(self.nabla(m[key], key)).max())
+                if PAR.DEBUG:
+                    print 'Max of {} gradient: {:.6e}'.format(key, abs(self.nabla(m[key], key)).max())
                 reg[key] = self.nabla(m[key], key)
                 g[key] += PAR.HYPERPAR * self.nabla(m[key], key)
 
         # backup kernels
-        self.save(path, solver.merge(reg), backup='reg_cont')
         self.save(path, solver.merge(g), backup='noregularize')
+
+        # save contribution from regularization
+        if PAR.DEBUG:
+            solver.save(reg, path, suffix='_reg')
 
     def process_kernels(self, path, parameters, solver_path=''):
         """ Processes kernels in accordance with parameter settings

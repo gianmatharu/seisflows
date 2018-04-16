@@ -2,7 +2,7 @@
 import numpy as np
 
 
-class isotropic(object):
+class Isotropic(object):
     """ Model parameter base class
     """
     parameters = []
@@ -29,56 +29,10 @@ class isotropic(object):
 # isotropic inversion material classes
 
 
-class acoustic(isotropic):
-    """ Acoustic class
-    """
-    parameters = ['vp']
-
-    @classmethod
-    def par_map_forward(cls, model):
-        cls.check_model_forward(model)
-        return model
-
-    @classmethod
-    def par_map_inverse(cls, model):
-        cls.check_model_inverse(model)
-        return model
-
-
-class shear(isotropic):
-    """ Shear wave velocity
-    """
-    parameters = ['vs']
-
-    @classmethod
-    def par_map_forward(cls, model):
-        cls.check_model_forward(model)
-        return model
-
-    @classmethod
-    def par_map_inverse(cls, model):
-        cls.check_model_inverse(model)
-        return model
-
-class density(isotropic):
-    """ Density inversion
-    """
-    parameters = []
-
-    @classmethod
-    def par_map_forward(cls, model):
-        cls.check_model_forward(model)
-        return model
-
-    @classmethod
-    def par_map_inverse(cls, model):
-        cls.check_model_inverse(model)
-        return model
-
-class elastic(isotropic):
+class Elastic(Isotropic):
     """ Isotropic elastic class
     """
-    parameters = ['vp', 'vs']
+    parameters = ['vp', 'vs', 'rho']
 
     @classmethod
     def par_map_forward(cls, model):
@@ -90,10 +44,11 @@ class elastic(isotropic):
         cls.check_model_inverse(model)
         return model
 
-class lame(isotropic):
+
+class Lame(Isotropic):
     """ Lame parameter (bulk, shear modulii) class
     """
-    parameters = ['lambda', 'mu']
+    parameters = ['lambda', 'mu', 'rho']
 
     @classmethod
     def par_map_forward(cls, model):
@@ -126,10 +81,11 @@ class lame(isotropic):
 
         return output
 
-class impedance(isotropic):
+
+class Impedance(Isotropic):
     """ Impedance parameter class
     """
-    parameters = ['Ip', 'Is']
+    parameters = ['Ip', 'Is', 'rho']
 
     @classmethod
     def par_map_forward(cls, model):
@@ -162,10 +118,11 @@ class impedance(isotropic):
 
         return output
 
-class slowness(isotropic):
+
+class Slowness(Isotropic):
     """ Slowness parameter class
     """
-    parameters = ['pp', 'ps']
+    parameters = ['pp', 'ps', 'rho']
 
     @classmethod
     def par_map_forward(cls, model):
@@ -197,7 +154,6 @@ class slowness(isotropic):
         output['vs'] = 1 / ps
 
         return output
-# class for parameter rescaling
 
 
 class ParRescaler(object):
@@ -252,4 +208,8 @@ def _check_model(parameters, model):
     for par in parameters:
         if par not in model.keys():
             raise KeyError('Model dictionary is missing required parameter {}'.format(par))
+
+    #if set(parameters) < set(model.keys()):
+    #    raise KeyError('Model dictionary is missing required parameter {}'
+    #                   .format(set(model.keys() - set(parameters))))
 

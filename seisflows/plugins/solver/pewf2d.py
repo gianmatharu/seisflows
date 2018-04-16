@@ -19,6 +19,7 @@ class Par(object):
         self.use_cpml_bottom = False
         self.ncpml = 0
         self.ntask = 0
+        self.params = ''
 
     def read_par_file(self, filename):
 
@@ -49,6 +50,7 @@ class Par(object):
             self.ntask = int(p["nsrc"])
             if self.use_free_surface and self.use_cpml_top:
                 self.use_cpml_top = False
+            self.param = p["param"].strip('"')
 
     def str2bool(self, str):
         """ Convert string to boolean

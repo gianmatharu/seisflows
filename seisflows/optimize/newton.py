@@ -43,7 +43,7 @@ class newton(custom_import('optimize', 'base')):
 
         # finite difference pertubation
         if 'EPSILON' not in PAR:
-            setattr(PAR, 'EPSILON', 1.)
+            setattr(PAR, 'EPSILON', 1.0e-3)
 
         if PAR.LCGFORCECOND not in [1, 2, 3]:
             raise ParameterError(PAR, 'LCGFORCECOND',
@@ -81,7 +81,7 @@ class newton(custom_import('optimize', 'base')):
             dm = self.load('LCG/p')
 
             # finite difference pertubation
-            h = PAR.EPSILON/max(abs(dm))
+            h = PAR.EPSILON * max(abs(m))/max(abs(dm))
 
             # compute Hessian-vector product by finite differences
             Hdm = self.apply_hessian(m, dm, h)

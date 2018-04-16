@@ -59,18 +59,22 @@ class stochastic_newton(custom_import('optimize', 'p_newton')):
 
         # combine data over subset
         unix.mkdir(PATH.HESS +'/' + 'gradient_sub')
-        solver.combine_subset(path=PATH.HESS+'/' +'gradient_sub')
+        solver.combine_subset(path=PATH.HESS+'/'+'gradient_sub')
 
         if PAR.SMOOTH > 0:
-            solver.smooth(path=PATH.HESS+'/' +'gradient_sub',
+            solver.smooth(path=PATH.HESS+'/'+'gradient_sub',
                           span=PAR.SMOOTH)
 
-        self.save('g_sub', solver.merge(solver.load(
-                PATH.HESS+'/'+'gradient_sub', suffix='_kernel')))
+        gradient = solver.load(PATH.HESS+'/'+'gradient_sub', suffix='_kernel')
+
+        if PAR.RESCALE:
+            for key in solver.parameters:
+                gradient[key] *= solver.scale[key]
+
+        g = solver.merge(gradient)
 
         if PATH.MASK:
             # apply mask
-            g_sub = self.load('g_sub')
-            g_sub *= solver.merge(solver.load(PATH.MASK))
-            self.save('g_sub', g_sub)
+            g *= solver.merge(solver.load(PATH.MASK))
 
+        self.save('g_sub', g)

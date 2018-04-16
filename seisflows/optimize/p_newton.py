@@ -37,9 +37,7 @@ class p_newton(custom_import('optimize', 'newton')):
         postprocess = sys.modules['seisflows_postprocess']
 
         self.save('m_lcg', m + h*dm)
-
-        solver.save(solver.split(m + h*dm), 
-                PATH.HESS+'/'+'model')
+        solver.rsave(PATH.OPTIMIZE+'/m_lcg', PATH.HESS+'/'+'model')
 
         self.apply_hess(path=PATH.HESS)
 

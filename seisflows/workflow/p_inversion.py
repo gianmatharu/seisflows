@@ -48,6 +48,9 @@ class p_inversion(custom_import('workflow', 'inversion')):
         if 'STOPCRITERIA' not in PAR:
             setattr(PAR, 'STOPCRITERIA', None)
 
+        if 'DEBUG' not in PAR:
+            setattr(PAR, 'DEBUG', None)
+
         if PAR.SOLVER not in ['pewf2d', 'ssewf2d', 'spewf2d', 'saga_pewf2d',
                               'stochastic_newton']:
             raise ValueError('Use solver class "pewf2d" here.')
@@ -197,9 +200,7 @@ class p_inversion(custom_import('workflow', 'inversion')):
         self.checkpoint()
 
         # save new model to working dir
-        src = join(PATH.OPTIMIZE, 'm_new')
-        dst = PATH.MODEL_EST
-        self.save_vector(src, dst)
+        self.write_model(path=PATH.FUNC, suffix='new')
 
         if divides(optimize.iter, PAR.SAVEMODEL):
             self.save_model()
@@ -248,9 +249,12 @@ class p_inversion(custom_import('workflow', 'inversion')):
         """
         unix.mkdir(path)
         src = PATH.OPTIMIZE +'/'+ 'm_' + suffix
-        dst = path +'/'+ 'model'
-        unix.mkdir(dst)
-        self.save_vector(src, dst)
+
+        if suffix == 'new':
+            dst = PATH.MODEL_EST    # working model dir
+        else:
+            dst = path +'/'+ 'model'
+        solver.rsave(src, dst)
 
     def write_misfit(self, path='', suffix=''):
         """ Writes the misfit in format used by optimization
@@ -265,7 +269,7 @@ class p_inversion(custom_import('workflow', 'inversion')):
 
         if PAR.POSTPROCESS in ['tikhonov0', 'tikhonov1']:
             if suffix == 'new':
-                path = PATH.MODELS +'/'+ 'model_est'
+                path = PATH.MODEL_EST
             elif suffix == 'try':
                 path = PATH.FUNC +'/' + 'model'
 
@@ -290,10 +294,14 @@ class p_inversion(custom_import('workflow', 'inversion')):
 
 
     def save_model(self):
-        src = join(PATH.OPTIMIZE, 'm_new')
+        src = glob(PATH.MODEL_EST+'/'+'*.bin')
         dst = join(PATH.MODELS, 'm{:02d}'.format(optimize.iter))
+
         unix.mkdir(dst)
-        self.save_vector(src, dst)
+        unix.cp(src, dst)
+
+        # save inversion parameters
+        #solver.save(solver.rload(src), dst, parameters=solver.parameters)
 
 
     def save_kernels(self):
@@ -317,10 +325,3 @@ class p_inversion(custom_import('workflow', 'inversion')):
 
             src = glob(join(PATH.SOLVER, event_dirname(itask + 1), 'residuals'))
             unix.mv(src, dst)
-
-
-    def save_vector(self, input_file, output_path):
-        """ Save numpy model vectors as solver model binaries
-        """
-        model = solver.split(loadnpy(input_file))
-        solver.save(model, output_path, rescale=PAR.RESCALE)

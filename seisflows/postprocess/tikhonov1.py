@@ -45,7 +45,7 @@ class tikhonov1(custom_import('postprocess', 'regularize')):
            1/2 (|| m'Lm||)
         """
         residuals = 0.
-        m = solver.load(path, rescale=PAR.RESCALE)
+        m = solver.rload(path)
 
         for key in solver.parameters:
             m[key] = m[key].reshape((p.nz, p.nx))

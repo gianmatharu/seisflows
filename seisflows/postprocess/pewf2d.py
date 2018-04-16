@@ -45,13 +45,8 @@ class pewf2d(custom_import('postprocess', 'base')):
     def setup(self):
         """ Performs any required initialization or setup tasks
         """
-        if solver.reparam:
-            model = mread(PATH.MODEL_INIT, ['vp','vs','rho'])
-            model = solver.par_map_forward(model)
-            mwrite(model, PATH.MODEL_INIT)
-
         src = glob(join(PATH.MODEL_INIT, '*.bin'))
-        dst = join(PATH.MODELS, 'model_est')
+        dst = PATH.MODEL_EST
 
         if not exists(dst):
             unix.mkdir(dst)
@@ -69,7 +64,15 @@ class pewf2d(custom_import('postprocess', 'base')):
                           parameters=solver.parameters,
                           solver_path=solver_path)
 
-        g = solver.merge(solver.load(path, suffix='_kernel'))
+        gradient = solver.load(path, suffix='_kernel')
+
+        if PAR.RESCALE:
+            self.rescale_kernels(gradient)
+
+        g = solver.merge(gradient)
+
+        if PAR.RESCALE:
+            self.save(path, g, backup='noscale')
 
         if PATH.MASK:
             # apply mask
@@ -87,6 +90,13 @@ class pewf2d(custom_import('postprocess', 'base')):
             solver.smooth(path=path,
                           parameters=parameters,
                           span=PAR.SMOOTH)
+
+    def rescale_kernels(self, gradient):
+        """ Applies rescaling to the gradient.
+            Correction non-dimensionalized parameters (m' = m / scale)
+        """
+        for key in solver.parameters:
+            gradient[key] *= solver.scale[key]
 
     def save(self, path, g, backup=None):
         if backup:

@@ -5,6 +5,7 @@ from seisflows.tools.math import nextpow2
 from seisflows.tools.graphics import _convert_to_array
 import matplotlib.pyplot as plt
 from scipy.signal import convolve2d
+from scipy.linalg import toeplitz
 
 import scipy.signal as signal
 
@@ -467,11 +468,9 @@ def get_wiener_filter(d, s, mu):
     S = np.fft.rfft(s)
 
     # get correlation/autocorrelation fourier coefficients
-    C = D * np.conj(S)
-    AC = S * np.conj(S) + mu
+    C = np.conj(S) * D
+    AC = np.conj(S) * S + mu
     W = C / AC
-
-    # check if real!
     w = np.real(np.fft.irfft(W))
 
     return w
@@ -481,22 +480,85 @@ def get_adjoint_source(T, f, s, w, mu):
     n = len(w)
 
     #constrct diagonal rescaling matrix
-    wnorm = np.linalg.norm(w)
-    R = (2 * f * np.eye(n) - T**2) / wnorm
-    rw = np.matmul(R, w)
+    wnorm = np.sum(w*w)
+    rw = ((2 * f - T**2) / wnorm) * w
 
     # deconvolve autocorrelation of predicted from reweighted filter
     W = np.fft.rfft(w)
     P = np.fft.rfft(s)
     RW = np.fft.rfft(rw)
-    AC = P * np.conj(P) + mu
+    AC = np.conj(P) * P + mu
 
     A = RW / AC
-    A = A * P
-    A = A * np.conj(W)
-
-    adj = np.fft.irfft(A)
+    A *= np.conj(W) * P
+    adj = -np.fft.irfft(A)
     return adj
+
+def get_radjoint_source(T, f, d, w, mu):
+    n = len(w)
+
+    #constrct diagonal rescaling matrix
+    wnorm = np.sum(w*w)
+    rw = ((T**2 - 2 * f) / wnorm) * w
+
+    # deconvolve autocorrelation of predicted from reweighted filter
+    D = np.fft.rfft(d)
+    RW = np.fft.rfft(rw)
+    AC = np.conj(D) * D + mu
+
+    A = (D*RW) / AC
+    adj = -np.fft.irfft(A)
+
+    return adj
+
+def get_wiener_filter_mat(d, s, mu):
+    """ Use Toeplitz matrix to get Wiener filter.
+        Follows Warner and Guasch, 2016.
+        Warning: Performs explicit matrix inversion!
+    """
+    P = toeplitz(s)
+    iPtP = np.linalg.inv(P.T.dot(P) + mu * np.eye(len(s)))
+    Ptd = P.T.dot(d)
+
+    return iPtP.dot(Ptd)
+
+def get_adjoint_source_mat(T, f, s, w, mu):
+    """ Use Toeplitz matrix to get AWI adjoint source.
+        Follows Warner and Guasch, 2016.
+        Warning: Performs explicit matrix inversion!
+    """
+    W = toeplitz(w)
+    P = toeplitz(s)
+    iPtP = np.linalg.inv(P.T.dot(P) + mu * np.eye(len(s)))
+    Tw = (2 * f * np.eye(len(s)) - T * T) / np.sum(w*w)
+    Tw = Tw.dot(w)
+    adj = iPtP.dot(Tw)
+    adj = P.dot(adj)
+    return W.T.dot(adj)
+
+def get_adjoint_source_matr(T, f, d, v, mu):
+    """ Use Toeplitz matrix to get AWI adjoint source.
+        Follows Warner and Guasch, 2016.
+        Warning: Performs explicit matrix inversion!
+    """
+    D = toeplitz(d)
+    iDtD = np.linalg.inv(D.T.dot(D) + mu * np.eye(len(d)))
+    Tv = (T * T - 2 * f * np.eye(len(d))) / np.sum(v*v)
+    Tv = Tv.dot(v)
+    adj = iDtD.dot(Tv)
+    adj = D.dot(adj)
+    return adj
+
+def get_weights(t, sigma=0.05, sym=False):
+    """ Gaussian weights for AWI
+    """
+    # Std is percentage of max lag
+    sigma *= t[-1]
+    weights = np.exp(-0.5 * (t/sigma)**2)
+    if sym:
+        weights += weights[-1::-1]
+
+    return weights
 
 def ricker(t, t0, f0, factor=1.0):
 

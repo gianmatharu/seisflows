@@ -5,6 +5,8 @@
 
 import numpy as np
 from scipy.signal import hilbert as _analytic
+from seisflows.tools.susignal import get_wiener_filter, \
+    get_wiener_filter_mat, get_weights
 
 
 def Waveform(syn, obs, nt, dt):
@@ -101,6 +103,23 @@ def WaveformL1(syn, obs, nt, dt):
     wrsd = abs(syn-obs)
     return np.sqrt(np.sum(wrsd*wrsd*dt))
 
+def Adaptive(syn, obs, nt, dt, reverse=False):
+    # AWI objective function
+    mu = 1e2
+    t = np.arange(0, nt*dt, dt)
+    T = get_weights(t, sym=True)
+
+    if reverse:
+        #w = get_wiener_filter_mat(syn, obs, mu)
+        w = get_wiener_filter(syn, obs, mu)
+    else:
+        w = get_wiener_filter(obs, syn, mu)
+        #w = get_wiener_filter_mat(obs, syn, mu)
+
+    return -0.5 * np.sum(T.dot(w) * T.dot(w)) / np.sum(w*w)
+
+def AdaptiveR(syn, obs, nt, dt):
+    return Adaptive(syn, obs, nt, dt, reverse=True)
 
 def Displacement(syn, obs, nt, dt):
     return Exception('This function can only used for migration.')

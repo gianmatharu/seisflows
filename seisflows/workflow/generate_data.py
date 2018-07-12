@@ -20,7 +20,6 @@ class generate_data(base):
     def check(self):
         """ Checks parameters and paths
         """
-
         # check paths
         if 'DATA' not in PATH:
             setattr(PATH, 'DATA', None)
@@ -29,6 +28,9 @@ class generate_data(base):
             raise ParameterError(PATH, 'MODEL_TRUE')
 
         # check parameters
+        if 'SIM_GREENS' not in PAR:
+            setattr(PAR, 'SIM_GREENS', False)
+
         if PAR.SYSTEM != 'serial':
             raise ValueError('Use system class "serial" here.')
 
@@ -44,7 +46,10 @@ class generate_data(base):
         # generate data
         print('Generating data...')
         system.run('solver', 'setup')
-        system.run_single('solver', 'generate_data')
+        if PAR.SIM_GREENS:
+            system.run_single('solver', 'generate_data', mode=3)
+        else:
+            system.run_single('solver', 'generate_data')
         print('Finished\n')
 
 

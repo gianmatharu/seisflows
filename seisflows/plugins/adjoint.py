@@ -5,8 +5,14 @@
 
 import numpy as _np
 from scipy.signal import hilbert as _analytic
+from scipy.linalg import toeplitz as _toeplitz
 
 from seisflows.plugins import misfit
+from seisflows.tools.susignal import get_adjoint_source_mat, \
+    get_adjoint_source_matr, \
+    get_wiener_filter_mat, get_weights, get_wiener_filter, get_adjoint_source, \
+    get_radjoint_source
+
 from seisflows.tools.math import hilbert as _hilbert
 
 
@@ -77,8 +83,6 @@ def Amplitude(syn, obs, nt, dt):
     return wadj
 
 
-
-
 def Envelope2(syn, obs, nt, dt, eps=0.):
     # envelope amplitude ratio
     # (Yuan et al 2015, eqs B-2, B-3)
@@ -131,6 +135,34 @@ def WaveformL1(syn, obs, nt, dt):
     # L1 waveform misfit
     wadj = _np.sign((syn-obs))
     return wadj
+
+def Adaptive(syn, obs, nt, dt, reverse=False):
+    # Perform a maximization
+    mu = 1e2
+    t = _np.arange(0, nt*dt, dt)
+    T = get_weights(t, sym=True)
+
+    if reverse:
+        #w = get_wiener_filter_mat(syn, obs, mu)
+        w = get_wiener_filter(syn, obs, mu)
+    else:
+        w = get_wiener_filter(obs, syn, mu)
+        #w = get_wiener_filter_mat(obs, syn, mu)
+
+    # Evaluate f
+    f = -0.5 * _np.sum(T.dot(w) * T.dot(w)) / _np.sum(w*w)
+
+    if reverse:
+        adj = get_radjoint_source(T, f, obs, w, mu)
+        #adj = get_adjoint_source_matr(T, f, obs, w, mu)
+    else:
+        adj = get_adjoint_source(T, f, syn, w, mu)
+        #adj = get_adjoint_source_mat(T, f, syn, w, mu)
+    return adj
+
+
+def AdaptiveR(syn, obs, nt, dt):
+    return Adaptive(syn, obs, nt, dt, reverse=True)
 
 ### migration
 

@@ -211,3 +211,29 @@ def grid2mesh(V, grid, mesh):
     """
     return _interp.griddata(grid, V.flatten(), mesh, 'linear')
 
+
+def apply_tilde_transform(A, shape):
+    nx, nz = shape
+    At = np.zeros((nx*nx, nz*nz))
+
+    for i in xrange(nx):
+        for j in xrange(nx):
+            i1 = i * nz
+            i2 = i1 + nz
+            j1 = j * nz
+            j2 = j1 + nz
+            At[i*nx + j, :] = \
+            A[j1:j2, i1:i2].reshape((nz * nz), order='F')
+
+    return At
+
+def inv_tilde_transform(At, shape):
+    nx, nz = shape
+    A = np.zeros((nx*nz, nx*nz))
+
+    for i in xrange(nx*nx):
+        i1 = i % nx
+        i2 = i / nx
+        A[i1*nz:(i1+1)*nz, i2*nz:(i2+1)*nz] = At[i, :].reshape((nz, nz), order='F')
+
+    return A

@@ -103,6 +103,9 @@ class pewf2d(object):
         if 'SOLVER_INPUT' not in PATH:
             raise ParameterError(PATH, 'SOLVER_INPUT')
 
+        if 'SOLVER_EXE' not in PATH:
+            setattr(PAR, 'SOLVER_EXE', './xewf2d')
+
         # assertions
         assert self.parset != {}
 
@@ -161,7 +164,7 @@ class pewf2d(object):
         """ Perform forward simulation. Must launch from /bin.
         """
         unix.cd(PATH.SOLVER_BIN)
-        script = './xewf2d'
+        script = PAR.SOLVER_EXE
         call_solver(system.mpiexec(), script, PATH.WORKDIR + '/dump_fwd')
 
         unix.cd(PATH.WORKDIR)
@@ -170,7 +173,7 @@ class pewf2d(object):
         """ Perform adjoint simulation. Must launch from /bin
         """
         unix.cd(PATH.SOLVER_BIN)
-        script = './xewf2d'
+        script = PAR.SOLVER_EXE
         call_solver(system.mpiexec(), script, PATH.WORKDIR + '/dump_adj')
 
         unix.cd(PATH.WORKDIR)
@@ -203,14 +206,14 @@ class pewf2d(object):
             dst = 'traces/obs/'
             unix.cp(src, dst)
 
-    def generate_data(self):
+    def generate_data(self, mode=0):
         """ Generate 'real' data in true model.
         """
         # generate data on the fly
         output_dir = join(PATH.SOLVER)
         self.set_par_cfg(external_model_dir=PATH.MODEL_TRUE,
                          output_dir=output_dir,
-                         mode=0,
+                         mode=mode,
                          use_stf_file=PAR.USE_STF_FILE,
                          stf_file=PAR.STF_FILE)
 

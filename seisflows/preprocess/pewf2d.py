@@ -151,6 +151,10 @@ class pewf2d(object):
         # Filtering
         if filter:
             self.apply_filter(stream)
+        else:
+            pass
+            #for tr in stream:
+            #    tr.taper(0.01, type='hamming')
 
         return stream
 
@@ -217,6 +221,11 @@ class pewf2d(object):
                 d[i].data[-1] = 0.
 
             s[i].data = self.adjoint(s[i].data, d[i].data, nt, dt)
+
+        if PAR.MISFIT == 'Adaptive':
+            print('Tapering')
+            for tr in s:
+                tr.taper(0.05, type='hann')
 
         self.writer(s, path, self._swap_tag(channel, 'adj'))
 
@@ -374,7 +383,7 @@ class pewf2d(object):
         tr.stats.delta = dt
 
         if PAR.FILTER:
-            tr.taper(0.05, type='hann')
+            #tr.taper(0.05, type='hann')
             self.apply_filter([tr])
 
         # write as ascii time series

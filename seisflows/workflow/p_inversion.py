@@ -294,14 +294,19 @@ class p_inversion(custom_import('workflow', 'inversion')):
 
 
     def save_model(self):
-        src = glob(PATH.MODEL_EST+'/'+'*.bin')
+        src = PATH.MODEL_EST
         dst = join(PATH.MODELS, 'm{:02d}'.format(optimize.iter))
 
         unix.mkdir(dst)
         unix.cp(src, dst)
 
         # save inversion parameters
-        #solver.save(solver.rload(src), dst, parameters=solver.parameters)
+        m = solver.rload(src)
+        if PAR.RESCALE:
+            for par in solver.parameters:
+                m[par] *= solver.scale[par]
+
+        solver.save(m, dst, parameters=solver.parameters)
 
 
     def save_kernels(self):

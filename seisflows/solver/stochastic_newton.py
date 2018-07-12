@@ -237,7 +237,8 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
 
                 if solver_path == PATH.HESS:
                     if PAR.SUBSAMPLING in ['uniform', 'non_uniform']:
-                        scale = PAR.NSUBSET * PAR.NSOURCES * self.p_dist[itask]
+                        ishot = self.source_array_subset[itask].index
+                        scale = PAR.NSUBSET * PAR.NSOURCES * self.p_dist[ishot-1]
                         gradp += (1.0/scale) * read(fpath, key, suffix='_kernel')
                 else:
                     gradp += (1.0/ntask) * read(fpath, key, suffix='_kernel')
@@ -261,7 +262,7 @@ class stochastic_newton(custom_import('solver', 'pewf2d')):
                 fpath = join(PATH.SOLVER, event_dirname(ishot), 'traces/syn')
 
                 if PAR.SUBSAMPLING in ['uniform', 'non_uniform']:
-                    scale = PAR.NSUBSET * PAR.NSOURCES * self.p_dist[itask]
+                    scale = PAR.NSUBSET * PAR.NSOURCES * self.p_dist[ishot-1]
                     gradp += (1.0/scale) * read(fpath, key, suffix='_kernel')
                 else:
                     gradp += (1.0/PAR.NSUBSET) * read(fpath, key, suffix='_kernel')

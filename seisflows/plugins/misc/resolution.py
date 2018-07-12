@@ -73,6 +73,27 @@ def spike(v, dims, xpos, zpos, perc):
 
     return v, val
 
+def get_spike_perturbation(v, dims, xpos, zpos, perc):
+    """ Apply spike perturbation to model
+    """
+    # reshape
+    nx, nz = dims
+    v = v.reshape((nz, nx))
+    dv = np.zeros(v.shape)
+
+    if perc:
+        val = (perc/100.) * abs(v).max()
+    else:
+        val = 1
+
+    for i in zpos:
+        for j in xpos:
+            dv[i][j] += val
+
+    dv = dv.reshape((nx * nz))
+
+    return dv, val
+
 def random(v, perc):
     """ Add zero-mean perturbation
     """

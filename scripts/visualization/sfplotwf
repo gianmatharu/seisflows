@@ -1,0 +1,110 @@
+#!/usr/bin/env python
+# script to plot velocity models.
+
+import matplotlib.pyplot as plt
+import argparse
+import time
+import numpy as np
+from os.path import join
+from seisflows.tools.graphics import plot_model
+from seisflows.plugins.solver.pewf2d import Par, event_dirname
+from seisflows.tools.array import readgrid
+
+# Parse input arguments
+parser = argparse.ArgumentParser(description='Plot wavefield.')
+
+# file and format flags
+parser.add_argument('-f', '--file', default='solver/INPUT/par.cfg', help='solver par file')
+parser.add_argument('-p', '--path', default='.', help='path to velocity model.')
+parser.add_argument('-d', '--dtype', default='float32', help='numpy data type.')
+parser.add_argument('-id', '--eventid', type=int, default=1, help='event id')
+parser.add_argument('-pr', action='store_true', default=False, help='display pressure field')
+parser.add_argument('-hz', '--helmholtz',  action='store_true', default=False, help='display helmholtz decomposition')
+parser.add_argument('-wd', action='store_true', default=False, help='refer to data directory')
+
+
+# plot options
+parser.add_argument('-cm', '--cmap', default='seismic', help='Matplotlib colormap scheme. \
+                    See matplotlib documentation')
+parser.add_argument('-c', '--clim', type=float, help='clim')
+
+args = parser.parse_args()
+
+# execute program
+input_file = args.file
+
+# Read parameter file
+p = Par()
+p.read_par_file(input_file)
+clim = args.clim
+
+# Process information
+nx = p.nx
+nz = p.nz
+evid = args.eventid
+
+plt.ion()
+plt.show()
+n = 2 + args.pr + (2*args.helmholtz)
+
+for i in range(p.output_interval, p.ntimesteps, p.output_interval):
+    # Get collected arrays
+    if args.wd:
+        dir = join(args.path, event_dirname(evid), 'traces/obs')
+    else:
+        dir = join(args.path, event_dirname(evid), 'traces/syn')
+    vx_file = join(dir, 'snapshot_vx_{:05d}.bin'.format(i))
+    vz_file = join(dir, 'snapshot_vz_{:05d}.bin'.format(i))
+    #vx_file = join(dir, 'snapshot_b_vx_{:05d}.bin'.format(i))
+    #vz_file = join(dir, 'snapshot_b_vz_{:05d}.bin'.format(i))
+
+    if args.pr:
+        p_file = join(dir, 'snapshot_p_{:05d}.bin'.format(i))
+        pr = readgrid(p_file, nx, nz, dtype='float32')
+
+    if args.helmholtz:
+        p_pot_file = join(dir, 'snapshot_P_{:05d}.bin'.format(i))
+        p_pot = readgrid(p_pot_file, nx, nz, dtype='float32')
+
+        s_pot_file = join(dir, 'snapshot_S_{:05d}.bin'.format(i))
+        s_pot = readgrid(s_pot_file, nx, nz, dtype='float32')
+
+    ux = readgrid(vx_file, nx, nz, dtype='float32')
+    uz = readgrid(vz_file, nx, nz, dtype='float32')
+
+    plot_counter = 1
+    plt.set_cmap(args.cmap)
+    plt.subplot(n, 1, 1)
+    plt.imshow(ux)
+    plt.clim(-clim, clim)
+    plt.title("Vx - Time = {:3f}".format(p.dt*i))
+    plt.subplot(n, 1, 2)
+    plt.imshow(uz)
+    plt.clim(-clim, clim)
+    plt.title("Vz - Time = {:3f}".format(p.dt*i))
+
+    if args.pr:
+        plt.subplot(n, 1, 2+plot_counter)
+        plt.imshow(pr)
+        plt.clim(-1e9, 1e9)
+        plt.title("p - Time = {:3f}".format(p.dt*i))
+        plot_counter += 1
+
+    if args.helmholtz:
+        plt.subplot(n, 1, 2+plot_counter)
+        plt.imshow(p_pot)
+        plt.clim(-clim*1e-4, clim*1e-4)
+        plt.title("P potential - Time = {:3f}".format(p.dt*i))
+        plot_counter += 1
+
+        plt.subplot(n, 1, 2+plot_counter)
+        plt.imshow(s_pot)
+        plt.clim(-clim*1e-4, clim*1e-4)
+        plt.title("S potential - Time = {:3f}".format(p.dt*i))
+
+
+    plt.draw()
+    time.sleep(1.0)
+    plt.pause(0.5)
+
+

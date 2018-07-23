@@ -75,7 +75,7 @@ class pewf2d(object):
             raise ParameterError(PAR, 'NPROC')
 
         if 'RESCALE' not in PAR:
-            setattr(PAR, 'RESCALE', False)
+            setattr(PAR, 'RESCALE', None)
 
         if 'SMOOTH_CLIP' not in PAR:
             setattr(PAR, 'SMOOTH_CLIP', None)
@@ -105,6 +105,10 @@ class pewf2d(object):
 
         if 'SOLVER_EXE' not in PATH:
             setattr(PAR, 'SOLVER_EXE', './xewf2d')
+
+        if PAR.RESCALE:
+            if PAR.RESCALE not in ['Mean', 'Minmax']:
+                raise ValueError('Select Mean or Minmax rescaling or set to None.')
 
         # assertions
         assert self.parset != {}
@@ -149,13 +153,16 @@ class pewf2d(object):
             self.reparam = True
 
         # parameter rescaling
-        if PAR.RESCALE:
-            # Normalize parameters by mean values
-            self.scale = material.ParRescaler.mean_scaling(self.load(PATH.MODEL_INIT)).scale
-            for key in self.scale:
-                print 'Rescale value for parameter {}: {:.6e}'.format(key, self.scale[key])
+        if PAR.RESCALE == 'Mean':
+            self.rescale = material.MeanRescaler(self.load(PATH.MODEL_INIT))
+        elif PAR.RESCALE == 'Minmax':
+            self.rescale = material.MinMaxRescaler(self.load(PATH.MODEL_INIT))
         else:
-            self.scale = None
+            self.rescale = None
+
+        # print rescaling information
+        if self.rescale:
+            self.rescale.print_scale()
 
 
     ### low level interface
@@ -380,10 +387,9 @@ class pewf2d(object):
         if self.reparam:
             model = self.par_map_forward(model)
 
+        # Applies non-dimsionalization
         if PAR.RESCALE:
-            # Applies non-dimsionalization
-            for key in self.parameters:
-                model[key] /= self.scale[key]
+            model = self.rescale.forward(model, parameters=self.parameters)
 
         return {key: model[key] for key in self.parameters}
 
@@ -398,8 +404,7 @@ class pewf2d(object):
 
         # Undo normalization
         if PAR.RESCALE:
-            for key in self.parameters:
-                model[key] *= self.scale[key]
+            model = self.rescale.reverse(model, parameters=self.parameters)
 
         # apply box constraints
         if PAR.SAFEUPDATE:

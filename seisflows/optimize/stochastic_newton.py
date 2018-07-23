@@ -68,8 +68,7 @@ class stochastic_newton(custom_import('optimize', 'p_newton')):
         gradient = solver.load(PATH.HESS+'/'+'gradient_sub', suffix='_kernel')
 
         if PAR.RESCALE:
-            for key in solver.parameters:
-                gradient[key] *= solver.scale[key]
+            gradient = solver.rescale.rescale_gradient(gradient)
 
         g = solver.merge(gradient)
 

@@ -67,7 +67,7 @@ class pewf2d(custom_import('postprocess', 'base')):
         gradient = solver.load(path, suffix='_kernel')
 
         if PAR.RESCALE:
-            self.rescale_kernels(gradient)
+            gradient = solver.rescale.rescale_gradient(gradient)
 
         g = solver.merge(gradient)
 
@@ -90,13 +90,6 @@ class pewf2d(custom_import('postprocess', 'base')):
             solver.smooth(path=path,
                           parameters=parameters,
                           span=PAR.SMOOTH)
-
-    def rescale_kernels(self, gradient):
-        """ Applies rescaling to the gradient.
-            Correction non-dimensionalized parameters (m' = m / scale)
-        """
-        for key in solver.parameters:
-            gradient[key] *= solver.scale[key]
 
     def save(self, path, g, backup=None):
         if backup:

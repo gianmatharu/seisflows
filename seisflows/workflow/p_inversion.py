@@ -51,7 +51,7 @@ class p_inversion(custom_import('workflow', 'inversion')):
         if 'DEBUG' not in PAR:
             setattr(PAR, 'DEBUG', None)
 
-        if PAR.SOLVER not in ['pewf2d', 'ssewf2d', 'spewf2d', 'saga_pewf2d',
+        if PAR.SOLVER not in ['pawf2d', 'pewf2d', 'ssewf2d', 'spewf2d', 'saga_pewf2d',
                               'stochastic_newton']:
             raise ValueError('Use solver class "pewf2d" here.')
 
@@ -199,6 +199,8 @@ class p_inversion(custom_import('workflow', 'inversion')):
         """
         self.checkpoint()
 
+        self.write_count()
+
         # save new model to working dir
         self.write_model(path=PATH.FUNC, suffix='new')
 
@@ -286,6 +288,40 @@ class p_inversion(custom_import('workflow', 'inversion')):
         optimize.savetxt(dst, total_misfit)
 
 
+    def write_count(self):
+        ns = PAR.NTASK
+        count = 0
+
+        # first order methods (2 + NLS) * NS
+        if PAR.OPTIMIZE in ['steepest_descent', 'NLCG']:
+            count = ns * (2 + optimize.line_search.step_count)
+
+        # Quasi-Newton and Second-order (2 + NLS) * NS.
+        # After iteration 1, assumes frugal evaluation.
+        elif PAR.OPTIMIZE in ['LBFGS','p_gauss_newton', 'p_newton',
+                              'stochastic_newton', 'stochastic_gauss_newton']:
+            if optimize.iter == 1:
+                count = ns * (2 + optimize.line_search.step_count)
+            else:
+                count = ns * (1 + optimize.line_search.step_count)
+
+            if PAR.OPTIMIZE in ['p_gauss_newton', 'p_newton']:
+                count_cg = np.loadtxt(PATH.WORKDIR+'/output.stats/step_count_CG')
+                if optimize.iter > 1:
+                    count += ns * count_cg[-1]
+                else:
+                    count += ns * count_cg
+            elif PAR.OPTIMIZE in ['stochastic_newton', 'stochastic_gauss_newton']:
+                count_cg = np.loadtxt(PATH.WORKDIR+'/output.stats/step_count_CG')
+                if optimize.iter > 1:
+                    count += PAR.NSUBSET * count_cg[-1]
+                else:
+                    count += PAR.NSUBSET * count_cg
+
+        print count
+        optimize.writer('sim_count', count)
+
+
     def save_gradient(self):
         src = glob(join(PATH.GRAD, '*_kernel.bin'))
         dst = join(PATH.OUTPUT, iter_dirname(optimize.iter), 'gradient')
@@ -303,8 +339,7 @@ class p_inversion(custom_import('workflow', 'inversion')):
         # save inversion parameters
         m = solver.rload(src)
         if PAR.RESCALE:
-            for par in solver.parameters:
-                m[par] *= solver.scale[par]
+            m = solver.rescale.reverse(m)
 
         solver.save(m, dst, parameters=solver.parameters)
 

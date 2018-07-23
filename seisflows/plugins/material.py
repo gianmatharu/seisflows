@@ -1,6 +1,29 @@
 
 import numpy as np
 
+class Acoustic(object):
+    """ Acoustic Model parameter base class
+    """
+    parameters = ['vp', 'rho']
+
+    # validation functions
+    @classmethod
+    def check_model_forward(cls, model):
+        _check_model(['vp', 'rho'], model)
+
+    @classmethod
+    def check_model_inverse(cls, model):
+        _check_model(cls.parameters, model)
+
+    # map velocity to new parametrization
+    @classmethod
+    def par_map_forward(cls, model):
+        return model
+
+    # map custom parametrization to velocity
+    @classmethod
+    def par_map_inverse(cls, model):
+        return model
 
 class Isotropic(object):
     """ Model parameter base class
@@ -155,27 +178,84 @@ class Slowness(Isotropic):
 
         return output
 
+# Parameter non-dimensionalization classes
 
-class ParRescaler(object):
-    """ Class to perform parameter rescaling.
+
+class MeanRescaler(object):
+    """ Perform mean value rescaling
     """
-
-    def __init__(self, scale):
+    def __init__(self, model):
         self.scale = {}
-        for key in scale.keys():
-            self.scale[key] = scale[key]
-
-    @classmethod
-    def unit_scaling(cls, parameters):
-        scale = dict(zip(parameters, len(parameters) * [1.0]))
-        return cls(scale)
-
-    @classmethod
-    def mean_scaling(cls, model):
-        scale = {}
         for key in model.keys():
-            scale[key] = np.asarray(model[key]).mean()
-        return cls(scale)
+            self.scale[key] = model[key].mean()
+
+    def forward(self, model, parameters=None):
+        rmodel = {}
+        for key in parameters or model.keys():
+            rmodel[key] = model[key] / self.scale[key]
+
+        return rmodel
+
+    def reverse(self, model, parameters=None):
+        rmodel = {}
+        for key in parameters or model.keys():
+            rmodel[key] = model[key] * self.scale[key]
+
+        return rmodel
+
+    def rescale_gradient(self, grad):
+        """ Rescale gradient via chain-rule
+        """
+        rgrad = {}
+        for key in grad.keys():
+            rgrad[key] = grad[key] * self.scale[key]
+
+        return rgrad
+
+    def print_scale(self):
+        for key in self.scale:
+            print 'Rescale value for parameter {}: {:.6e}'.format(key, self.scale[key])
+
+
+class MinMaxRescaler(object):
+    """ Perform Min/Max rescaling
+    """
+    def __init__(self, model):
+        self.min, self.max = {}, {}
+        for key in model.keys():
+            self.min[key] = model[key].min()
+            self.max[key] = model[key].max()
+
+            if self.min[key] == self.max[key]:
+                raise ValueError('Min/Max are equal. Zero division.')
+
+    def forward(self, model, parameters=None):
+        rmodel = {}
+        for key in parameters or model.keys():
+            rmodel[key] = (model[key] - self.min[key]) / (self.max[key] - self.min[key])
+
+        return rmodel
+
+    def reverse(self, model, parameters=None):
+        rmodel = {}
+        for key in parameters or model.keys():
+            rmodel[key] = model[key] * (self.max[key] - self.min[key]) + self.min[key]
+
+        return rmodel
+
+    def rescale_gradient(self, grad):
+        """ Rescale gradient via chain-rule
+        """
+        rgrad = {}
+        for key in grad.keys():
+            rgrad[key] = grad[key] * (self.max[key] - self.min[key])
+
+        return rgrad
+
+    def print_scale(self):
+        for key in self.min:
+            print 'Min/Max values for parameter {}: {:.6e} - {:.6e}'.format(key, self.min[key],
+                                                                            self.max[key])
 
 
 # empirical density scaling relations
@@ -208,8 +288,3 @@ def _check_model(parameters, model):
     for par in parameters:
         if par not in model.keys():
             raise KeyError('Model dictionary is missing required parameter {}'.format(par))
-
-    #if set(parameters) < set(model.keys()):
-    #    raise KeyError('Model dictionary is missing required parameter {}'
-    #                   .format(set(model.keys() - set(parameters))))
-

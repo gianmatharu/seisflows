@@ -109,6 +109,9 @@ class pewf2d(object):
         if PAR.RESCALE:
             if PAR.RESCALE not in ['Mean', 'Minmax']:
                 raise ValueError('Select Mean or Minmax rescaling or set to None.')
+            if PAR.RESCALE == 'Minmax':
+                if 'SCALE' not in PAR:
+                    setattr(PAR, 'SCALE', None)
 
         # assertions
         assert self.parset != {}
@@ -156,7 +159,11 @@ class pewf2d(object):
         if PAR.RESCALE == 'Mean':
             self.rescale = material.MeanRescaler(self.load(PATH.MODEL_INIT))
         elif PAR.RESCALE == 'Minmax':
-            self.rescale = material.MinMaxRescaler(self.load(PATH.MODEL_INIT))
+            if not PAR.SCALE:
+                print('Rescaling via initial model')
+                self.rescale = material.MinMaxRescaler(self.load(PATH.MODEL_INIT))
+            else:
+                self.rescale = material.MinMaxRescaler.fromdict(PAR.SCALE, self.parameters)
         else:
             self.rescale = None
 

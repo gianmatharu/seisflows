@@ -1,0 +1,140 @@
+#!/usr/bin/env python
+
+# Specialized script used to visualize inversion progress
+
+import os
+from os.path import join
+import argparse
+from functools import partial
+
+import matplotlib.pyplot as plt
+
+from seisflows.plugins.solver.pewf2d import Par
+from seisflows.tools.graphics import plot_section, _read_component, _compute_residuals
+from seisflows.tools.array import readgrid
+from seisflows.tools.analysis import OptimStats
+
+def parse_args():
+    # Parse input arguments
+    parser = argparse.ArgumentParser(description='Plot data section.')
+
+    # file and format flags
+    parser.add_argument('-f', '--fpath',
+                        default='./solver/INPUT/',
+                        help='Solver parameter file')
+
+    parser.add_argument('-p', '--path', default='./scratch/solver',
+                        help='Path to scratch dir')
+
+    parser.add_argument('-p1', '--path1',
+                        default='./models/model_true',
+                        help='Path to true model')
+
+    parser.add_argument('-p2', '--path2',
+                        default='./models/model_est',
+                        help='Path to current estimate')
+
+    parser.add_argument('-p3', '--path3',
+                        default='',
+                        help='Path to reference optimization')
+
+    parser.add_argument('--comp', default='Uz',
+                        help='Data components')
+
+    parser.add_argument('--par', type=str,
+                        default='vp',
+                        help='Model parameter')
+
+    parser.add_argument('-cm', '--cmap', default='seismic',
+                        help='Matplotlib colormap scheme.')
+
+    parser.add_argument('-c', '--clip', type=int,
+                        default='99',
+                        help='Clip amplitudes')
+
+    parser.add_argument('-id', '--eventid', type=int,
+                        default=1,
+                        help='Event number')
+
+    parser.add_argument('-xint', '--x_interval', type=float,
+                        default='1.0',
+                        help='Offset axis tick spacing [km].')
+
+    parser.add_argument('-yint', '--y_interval', type=float,
+                        default='1.0',
+                        help='Time axis tick spacing [s].')
+
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+
+    # parse input arguments
+    args = parse_args()
+
+    # read solver parameters
+    p = Par()
+    p.read_par_file(join(args.fpath, 'par_template.cfg'))
+
+    # get optimization history
+    opt_history = OptimStats('')
+    opt_history.read_all(os.getcwd())
+
+    if args.path3:
+        opt_ref = OptimStats(args.path3)
+        opt_ref.read_all(os.getcwd())
+
+    # Plot misfit
+    fig, ax = plt.subplots(nrows=2, ncols=4, figsize=(15, 15))
+    ax[0, 0].plot(opt_history.misfit / opt_history.misfit[0])
+    if args.path3:
+        ax[0, 0].plot(opt_ref.misfit / opt_ref.misfit[0])
+    ax[0, 0].set_xlabel('Iterations')
+    ax[0, 0].set_ylabel('Misfit')
+
+    # plot data and residuals (one component)
+    section = partial(plot_section, clip=args.clip, x_interval=args.x_interval,
+                                                    y_interval=args.y_interval,
+                                                    cmap=args.cmap)
+
+    dpath = join(args.path, '{:03d}'.format(args.eventid), 'traces')
+    d = _read_component(join(dpath, 'obs', '{}_data.su'.format(args.comp)))
+    s = _read_component(join(dpath, 'syn', '{}_data.su'.format(args.comp)))
+    r = _compute_residuals(s, d)
+
+    section(d, ax=ax[0, 1], title='{} - Data'.format(args.comp))
+    section(s, ax=ax[0, 2], title='{} - Synthetics'.format(args.comp))
+    section(r, ax=ax[0, 3], title='{} - Residuals'.format(args.comp))
+    ax[0,2].set_ylabel('')
+    ax[0,3].set_ylabel('')
+
+    paths = {}
+    paths['true'] = args.path1
+    paths['est'] = './models/'
+    paths['init'] = './models/model_init'
+
+    opt_history.get_model_error([args.par], paths)
+    ax[1, 0].plot(opt_history.stats['{}_err'.format(args.par)])
+    ax[1, 0].set_xlabel('Iterations')
+    ax[1, 0].set_ylabel('{} model error'.format(args.par))
+
+    if args.path3:
+        paths['est'] = opt_ref.name
+        opt_ref.get_model_error([args.par], paths)
+        ax[1, 0].plot(opt_ref.stats['{}_err'.format(args.par)])
+        ax[1, 0].set_xlabel('Iterations')
+        ax[1, 0].set_ylabel('{} model error'.format(args.par))
+
+    print opt_history.stats['{}_err'.format(args.par)]
+
+    mtrue = readgrid(join(args.path1, '{}.bin'.format(args.par)), p.nx, p.nz, dtype='float32')
+    minit = readgrid(join('./models/model_init', '{}.bin'.format(args.par)), p.nx, p.nz, dtype='float32')
+    mest = readgrid(join(args.path2, '{}.bin'.format(args.par)), p.nx, p.nz, dtype='float32')
+
+    cscale = (mtrue.min(), mtrue.max())
+    ax[1,1].imshow(mtrue, clim=cscale)
+    ax[1,2].imshow(minit, clim=cscale)
+    ax[1,3].imshow(mest, clim=cscale)
+
+    plt.show()
+

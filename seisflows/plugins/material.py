@@ -227,7 +227,23 @@ class MinMaxRescaler(object):
             self.max[key] = model[key].max()
 
             if self.min[key] == self.max[key]:
-                raise ValueError('Min/Max are equal. Zero division.')
+                raise ValueError('{} Min is equal to Max.'.format(key))
+
+    @classmethod
+    def fromdict(cls, scale_dict, parameters=None):
+        """ Initialize from dict of min/max values
+        """
+        if not set(parameters).issubset(scale_dict):
+            raise KeyError('Keys do not match in input dict and parameter set.')
+
+        model = {}
+        for key in parameters:
+            if len(scale_dict[key]) != 2:
+                raise ValueError('Array should be of length 2 - [Min, Max]')
+            else:
+                model[key] = np.array([scale_dict[key][0], scale_dict[key][1]])
+
+        return cls(model)
 
     def forward(self, model, parameters=None):
         rmodel = {}

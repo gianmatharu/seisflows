@@ -21,6 +21,7 @@ class p_newton(custom_import('optimize', 'newton')):
         positive definite are neglected by testing for negative
         curvature.
     """
+
     def check(cls):
         """ Checks parameters and paths
         """
@@ -28,6 +29,7 @@ class p_newton(custom_import('optimize', 'newton')):
 
         if PAR.POSTPROCESS in ['regularize', 'tikhonov0', 'tikhonov1']:
             raise NotImplementedError('Newton methods not implemented with regularization.')
+
 
     def apply_hessian(self, m, dm, h):
         """ Computes the action of the Hessian on a given vector through
@@ -41,7 +43,7 @@ class p_newton(custom_import('optimize', 'newton')):
 
         self.apply_hess(path=PATH.HESS)
 
-        postprocess.write_hessprod(path=PATH.HESS+'/'+'gradient',
+        postprocess.write_gradient(path=PATH.HESS+'/'+'gradient',
                                    solver_path=PATH.HESS)
 
         self.save('g_lcg', solver.merge(solver.load(
@@ -58,24 +60,7 @@ class p_newton(custom_import('optimize', 'newton')):
 
 
     def hessian_product(self, h):
-        solver = sys.modules['seisflows_solver']
-
-        # load unscaled gradient
-        if PAR.RESCALE:
-            g = solver.merge(solver.load(PATH.GRAD, suffix='_kernel_noscale'))
-        else:
-            g = solver.merge(solver.load(PATH.GRAD, suffix='_kernel'))
-
-        # load perturped gradient
-        gdm = self.load('g_lcg')
-
-        # finite difference approximation
-        Hdm = solver.split((gdm - g) / h)
-
-        if PAR.RESCALE:
-            Hdm = solver.rescale.rescale_hessian_kernel(Hdm)
-
-        return solver.merge(Hdm)
+        return (self.load('g_lcg') - self.load('g_new')) / h
 
 
     def apply_hess(self, path=''):

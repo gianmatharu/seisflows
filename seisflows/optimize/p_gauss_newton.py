@@ -24,14 +24,7 @@ class p_gauss_newton(custom_import('optimize', 'p_newton')):
 
 
     def hessian_product(cls, h):
-        solver = sys.modules['seisflows_solver']
-
-        Hdm = solver.split(cls.load('g_lcg')/h)
-
-        if PAR.RESCALE:
-            Hdm = solver.rescale.rescale_hessian_kernel(Hdm)
-
-        return solver.merge(Hdm)
+        return cls.load('g_lcg')/h
 
 
     def apply_hess(self, path=''):

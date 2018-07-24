@@ -41,7 +41,7 @@ class p_newton(custom_import('optimize', 'newton')):
 
         self.apply_hess(path=PATH.HESS)
 
-        postprocess.write_gradient(path=PATH.HESS+'/'+'gradient',
+        postprocess.write_hessprod(path=PATH.HESS+'/'+'gradient',
                                    solver_path=PATH.HESS)
 
         self.save('g_lcg', solver.merge(solver.load(
@@ -58,8 +58,24 @@ class p_newton(custom_import('optimize', 'newton')):
 
 
     def hessian_product(self, h):
-        # for Gauss-Newton model updates simply overload this method
-        return (self.load('g_lcg') - self.load('g_new'))/h
+        solver = sys.modules['seisflows_solver']
+
+        # load unscaled gradient
+        if PAR.RESCALE:
+            g = solver.merge(solver.load(PATH.GRAD, suffix='_kernel_noscale'))
+        else:
+            g = solver.merge(solver.load(PATH.GRAD, suffix='_kernel'))
+
+        # load perturped gradient
+        gdm = self.load('g_lcg')
+
+        # finite difference approximation
+        Hdm = solver.split((gdm - g) / h)
+
+        if PAR.RESCALE:
+            Hdm = solver.rescale.rescale_hessian_kernel(Hdm)
+
+        return solver.merge(Hdm)
 
 
     def apply_hess(self, path=''):

@@ -212,6 +212,15 @@ class MeanRescaler(object):
 
         return rgrad
 
+    def rescale_hessian_kernel(self, hessprod):
+        """ Rescale Hessian kernels (Hdm) via chain rule
+        """
+        rhessprod = {}
+        for key in hessprod.keys():
+            rhessprod[key] = hessprod[key] * self.scale[key]**2
+
+        return rhessprod
+
     def print_scale(self):
         for key in self.scale:
             print 'Rescale value for parameter {}: {:.6e}'.format(key, self.scale[key])
@@ -267,6 +276,15 @@ class MinMaxRescaler(object):
             rgrad[key] = grad[key] * (self.max[key] - self.min[key])
 
         return rgrad
+
+    def rescale_hessian_kernel(self, hessprod):
+        """ Rescale Hessian kernels (Hdm) via chain rule
+        """
+        rhessprod = {}
+        for key in hessprod.keys():
+            rhessprod[key] = hessprod[key] * (self.max[key] - self.min[key])**2
+
+        return rhessprod
 
     def print_scale(self):
         for key in self.min:

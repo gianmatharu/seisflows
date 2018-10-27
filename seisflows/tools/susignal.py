@@ -70,7 +70,7 @@ class FixedStream(Stream):
 
 
 def saddnoise(stream, var=None, snr=10.0, clean=False, verbose=False):
-    """ Add Gaussian noise to data. 
+    """ Add Gaussian noise to data.
     """
     # compute norm of data and root-mean square
     d = _convert_to_array(stream)
@@ -93,6 +93,7 @@ def saddnoise(stream, var=None, snr=10.0, clean=False, verbose=False):
         dt = stream[0].stats.delta
         time = np.arange(0, nt*dt, dt)
 
+    norm = 0
     for i, trace in enumerate(stream):
         if clean:
             threshold = 1e-1 * max(abs(trace.data))
@@ -103,14 +104,16 @@ def saddnoise(stream, var=None, snr=10.0, clean=False, verbose=False):
             # find window indicies
             ic = int(tc / dt)
             trace.data[ic:] += noise[ic:, i]
+            norm += np.sum(noise[ic:, i]**2)
         else:
             trace.data += noise[:, i]
+            norm += np.sum(noise[:, i]**2)
 
     if verbose:
         snr = 10*np.log10(drms**2 / var)
         print "SNR [dB] = {}".format(snr)
 
-    return stream
+    return stream, norm
 
 
 def convert_to_float(stream):
@@ -223,7 +226,7 @@ def swindowc(stream, t0=0.0, tc=None, twin=None, mute_interval=False,
     return stream
 
 
-def sdamping(stream, twin=None):
+def sdamping0(stream, twin=None):
     """ Apply exponential time damping.
         Implements a crude first detection approach.
     """
@@ -252,6 +255,51 @@ def sdamping(stream, twin=None):
             # find window indicies
             ic = int(tc / dt)
             win = np.exp(-0.5 * (((ic - np.asarray(range(nt))) / sigma)**2))
+
+            trace.data[:] *= win
+        else:
+            pass
+
+    return stream
+
+
+def sdamping(stream, twin=None):
+    """ Apply exponential time damping.
+        Implements a crude first detection approach.
+        Twin corresponds to FWHM of Gaussian window
+        -Twin-| -FWHM = Twin
+        ------
+              \
+               \
+                \
+                 _______
+    """
+    # get data dimensions
+    nt = len(stream[0].data)
+    dt = stream[0].stats.su.trace_header.\
+            sample_interval_in_ms_for_this_trace * 1e-6
+
+    time = np.arange(0, nt*dt, dt)
+
+    if not twin:
+        raise ValueError('Need width of time window')
+
+    nwin = int(twin / dt)
+    sigma = nwin / (2 * np.sqrt(2 * np.log(2)))
+
+    for trace in stream:
+
+        win = np.ones(nt)
+        # threshold for first arrival
+        threshold = 1e-3 * max(abs(trace.data))
+
+        if len(np.where(abs(trace.data) > threshold)[0]) != 0:
+            tc = time[np.where(abs(trace.data) > threshold)[0][0]]
+
+            # find window indicies
+            ic = int((tc+twin) / dt)
+            wint = np.exp(-0.5 * (((ic - np.asarray(range(nt))) / sigma)**2))
+            win[ic:] = wint[ic:]
 
             trace.data[:] *= win
         else:
@@ -305,15 +353,13 @@ def sgain_offset(stream):
                for item in stream]
 
     offsets = np.asarray(offsets)
-    offsets = offsets / float(abs(offsets).max())
+    #offsets = offsets / float(abs(offsets).max())
 
-    weights = offsets**2
-
-    #weights = np.sin(abs(offsets) * 0.5 * np.pi)
+    weights = abs(offsets)**2
 
     # window traces
     for ir, trace in enumerate(stream):
-        trace.data[:] *= offsets[ir]**2
+        trace.data[:] *= weights[ir]
 
     return stream
 
@@ -477,88 +523,45 @@ def get_wiener_filter(d, s, mu):
 
 
 def get_adjoint_source(T, f, s, w, mu):
-    n = len(w)
-
-    #constrct diagonal rescaling matrix
     wnorm = np.sum(w*w)
-    rw = ((2 * f - T**2) / wnorm) * w
+    rw = ((2. * f - T**2) / wnorm) * w
 
     # deconvolve autocorrelation of predicted from reweighted filter
     W = np.fft.rfft(w)
     P = np.fft.rfft(s)
     RW = np.fft.rfft(rw)
     AC = np.conj(P) * P + mu
+    A = np.conj(W) * P * (RW / AC)
 
-    A = RW / AC
-    A *= np.conj(W) * P
     adj = -np.fft.irfft(A)
     return adj
 
-def get_radjoint_source(T, f, d, w, mu):
-    n = len(w)
 
-    #constrct diagonal rescaling matrix
+def get_radjoint_source(T, f, d, w, mu):
     wnorm = np.sum(w*w)
-    rw = ((T**2 - 2 * f) / wnorm) * w
+    rw = ((T**2 - 2. * f) / wnorm) * w
 
     # deconvolve autocorrelation of predicted from reweighted filter
     D = np.fft.rfft(d)
     RW = np.fft.rfft(rw)
     AC = np.conj(D) * D + mu
+    A = D * (RW / AC)
 
-    A = (D*RW) / AC
     adj = -np.fft.irfft(A)
-
     return adj
 
-def get_wiener_filter_mat(d, s, mu):
-    """ Use Toeplitz matrix to get Wiener filter.
-        Follows Warner and Guasch, 2016.
-        Warning: Performs explicit matrix inversion!
-    """
-    P = toeplitz(s)
-    iPtP = np.linalg.inv(P.T.dot(P) + mu * np.eye(len(s)))
-    Ptd = P.T.dot(d)
 
-    return iPtP.dot(Ptd)
-
-def get_adjoint_source_mat(T, f, s, w, mu):
-    """ Use Toeplitz matrix to get AWI adjoint source.
-        Follows Warner and Guasch, 2016.
-        Warning: Performs explicit matrix inversion!
-    """
-    W = toeplitz(w)
-    P = toeplitz(s)
-    iPtP = np.linalg.inv(P.T.dot(P) + mu * np.eye(len(s)))
-    Tw = (2 * f * np.eye(len(s)) - T * T) / np.sum(w*w)
-    Tw = Tw.dot(w)
-    adj = iPtP.dot(Tw)
-    adj = P.dot(adj)
-    return W.T.dot(adj)
-
-def get_adjoint_source_matr(T, f, d, v, mu):
-    """ Use Toeplitz matrix to get AWI adjoint source.
-        Follows Warner and Guasch, 2016.
-        Warning: Performs explicit matrix inversion!
-    """
-    D = toeplitz(d)
-    iDtD = np.linalg.inv(D.T.dot(D) + mu * np.eye(len(d)))
-    Tv = (T * T - 2 * f * np.eye(len(d))) / np.sum(v*v)
-    Tv = Tv.dot(v)
-    adj = iDtD.dot(Tv)
-    adj = D.dot(adj)
-    return adj
-
-def get_weights(t, sigma=0.05, sym=False):
+def get_weights(t, dt, sigma=0.05):
     """ Gaussian weights for AWI
     """
-    # Std is percentage of max lag
     sigma *= t[-1]
-    weights = np.exp(-0.5 * (t/sigma)**2)
-    if sym:
-        weights += weights[-1::-1]
+    thalf = t[-1] / 2.
+    tau = np.arange(0, len(t)*dt, dt) - thalf
+    weights = np.exp(-0.5 * (tau/sigma)**2)
+    weights = np.fft.fftshift(weights)
 
     return weights
+
 
 def ricker(t, t0, f0, factor=1.0):
 
